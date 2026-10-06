@@ -294,6 +294,13 @@ export function validateTask(x: unknown): void {
     invalid("任务数据格式不正确");
   if (x.requestSnapshot === undefined || x.result === undefined)
     invalid("任务必须包含请求快照和结果字段");
+  try {
+    validateTaskPayload(x);
+  } catch (error) {
+    if (error instanceof DomainError)
+      invalid(`任务数据格式不正确：${error.message}`);
+    throw error;
+  }
   if (x.usage !== null) {
     object(x.usage);
     if (typeof x.usage.estimated !== "boolean") invalid();
@@ -330,5 +337,411 @@ export function validateIssue(x: unknown): void {
     object(evidence);
     text(evidence.quote, true);
     validateSources([evidence.source]);
+  }
+}
+
+// These are persisted producer contracts, not a generic JSON envelope. They are
+// shared with the task reviewer so damaged local records fail visibly as well.
+function taskObject(value: unknown): Record<string, any> {
+  object(value);
+  return value;
+}
+function taskArray(value: unknown, max = 1000): any[] {
+  if (!Array.isArray(value) || value.length > max)
+    invalid("任务列表格式不正确");
+  return value;
+}
+function taskStrings(value: unknown, max = 1000): string[] {
+  const items = taskArray(value, max);
+  items.forEach((item) => text(item, true));
+  return items;
+}
+function taskBoolean(value: unknown): void {
+  if (typeof value !== "boolean") invalid("任务状态字段格式不正确");
+}
+function taskFields(value: Record<string, any>, fields: string[]): void {
+  if (Object.keys(value).some((key) => !fields.includes(key)))
+    invalid("任务包含不支持的字段");
+}
+const noteTypes = [
+  "idea",
+  "character",
+  "world",
+  "location",
+  "storyline",
+  "outline",
+  "chapterOutline",
+  "summary",
+  "timeline",
+  "knowledge",
+  "foreshadowing",
+];
+function matchingSource(source: any, sources: SourceRevision[]): boolean {
+  return sources.some(
+    (s) =>
+      s.kind === source.kind &&
+      s.id === source.id &&
+      s.revision === source.revision,
+  );
+}
+function validateTaskPayload(task: Record<string, any>): void {
+  const request = taskObject(task.requestSnapshot);
+  taskFields(request, [
+    "command",
+    "profile",
+    "checkingProfile",
+    "context",
+    "inputText",
+  ]);
+  const command = taskObject(request.command);
+  const kindCommands: Record<string, string> = {
+    generation: "ai.chapter",
+    planning: "ai.plan",
+    check: "ai.check",
+    extraction: "ai.extract",
+    connection: "model.test",
+  };
+  if (command.type !== kindCommands[task.kind]) invalid("任务类型与请求不一致");
+  const common = [
+    "type",
+    "projectId",
+    "profileId",
+    "tokenBudget",
+    "instruction",
+    "includeDraftIds",
+    "noteIds",
+    "materialIds",
+    "allowAutoMaterials",
+  ];
+  taskFields(
+    command,
+    command.type === "model.test"
+      ? ["type", "projectId", "profileId"]
+      : [
+          ...common,
+          ...(command.type === "ai.chapter"
+            ? ["chapterIds", "authorizeBatch", "checkingProfileId"]
+            : command.type === "ai.check"
+              ? ["chapterIds"]
+              : command.type === "ai.plan"
+                ? ["step"]
+                : ["source", "sourceText"]),
+        ],
+  );
+  text(command.profileId, true);
+  if (command.type === "model.test") {
+    if (command.projectId !== undefined) text(command.projectId, true);
+    if ((command.projectId ?? "@connection") !== task.projectId)
+      invalid("任务作品归属不一致");
+  } else {
+    text(command.projectId, true);
+    if (command.projectId !== task.projectId) invalid("任务作品归属不一致");
+    if (
+      !Number.isSafeInteger(command.tokenBudget) ||
+      command.tokenBudget < 100 ||
+      command.tokenBudget > 10000000
+    )
+      invalid("任务预算格式不正确");
+    if (command.instruction !== undefined) {
+      text(command.instruction);
+      if (command.instruction.length > 10000) invalid("任务要求超过长度限制");
+    }
+    for (const field of ["includeDraftIds", "noteIds", "materialIds"])
+      if (command[field] !== undefined) taskStrings(command[field]);
+    if (command.allowAutoMaterials !== undefined)
+      taskBoolean(command.allowAutoMaterials);
+    if (command.type === "ai.plan" && !noteTypes.includes(command.step))
+      invalid("任务规划步骤不正确");
+    if (command.type === "ai.chapter") {
+      const ids = taskStrings(command.chapterIds);
+      if (
+        ![1, 3, 4, 5].includes(ids.length) ||
+        new Set(ids).size !== ids.length ||
+        (ids.length > 1 && command.authorizeBatch !== true)
+      )
+        invalid("任务批次授权或章节格式不正确");
+      if (command.authorizeBatch !== undefined)
+        taskBoolean(command.authorizeBatch);
+      if (command.checkingProfileId !== undefined)
+        text(command.checkingProfileId, true);
+    } else if (command.type === "ai.check" && command.chapterIds !== undefined)
+      taskStrings(command.chapterIds);
+    if (command.type === "ai.extract") {
+      text(command.source, true);
+      if (command.sourceText !== undefined) {
+        text(command.sourceText, true);
+        if (command.sourceText.length > 2000000)
+          invalid("任务材料长度超过限制");
+      }
+      const input = request.inputText ?? command.sourceText;
+      text(input, true);
+      if (input.length > 2000000) invalid("任务材料长度超过限制");
+    }
+  }
+  if (request.inputText !== undefined) {
+    text(request.inputText);
+    if (command.type !== "ai.extract") invalid("任务材料与类型不一致");
+  }
+  for (const field of ["profile", "checkingProfile"]) {
+    const profile = taskObject(request[field]);
+    taskFields(profile, ["id", "name", "baseUrl", "model", "purpose"]);
+    for (const key of ["id", "name", "baseUrl", "model"])
+      text(profile[key], true);
+    if (!["planning", "writing", "checking"].includes(profile.purpose))
+      invalid("任务模型用途不正确");
+    let url: URL;
+    try {
+      url = new URL(profile.baseUrl);
+    } catch {
+      invalid("任务模型地址格式不正确");
+    }
+    if (
+      !["http:", "https:"].includes(url.protocol) ||
+      url.username ||
+      url.password ||
+      url.search ||
+      url.hash
+    )
+      invalid("任务模型地址不能含凭据或查询参数");
+    if (
+      profile.id !==
+      (field === "checkingProfile"
+        ? (command.checkingProfileId ?? command.profileId)
+        : command.profileId)
+    )
+      invalid("任务模型引用不一致");
+  }
+  const context = taskObject(request.context);
+  taskFields(context, [
+    "text",
+    "sources",
+    "documents",
+    "disclosures",
+    "materials",
+  ]);
+  text(context.text);
+  validateSources(context.sources);
+  taskStrings(context.disclosures, 1000000);
+  const sources = task.sourceRevisions as SourceRevision[];
+  if (
+    context.sources.length !== sources.length ||
+    context.sources.some((s: any) => !matchingSource(s, sources))
+  )
+    invalid("任务上下文来源与任务快照不一致");
+  const documents = taskArray(context.documents, 1000000);
+  if (documents.length !== context.sources.length)
+    invalid("任务上下文缺少来源正文");
+  for (const document of documents) {
+    const doc = taskObject(document);
+    taskFields(doc, ["source", "text", "label", "candidateId"]);
+    validateSources([doc.source]);
+    text(doc.text);
+    text(doc.label, true);
+    if (!matchingSource(doc.source, context.sources))
+      invalid("任务正文来源不一致");
+    if (doc.candidateId !== undefined) text(doc.candidateId, true);
+  }
+  if (
+    new Set(documents.map((doc) => `${doc.source.kind}:${doc.source.id}`))
+      .size !== documents.length
+  )
+    invalid("任务来源正文重复");
+  for (const material of taskArray(context.materials, 100000)) {
+    const ref = taskObject(material);
+    taskFields(ref, ["id", "snapshot"]);
+    text(ref.id, true);
+    const snap = taskObject(ref.snapshot);
+    taskFields(snap, [
+      "title",
+      "type",
+      "source",
+      "content",
+      "explanation",
+      "approved",
+      "revision",
+    ]);
+    for (const key of ["title", "source", "content"]) text(snap[key], true);
+    text(snap.explanation);
+    revision(snap.revision);
+    if (!["expression", "plot"].includes(snap.type) || snap.approved !== true)
+      invalid("任务引用素材未经审核");
+  }
+  if (sources.some((s) => s.kind === "project" && s.id !== task.projectId))
+    invalid("任务来源作品归属不一致");
+  if (
+    command.type === "model.test" &&
+    (sources.length || documents.length || context.materials.length)
+  )
+    invalid("连接任务不能包含作品来源");
+  if (
+    command.type === "ai.chapter" &&
+    command.chapterIds.some(
+      (id: string) => !sources.some((s) => s.kind === "chapter" && s.id === id),
+    )
+  )
+    invalid("任务候选缺少目标章节来源");
+  const result = taskObject(task.result);
+  taskFields(result, [
+    "candidates",
+    "suggestion",
+    "step",
+    "sources",
+    "disclosures",
+    "materials",
+    "check",
+    "issueIds",
+    "connection",
+    "pauseReason",
+    "phase",
+  ]);
+  if (result.disclosures !== undefined)
+    taskStrings(result.disclosures, 1000000);
+  if (result.pauseReason !== undefined) text(result.pauseReason);
+  if (result.sources !== undefined) {
+    validateSources(result.sources);
+    if (result.sources.some((s: any) => !matchingSource(s, sources)))
+      invalid("任务结果来源不一致");
+  }
+  const candidates =
+    result.candidates === undefined ? [] : taskArray(result.candidates, 5);
+  if (task.kind !== "generation" && candidates.length)
+    invalid("任务候选与任务类型不一致");
+  if (new Set(candidates.map((c) => c?.chapterId)).size !== candidates.length)
+    invalid("任务候选章节重复");
+  for (const value of candidates) {
+    const candidate = taskObject(value);
+    taskFields(candidate, [
+      "chapterId",
+      "text",
+      "versionId",
+      "needsReview",
+      "checked",
+      "check",
+    ]);
+    text(candidate.chapterId, true);
+    text(candidate.text, true);
+    taskBoolean(candidate.needsReview);
+    taskBoolean(candidate.checked);
+    if (!command.chapterIds.includes(candidate.chapterId))
+      invalid("任务候选不属于所选章节");
+    if (candidate.versionId !== undefined) text(candidate.versionId, true);
+    if (candidate.check !== undefined)
+      validateTaskCheck(candidate.check, documents, candidates, sources);
+    if (candidate.checked && candidate.check === undefined)
+      invalid("任务候选缺少检查记录");
+  }
+  if (
+    result.phase !== undefined &&
+    (task.kind !== "generation" ||
+      !["generation", "checking"].includes(result.phase))
+  )
+    invalid("任务执行阶段不正确");
+  if (result.suggestion !== undefined || result.step !== undefined) {
+    if (task.kind !== "planning") invalid("任务建议与任务类型不一致");
+    text(result.suggestion, true);
+    if (result.step !== command.step) invalid("任务建议步骤不一致");
+  }
+  if (result.materials !== undefined) {
+    if (task.kind !== "extraction") invalid("任务素材与任务类型不一致");
+    for (const value of taskArray(result.materials, 100)) {
+      const material = taskObject(value);
+      taskFields(material, [
+        "type",
+        "title",
+        "content",
+        "explanation",
+        "source",
+        "approved",
+      ]);
+      if (
+        !["expression", "plot"].includes(material.type) ||
+        material.approved !== false ||
+        material.source !== command.source
+      )
+        invalid("任务提取素材格式或来源不正确");
+      text(material.title, true);
+      text(material.content, true);
+      text(material.explanation);
+      text(material.source, true);
+    }
+  }
+  if (result.check !== undefined) {
+    if (task.kind !== "check") invalid("任务检查与任务类型不一致");
+    validateTaskCheck(result.check, documents, candidates, sources);
+  }
+  if (result.issueIds !== undefined) {
+    if (task.kind !== "check") invalid("任务问题与任务类型不一致");
+    taskStrings(result.issueIds);
+  }
+  if (
+    result.connection !== undefined &&
+    (task.kind !== "connection" || result.connection !== true)
+  )
+    invalid("任务连接结果与类型不一致");
+  if (
+    task.status === "completed" &&
+    (task.kind === "connection"
+      ? result.connection !== true
+      : task.kind !== "check" ||
+        !result.check ||
+        result.check.issues.length ||
+        result.check.majorChange)
+  )
+    invalid("任务完成状态缺少有效结果");
+}
+function validateTaskCheck(
+  value: unknown,
+  documents: any[],
+  candidates: any[],
+  sources: SourceRevision[],
+): void {
+  const check = taskObject(value);
+  taskFields(check, ["issues", "majorChange", "reason"]);
+  taskBoolean(check.majorChange);
+  if (check.reason !== undefined) text(check.reason);
+  for (const value of taskArray(check.issues, 100)) {
+    const issue = taskObject(value);
+    taskFields(issue, ["type", "reason", "evidence"]);
+    if (
+      ![
+        "character",
+        "timeline",
+        "location",
+        "world",
+        "knowledge",
+        "foreshadowing",
+      ].includes(issue.type)
+    )
+      invalid("任务检查类型不正确");
+    text(issue.reason, true);
+    const evidence = taskArray(issue.evidence, 10);
+    if (!evidence.length) invalid("任务检查缺少原文依据");
+    for (const value of evidence) {
+      const item = taskObject(value);
+      taskFields(item, ["quote", "source", "candidateVersionId"]);
+      text(item.quote, true);
+      validateSources([item.source]);
+      if (!matchingSource(item.source, sources)) invalid("任务检查来源不一致");
+      if (item.candidateVersionId !== undefined) {
+        text(item.candidateVersionId, true);
+        if (
+          !candidates.some(
+            (c) =>
+              c?.versionId === item.candidateVersionId &&
+              c.chapterId === item.source.id &&
+              typeof c.text === "string" &&
+              c.text.includes(item.quote),
+          )
+        )
+          invalid("任务检查候选依据不一致");
+      } else if (
+        !documents.some(
+          (d) =>
+            matchingSource(item.source, [d.source]) &&
+            d.text.includes(item.quote),
+        )
+      )
+        invalid("任务检查无法对应来源原文");
+    }
   }
 }

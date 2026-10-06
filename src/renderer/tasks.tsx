@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { validateTask } from "../shared/validation";
 import type {
   AppState,
   TaskRecord,
@@ -468,7 +469,25 @@ function TaskDetail({
   flush: Flush;
   register: Register;
 }) {
-  const r = (task.result ?? {}) as unknown as Result;
+  try {
+    validateTask(task);
+  } catch {
+    return (
+      <section className="page task-detail">
+        <h1>任务记录</h1>
+        <div className="error" role="alert">
+          任务数据格式异常，已保留原始记录。请从有效备份恢复或重新创建任务。
+        </div>
+        {typeof task.partial === "string" && task.partial && (
+          <div className="card">
+            <h2>已保留的片段</h2>
+            <pre>{task.partial}</pre>
+          </div>
+        )}
+      </section>
+    );
+  }
+  const r = task.result as unknown as Result;
   return (
     <section className="page task-detail">
       <div className="page-heading">

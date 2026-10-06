@@ -1,4 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
+import { createHash } from "node:crypto";
+import { DatabaseSync } from "node:sqlite";
 import { createServer, type Server, type ServerResponse } from "node:http";
 import {
   mkdtempSync,
@@ -1088,6 +1090,222 @@ describe("author-controlled orchestration", () => {
         expect(issue.evidence[0].source.id).toBe(importedChapterId);
         expect(issue.evidence[0].quote).toBe("人物在北京");
       }
+    },
+  );
+  it.each(["failed", "cancelled"] as const)(
+    "retains every planning fragment across two %s continuations",
+    async (interruption) => {
+      let calls = 0;
+      const prompts: string[] = [];
+      const url = await fixture((res, body) => {
+        calls++;
+        prompts.push(body.messages[1].content);
+        if (calls < 3) {
+          res.setHeader("Content-Type", "text/event-stream");
+          res.write(
+            `data: ${JSON.stringify({ choices: [{ delta: { content: calls === 1 ? "FIRST" : "SECOND" } }] })}\n\n`,
+          );
+          if (interruption === "failed") res.end();
+        } else reply(res, "THIRD");
+      });
+      const { app, projectId } = setup();
+      const profileId = ok(
+        app.domain.execute({
+          type: "profile.save",
+          name: "无密钥本地规划",
+          baseUrl: url,
+          model: "fixture",
+          purpose: "planning",
+        }),
+      );
+      const id = ok(
+        await app.dispatch({
+          type: "ai.plan",
+          projectId,
+          profileId,
+          step: "outline",
+          tokenBudget: 30000,
+        }),
+      );
+      for (let index = 0; index < 2; index++) {
+        if (interruption === "cancelled") {
+          while (
+            !app
+              .snapshot()
+              .tasks.find((t) => t.id === id)
+              ?.partial.endsWith(index ? "SECOND" : "FIRST")
+          )
+            await new Promise((r) => setTimeout(r, 2));
+          ok(await app.dispatch({ type: "task.cancel", id }));
+        }
+        const task = await finish(app, id);
+        expect(task.status).toBe(interruption);
+        expect(task.partial).toBe(index ? "FIRSTSECOND" : "FIRST");
+        ok(await app.dispatch({ type: "task.resume", id, mode: "continue" }));
+      }
+      const completed = await finish(app, id);
+      expect(completed.status).toBe("awaiting-author");
+      expect((completed.result as any).suggestion).toBe("FIRSTSECONDTHIRD");
+      expect(prompts[2]).toContain("FIRSTSECOND");
+      expect(completed.calls).toBe(3);
+    },
+  );
+  it.each([
+    "null request",
+    "wrong command kind",
+    "bad context documents",
+    "bad context source",
+    "bad context materials",
+    "nonarray candidates",
+    "bad candidate text",
+    "bad candidate check",
+    "nonarray materials",
+    "wrong result discriminant",
+    "foreign candidate",
+    "foreign version",
+    "foreign command owner",
+  ])(
+    "atomically rejects a valid-checksum producer package with %s",
+    async (malformation) => {
+      let selected: string | null = null;
+      const { app, projectId, dir } = setup({
+        dialogs: {
+          open: async () => selected,
+          save: async () => join(dir, "producer.novel"),
+        },
+      });
+      const [chapterId] = chapters(app, projectId, 1);
+      const url = await fixture((res) => {
+        res.writeHead(401);
+        res.end("bad key");
+      });
+      const profileId = model(app, url);
+      const taskId = ok(
+        await app.dispatch({
+          type: "ai.chapter",
+          projectId,
+          profileId,
+          chapterIds: [chapterId],
+          tokenBudget: 10000,
+        }),
+      );
+      expect((await finish(app, taskId)).status).toBe("failed");
+      ok(await app.dispatch({ type: "file.backup", projectId }));
+      const pack = JSON.parse(
+        readFileSync(join(dir, "producer.novel"), "utf8"),
+      );
+      const t = pack.payload.tasks[0];
+      const candidate = {
+        chapterId,
+        text: "候选文本",
+        needsReview: false,
+        checked: false,
+      };
+      if (malformation === "null request") t.requestSnapshot = null;
+      if (malformation === "wrong command kind")
+        t.requestSnapshot.command.type = "ai.check";
+      if (malformation === "bad context documents")
+        t.requestSnapshot.context.documents = {};
+      if (malformation === "bad context source")
+        t.requestSnapshot.context.documents[0].source = {
+          kind: "unknown",
+          id: projectId,
+          revision: 1,
+        };
+      if (malformation === "bad context materials")
+        t.requestSnapshot.context.materials = {};
+      if (malformation === "nonarray candidates") t.result.candidates = {};
+      if (malformation === "bad candidate text")
+        t.result.candidates = [{ ...candidate, text: {} }];
+      if (malformation === "bad candidate check")
+        t.result.candidates = [
+          {
+            ...candidate,
+            checked: true,
+            check: { issues: {}, majorChange: false },
+          },
+        ];
+      if (malformation === "nonarray materials") t.result.materials = {};
+      if (malformation === "wrong result discriminant")
+        t.result.connection = true;
+      if (malformation === "foreign candidate")
+        t.result.candidates = [{ ...candidate, chapterId: "outside-chapter" }];
+      if (malformation === "foreign version")
+        t.result.candidates = [
+          { ...candidate, versionId: pack.payload.versions[0].id },
+        ];
+      if (malformation === "foreign command owner")
+        t.requestSnapshot.command.projectId = "another-project";
+      pack.sha256 = createHash("sha256")
+        .update(JSON.stringify(pack.payload))
+        .digest("hex");
+      selected = join(dir, "malformed.novel");
+      writeFileSync(selected, JSON.stringify(pack));
+      const before = app.snapshot();
+      const result = await app.dispatch({ type: "file.importBackup" });
+      expect(result.ok).toBe(false);
+      if (!result.ok)
+        expect(result.error).toMatchObject({
+          code: "VALIDATION",
+          message: expect.stringMatching(/[任务候选来源]/),
+        });
+      expect(app.snapshot()).toEqual(before);
+    },
+  );
+
+  it.each(["running", "waiting"])(
+    "opens local work while preserving a corrupt %s task record",
+    async (status) => {
+      const { app, projectId, dir } = setup();
+      const url = await fixture((res) => {
+        res.writeHead(401);
+        res.end();
+      });
+      const profileId = model(app, url, "planning");
+      const id = ok(
+        await app.dispatch({
+          type: "ai.plan",
+          projectId,
+          profileId,
+          step: "outline",
+          tokenBudget: 10000,
+        }),
+      );
+      await finish(app, id);
+      await app.dispose();
+      apps.splice(apps.indexOf(app), 1);
+      const db = new DatabaseSync(join(dir, "works.sqlite"));
+      const task = JSON.parse(
+        String(db.prepare("SELECT json FROM tasks WHERE id=?").get(id)!.json),
+      );
+      task.status = status;
+      task.requestSnapshot = null;
+      task.result = { candidates: {} };
+      task.partial = "待恢复的原文";
+      db.prepare("UPDATE tasks SET json=? WHERE id=?").run(
+        JSON.stringify(task),
+        id,
+      );
+      db.close();
+      let reopened: AppServices | undefined;
+      expect(() => {
+        reopened = new AppServices({
+          dataDir: dir,
+          dialogs: { open: async () => null, save: async () => null },
+        });
+      }).not.toThrow();
+      apps.push(reopened!);
+      expect(reopened!.snapshot().tasks.find((t) => t.id === id)).toEqual(task);
+      expect(reopened!.snapshot().projects[0].id).toBe(projectId);
+      expect(
+        (
+          await reopened!.dispatch({
+            type: "task.resume",
+            id,
+            mode: "continue",
+          })
+        ).ok,
+      ).toBe(false);
     },
   );
 });

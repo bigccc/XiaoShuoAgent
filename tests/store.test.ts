@@ -5,6 +5,47 @@ import { DatabaseSync } from "node:sqlite";
 import { afterEach, expect, it } from "vitest";
 import { Store } from "../src/main/store";
 import { DomainService } from "../src/main/domain";
+import type { JsonValue, SourceRevision } from "../src/shared/types";
+function taskSources(projectId: string): SourceRevision[] {
+  return [
+    { kind: "project", id: projectId, revision: 1 },
+    { kind: "chapter", id: "chapter-1", revision: 1 },
+  ];
+}
+function taskRequest(projectId: string, model = "original"): JsonValue {
+  const sources = taskSources(projectId);
+  const profile = {
+    id: "profile-1",
+    name: "本地测试",
+    baseUrl: "http://127.0.0.1:9999/v1",
+    model,
+    purpose: "writing",
+  };
+  return JSON.parse(
+    JSON.stringify({
+      command: {
+        type: "ai.chapter",
+        projectId,
+        profileId: profile.id,
+        chapterIds: ["chapter-1"],
+        tokenBudget: 10000,
+      },
+      profile,
+      checkingProfile: profile,
+      context: {
+        text: "作品快照",
+        sources,
+        documents: sources.map((source) => ({
+          source,
+          text: source.kind === "project" ? "作品设定" : "",
+          label: source.kind === "project" ? "作品设定" : "目标章节",
+        })),
+        disclosures: [],
+        materials: [],
+      },
+    }),
+  );
+}
 const paths: string[] = [];
 afterEach(() =>
   paths.splice(0).forEach((p) => rmSync(p, { recursive: true, force: true })),
@@ -86,12 +127,12 @@ it("persists task progress with optimistic revisions and never serializes creden
     projectId: "project-1",
     kind: "generation",
     status: "running",
-    requestSnapshot: { model: "model" },
-    result: null,
+    requestSnapshot: taskRequest("project-1"),
+    result: { candidates: [], disclosures: [] },
     partial: "半章",
     usage: null,
     calls: 1,
-    sourceRevisions: [],
+    sourceRevisions: taskSources("project-1"),
     revision: 1,
     createdAt: "2026-10-06T00:00:00.000Z",
     updatedAt: "2026-10-06T00:00:00.000Z",
@@ -153,20 +194,20 @@ it("keeps a task request snapshot immutable as progress is persisted", () => {
     projectId: "p",
     kind: "generation" as const,
     status: "running" as const,
-    requestSnapshot: { model: "original" },
-    result: null,
+    requestSnapshot: taskRequest("p"),
+    result: { candidates: [], disclosures: [] },
     partial: "",
     usage: null,
     calls: 0,
-    sourceRevisions: [],
+    sourceRevisions: taskSources("p"),
     revision: 1,
     createdAt: "2026-10-06T00:00:00.000Z",
     updatedAt: "2026-10-06T00:00:00.000Z",
   };
   a.saveTask(t);
   expect(() =>
-    a.saveTask({ ...t, requestSnapshot: { model: "changed" } }, 1),
+    a.saveTask({ ...t, requestSnapshot: taskRequest("p", "changed") }, 1),
   ).toThrow(/快照/);
-  expect(a.snapshot().tasks[0].requestSnapshot).toEqual({ model: "original" });
+  expect(a.snapshot().tasks[0].requestSnapshot).toEqual(taskRequest("p"));
   a.close();
 });

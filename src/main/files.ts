@@ -453,7 +453,10 @@ function validatePortable(s: any): asserts s is Portable {
     )
       fail("作品包素材快照不正确");
   }
-  for (const t of s.tasks) validateTask(t);
+  for (const t of s.tasks) {
+    validateTask(t);
+    validateTaskReferences(t, s);
+  }
   for (const i of s.issues) {
     validateIssue(i);
     if (i.chapterId && !chapters.has(i.chapterId))
@@ -494,7 +497,10 @@ function validateRecovery(s: any): void {
       )
         fail("恢复包包含未知作品引用");
     }
-  for (const task of s.tasks) validateTask(task);
+  for (const task of s.tasks) {
+    validateTask(task);
+    validateTaskReferences(task, s);
+  }
   for (const project of s.projects) {
     const pid = project.id;
     validatePortable({
@@ -535,5 +541,77 @@ function validateRecovery(s: any): void {
         m.projectReferences.length
     )
       fail("恢复包素材格式或引用不正确");
+  }
+}
+
+function validateTaskReferences(task: any, state: Portable): void {
+  const request = task.requestSnapshot,
+    command = request.command;
+  const chapters = new Map(
+    state.chapters.map((chapter) => [chapter.id, chapter]),
+  );
+  const notes = new Map(state.notes.map((note) => [note.id, note]));
+  const versions = new Map(
+    state.versions.map((version) => [version.id, version]),
+  );
+  const chapter = (id: string) => {
+    const value = chapters.get(id);
+    if (!value || value.projectId !== task.projectId)
+      fail("任务章节引用不属于该作品");
+  };
+  for (const id of [
+    ...(command.chapterIds ?? []),
+    ...(command.includeDraftIds ?? []),
+  ])
+    chapter(id);
+  for (const id of command.noteIds ?? []) {
+    const value = notes.get(id);
+    if (value && value.projectId !== task.projectId)
+      fail("任务设定引用不属于该作品");
+  }
+  // Deleted historical notes may be absent; their immutable text remains in the
+  // request. A reference to an extant record must never cross work ownership.
+  for (const source of task.sourceRevisions) {
+    const value =
+      source.kind === "chapter"
+        ? chapters.get(source.id)
+        : source.kind === "note"
+          ? notes.get(source.id)
+          : undefined;
+    if (value && value.projectId !== task.projectId)
+      fail("任务来源引用不属于该作品");
+  }
+  for (const candidate of task.result.candidates ?? []) {
+    chapter(candidate.chapterId);
+    if (candidate.versionId) {
+      const version = versions.get(candidate.versionId);
+      if (
+        !version ||
+        version.reason !== "ai-candidate" ||
+        version.chapterId !== candidate.chapterId ||
+        version.projectId !== task.projectId ||
+        version.taskId !== task.id ||
+        version.content !== candidate.text
+      )
+        fail("任务候选版本引用不正确");
+    }
+  }
+  for (const document of request.context.documents) {
+    if (document.candidateId) {
+      const version = versions.get(document.candidateId);
+      if (
+        !version ||
+        document.source.kind !== "chapter" ||
+        version.chapterId !== document.source.id ||
+        version.projectId !== task.projectId
+      )
+        fail("任务来源候选版本引用不正确");
+    }
+  }
+  const issues = new Map(state.issues.map((issue) => [issue.id, issue]));
+  for (const id of task.result.issueIds ?? []) {
+    const issue = issues.get(id);
+    if (!issue || issue.projectId !== task.projectId)
+      fail("任务检查问题引用不正确");
   }
 }

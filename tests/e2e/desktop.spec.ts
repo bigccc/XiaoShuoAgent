@@ -891,3 +891,168 @@ test("every extraction candidate form is guarded without automatically approving
     await provider.close();
   }
 });
+
+test("planning continuation preserves two interrupted fragments in actual task review", async () => {
+  let calls = 0;
+  const server = createServer(async (req, res) => {
+    for await (const _chunk of req) {
+      /* consume the real request */
+    }
+    calls++;
+    res.writeHead(200, { "Content-Type": "text/event-stream" });
+    res.write(
+      `data: ${JSON.stringify({ choices: [{ delta: { content: calls === 1 ? "FIRST" : calls === 2 ? "SECOND" : "THIRD" } }] })}\n\n`,
+    );
+    res.end(calls < 3 ? "" : "data: [DONE]\n\n");
+  });
+  await new Promise<void>((r) => server.listen(0, "127.0.0.1", r));
+  try {
+    const url = `http://127.0.0.1:${(server.address() as { port: number }).port}/v1`;
+    await page.evaluate(
+      async (url) =>
+        window.novel.invoke({
+          type: "profile.save",
+          name: "无密钥规划回归",
+          baseUrl: url,
+          model: "fixture",
+          purpose: "planning",
+        }),
+      url,
+    );
+    await createWork("持续规划");
+    await page
+      .getByRole("button", { name: "生成规划建议", exact: true })
+      .click();
+    await expect(
+      page.getByText("已失败", { exact: true }).first(),
+    ).toBeVisible();
+    await expect(page.locator(".task-detail pre")).toHaveText("FIRST");
+    await page.getByRole("button", { name: "继续任务", exact: true }).click();
+    await expect(page.locator(".task-detail pre")).toHaveText("FIRSTSECOND");
+    await expect(
+      page.getByText("已失败", { exact: true }).first(),
+    ).toBeVisible();
+    await page.getByRole("button", { name: "继续任务", exact: true }).click();
+    await expect(page.getByLabel("可编辑的规划建议")).toHaveValue(
+      "FIRSTSECONDTHIRD",
+    );
+    expect(calls).toBe(3);
+    await page.screenshot({ path: "test-results/planning-continuation.png" });
+  } finally {
+    await new Promise<void>((r) => {
+      server.closeAllConnections();
+      server.close(() => r());
+    });
+  }
+});
+
+test("malformed valid-checksum task import is atomic and corrupt stored task review stays usable", async () => {
+  const provider = await localProvider(() => "原始规划建议");
+  try {
+    await page.evaluate(
+      async (url) =>
+        window.novel.invoke({
+          type: "profile.save",
+          name: "无密钥任务校验",
+          baseUrl: url,
+          model: "fixture",
+          purpose: "planning",
+        }),
+      provider.url,
+    );
+    await createWork("任务包校验");
+    await page
+      .getByRole("button", { name: "生成规划建议", exact: true })
+      .click();
+    await expect(page.getByLabel("可编辑的规划建议")).toHaveValue(
+      "原始规划建议",
+    );
+    const backup = join(dir, "actual-producer.novel");
+    await app.evaluate(({ dialog }, path) => {
+      dialog.showSaveDialog = (async () => ({
+        canceled: false,
+        filePath: path,
+      })) as typeof dialog.showSaveDialog;
+    }, backup);
+    await page.getByRole("button", { name: "导出与备份", exact: true }).click();
+    await page
+      .getByRole("button", { name: "备份完整作品", exact: true })
+      .click();
+    await expect(
+      page.getByText("完整作品备份已保存到所选位置。", { exact: true }),
+    ).toBeVisible();
+    const pack = JSON.parse(await readFile(backup, "utf8"));
+    const originalTaskId = pack.payload.tasks[0].id;
+    pack.payload.tasks[0].requestSnapshot = null;
+    pack.payload.tasks[0].result = { candidates: {} };
+    const { createHash } = await import("node:crypto");
+    pack.sha256 = createHash("sha256")
+      .update(JSON.stringify(pack.payload))
+      .digest("hex");
+    await writeFile(backup, JSON.stringify(pack));
+    await app.evaluate(({ dialog }, path) => {
+      dialog.showOpenDialog = (async () => ({
+        canceled: false,
+        filePaths: [path],
+      })) as typeof dialog.showOpenDialog;
+    }, backup);
+    const before = await page.evaluate(() => window.novel.snapshot());
+    await page
+      .getByRole("button", { name: "导入作品／恢复备份", exact: true })
+      .click();
+    await expect(page.getByRole("alert")).toContainText("任务");
+    const after = await page.evaluate(() => window.novel.snapshot());
+    expect(after.projects).toEqual(before.projects);
+    expect(after.tasks).toEqual(before.tasks);
+    // Disk corruption bypasses import; renderer must report it without hiding the workspace.
+    await app.evaluate(
+      async (_electron, args) => {
+        const { DatabaseSync } = (process as any).getBuiltinModule(
+          "node:sqlite",
+        );
+        const db = new DatabaseSync(args.path);
+        const row = db
+          .prepare("SELECT json FROM tasks WHERE id=?")
+          .get(args.taskId)!;
+        const task = JSON.parse(String(row.json));
+        task.requestSnapshot = null;
+        task.result = { candidates: {} };
+        task.partial = "仍保留的作者片段";
+        task.status = "running";
+        db.prepare("UPDATE tasks SET json=? WHERE id=?").run(
+          JSON.stringify(task),
+          args.taskId,
+        );
+        db.close();
+      },
+      { path: join(dir, "works.sqlite"), taskId: originalTaskId },
+    );
+    await page.getByRole("button", { name: "任务与审阅", exact: true }).click();
+    await expect(
+      page.getByText("任务数据格式异常", { exact: false }),
+    ).toBeVisible();
+    await expect(
+      page.getByText("仍保留的作者片段", { exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "继续任务", exact: true }),
+    ).toHaveCount(0);
+    await page.screenshot({ path: "test-results/task-invalid-record.png" });
+    await app.close();
+    await launch();
+    await page.getByRole("button", { name: /打开 任务包校验/ }).click();
+    await page.getByRole("button", { name: "任务与审阅", exact: true }).click();
+    await expect(
+      page.getByText("任务数据格式异常", { exact: false }),
+    ).toBeVisible();
+    await expect(
+      page.getByText("仍保留的作者片段", { exact: true }),
+    ).toBeVisible();
+    await page.getByRole("button", { name: "正文与版本", exact: true }).click();
+    await expect(
+      page.getByRole("button", { name: "新建章节", exact: true }),
+    ).toBeVisible();
+  } finally {
+    await provider.close();
+  }
+});

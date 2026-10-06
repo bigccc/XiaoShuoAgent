@@ -9,7 +9,11 @@ import type {
   TaskRecord,
   TaskUsage,
 } from "../shared/types";
-import { DomainError, validatePublicJson } from "../shared/validation";
+import {
+  DomainError,
+  validatePublicJson,
+  validateTask,
+} from "../shared/validation";
 import { Store } from "./store";
 import { DomainService } from "./domain";
 import {
@@ -102,12 +106,18 @@ export class TaskRunner {
     private credentials?: CredentialCodec,
     private maxContextChars = 24000,
   ) {
-    for (const t of store.list("tasks"))
+    for (const t of store.list("tasks")) {
+      try {
+        validateTask(t);
+      } catch {
+        continue;
+      } // Preserve corrupt records for visible review; never run or rewrite them.
       if (["running", "waiting"].includes(t.status))
         this.update(t.id, {
           status: "interrupted",
           error: "应用退出时任务未完成，已保留结果和片段",
         });
+    }
   }
   private update(id: string, patch: Partial<TaskRecord>): TaskRecord {
     const old = this.store.get("tasks", id)!;
@@ -269,6 +279,7 @@ export class TaskRunner {
   cancel(id: string): void {
     const t = this.store.get("tasks", id);
     if (!t) throw new DomainError("NOT_FOUND", "任务不存在");
+    validateTask(t);
     const run = this.active.get(id);
     if (run) {
       run.controller.abort();
@@ -281,6 +292,7 @@ export class TaskRunner {
   resume(id: string, mode: "continue" | "rewrite"): void {
     const t = this.store.get("tasks", id);
     if (!t) throw new DomainError("NOT_FOUND", "任务不存在");
+    validateTask(t);
     if (
       this.active.has(id) ||
       !["cancelled", "interrupted", "failed", "awaiting-author"].includes(
@@ -712,6 +724,7 @@ export class TaskRunner {
                   `\n作者要求：${c.instruction ?? ""}${resumePartial ? `\n先前片段：${resumePartial}\n续写建议，不重复片段。` : ""}`,
               ),
             ];
+      activePrefix = c.type === "ai.plan" ? resumePartial : "";
       const text = await call(prompt);
       result =
         c.type === "model.test"
