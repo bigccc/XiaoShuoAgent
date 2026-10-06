@@ -1,0 +1,172 @@
+import { mkdtempSync, rmSync, readdirSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { DatabaseSync } from "node:sqlite";
+import { afterEach, expect, it } from "vitest";
+import { Store } from "../src/main/store";
+import { DomainService } from "../src/main/domain";
+const paths: string[] = [];
+afterEach(() =>
+  paths.splice(0).forEach((p) => rmSync(p, { recursive: true, force: true })),
+);
+function dbPath() {
+  const dir = mkdtempSync(join(tmpdir(), "novel-store-"));
+  paths.push(dir);
+  return join(dir, "works.sqlite");
+}
+it("persists authors work and version history across a real SQLite reopen", () => {
+  const path = dbPath();
+  const a = new Store(path);
+  const domain = new DomainService(a);
+  expect(domain.execute({ type: "project.create", title: "持久作品" }).ok).toBe(
+    true,
+  );
+  const projectId = domain.snapshot().projects[0].id;
+  const created = domain.execute({
+    type: "chapter.create",
+    projectId,
+    ordinal: 1,
+    title: "第一章",
+  });
+  if (!created.ok) throw new Error("setup");
+  domain.execute({
+    type: "chapter.save",
+    id: created.entityId,
+    revision: 1,
+    content: "中文正文",
+  });
+  domain.execute({
+    type: "chapter.confirm",
+    id: created.entityId,
+    revision: 2,
+  });
+  const state = domain.snapshot();
+  expect(state.versions).toHaveLength(3);
+  a.close();
+  const b = new Store(path);
+  expect(b.snapshot()).toEqual(state);
+  b.close();
+});
+it("rolls back a transaction when its work throws", () => {
+  const a = new Store(":memory:");
+  expect(typeof (a as any).transaction).toBe("function");
+  expect(() =>
+    (a as any).transaction(() => {
+      new DomainService(a).execute({ type: "project.create", title: "应回滚" });
+      throw new Error("失败");
+    }),
+  ).toThrow();
+  expect(a.snapshot().projects).toEqual([]);
+  a.close();
+});
+it("backs up a version zero database before migrating and refuses unknown future versions", () => {
+  const path = dbPath();
+  const seed = new DatabaseSync(path);
+  seed.exec(
+    "CREATE TABLE legacy_marker(value TEXT); INSERT INTO legacy_marker VALUES ('保留');",
+  );
+  seed.close();
+  const a = new Store(path);
+  a.close();
+  const files = readdirSync(paths.at(-1)!);
+  expect(files.some((f) => f.includes("before-v1"))).toBe(true);
+  const b = new DatabaseSync(path);
+  expect(b.prepare("SELECT value FROM legacy_marker").get()?.value).toBe(
+    "保留",
+  );
+  b.exec("PRAGMA user_version = 999");
+  b.close();
+  expect(() => new Store(path)).toThrow(/版本/);
+});
+it("persists task progress with optimistic revisions and never serializes credentials", () => {
+  const a: any = new Store(dbPath());
+  expect(typeof a.saveTask).toBe("function");
+  const t = {
+    id: "task-1",
+    projectId: "project-1",
+    kind: "generation",
+    status: "running",
+    requestSnapshot: { model: "model" },
+    result: null,
+    partial: "半章",
+    usage: null,
+    calls: 1,
+    sourceRevisions: [],
+    revision: 1,
+    createdAt: "2026-10-06T00:00:00.000Z",
+    updatedAt: "2026-10-06T00:00:00.000Z",
+  };
+  a.saveTask(t);
+  expect(a.snapshot().tasks[0].partial).toBe("半章");
+  expect(() => a.saveTask({ ...t, partial: "冲突" }, 0)).toThrow(/修改/);
+  expect(() =>
+    a.saveTask({ ...t, id: "task-2", requestSnapshot: { apiKey: "secret" } }),
+  ).toThrow(/密钥/);
+  a.close();
+});
+it("rejects invalid issue evidence and preserves evidence when resolving a stored issue", () => {
+  const a = new Store(":memory:");
+  const d = new DomainService(a);
+  const p = d.execute({ type: "project.create", title: "检查作品" });
+  if (!p.ok) throw new Error("setup");
+  const issue = {
+    id: "issue-1",
+    revision: 1,
+    createdAt: "2026-10-06T00:00:00.000Z",
+    updatedAt: "2026-10-06T00:00:00.000Z",
+    projectId: p.entityId,
+    type: "world" as const,
+    reason: "规则冲突",
+    evidence: [
+      {
+        quote: "角色飞行",
+        source: { kind: "project" as const, id: p.entityId, revision: 1 },
+      },
+    ],
+    status: "open" as const,
+  };
+  expect(() => a.saveIssue({ ...issue, evidence: [] })).toThrow(/依据/);
+  a.saveIssue(issue);
+  expect(
+    d.execute({
+      type: "issue.resolve",
+      id: issue.id,
+      revision: 1,
+      status: "ignored",
+    }).ok,
+  ).toBe(true);
+  expect(d.snapshot().issues[0].evidence[0].quote).toBe("角色飞行");
+  expect(
+    d.execute({
+      type: "issue.resolve",
+      id: issue.id,
+      revision: 1,
+      status: "resolved",
+    }),
+  ).toMatchObject({ ok: false, error: { code: "CONFLICT" } });
+  a.close();
+});
+it("keeps a task request snapshot immutable as progress is persisted", () => {
+  const a = new Store(":memory:");
+  const t = {
+    id: "task-fixed",
+    projectId: "p",
+    kind: "generation" as const,
+    status: "running" as const,
+    requestSnapshot: { model: "original" },
+    result: null,
+    partial: "",
+    usage: null,
+    calls: 0,
+    sourceRevisions: [],
+    revision: 1,
+    createdAt: "2026-10-06T00:00:00.000Z",
+    updatedAt: "2026-10-06T00:00:00.000Z",
+  };
+  a.saveTask(t);
+  expect(() =>
+    a.saveTask({ ...t, requestSnapshot: { model: "changed" } }, 1),
+  ).toThrow(/快照/);
+  expect(a.snapshot().tasks[0].requestSnapshot).toEqual({ model: "original" });
+  a.close();
+});
