@@ -1,0 +1,727 @@
+:root {
+  font-family:
+    -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei",
+    sans-serif;
+  color: #263d3b;
+  background: #f6f3ec;
+  font-synthesis: none;
+  font-size: 14px;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+}
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+button {
+  cursor: pointer;
+  border: 1px solid #d7ded7;
+  border-radius: 8px;
+  background: #fffefb;
+  color: #324d49;
+  padding: 9px 13px;
+  transition: background 0.15s;
+  line-height: 1.4;
+}
+button:hover {
+  background: #ecefe8;
+}
+button:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+button.primary {
+  background: #267568;
+  border-color: #267568;
+  color: white;
+}
+button.primary:hover {
+  background: #1e6156;
+}
+button.active {
+  background: #e3eee7;
+  color: #17665b;
+  border-color: #d0ded4;
+}
+button.text-button {
+  border: 0;
+  background: none;
+  padding: 9px 0;
+  color: #247366;
+  text-align: left;
+}
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: 3px solid #8cc4b8;
+  outline-offset: 2px;
+}
+input,
+textarea,
+select {
+  width: 100%;
+  border: 1px solid #d8ded5;
+  border-radius: 8px;
+  background: #fffefb;
+  color: #263d3b;
+  padding: 11px 12px;
+  line-height: 1.65;
+  min-width: 0;
+}
+textarea {
+  resize: vertical;
+  min-height: 90px;
+}
+select {
+  padding: 9px 11px;
+}
+.window-header {
+  height: 48px;
+  padding: 12px 25px 12px 92px;
+  display: flex;
+  justify-content: space-between;
+  border-bottom: 1px solid #e0e4da;
+  -webkit-app-region: drag;
+  color: #526761;
+  font-size: 12px;
+}
+.window-subtitle {
+  color: #8a948b;
+}
+.app {
+  display: flex;
+  height: calc(100vh - 48px);
+  overflow: hidden;
+}
+.sidebar {
+  width: 188px;
+  flex-shrink: 0;
+  background: #efeee6;
+  border-right: 1px solid #dde1d6;
+  padding: 25px 15px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.brand {
+  font-family: "Songti SC", serif;
+  font-size: 24px;
+  letter-spacing: 2px;
+  padding: 2px 8px 30px;
+}
+.brand small {
+  display: block;
+  font-family: -apple-system, sans-serif;
+  font-size: 9px;
+  letter-spacing: 2px;
+  color: #88958c;
+  margin-top: 8px;
+}
+.sidebar button {
+  text-align: left;
+  background: none;
+  border: 0;
+  padding: 11px 14px;
+}
+.sidebar button.active {
+  background: #dce9df;
+}
+.nav-section {
+  font-size: 12px;
+  margin: 18px 14px 7px;
+  color: #879286;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  white-space: nowrap;
+}
+.nav-bottom {
+  margin-top: auto;
+  padding-top: 15px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.local-state {
+  border-top: 1px solid #d5dccf;
+  padding: 20px 12px 0;
+  color: #58816d;
+  font-size: 11px;
+  line-height: 1.8;
+}
+.local-state small {
+  color: #8e998d;
+  font-size: 10px;
+}
+.workspace {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.workspace-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+.workspace main {
+  flex: 1;
+  min-width: 0;
+  overflow: auto;
+}
+.page {
+  padding: 36px 38px 48px;
+  max-width: 1000px;
+  margin: auto;
+}
+.page-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+}
+.eyebrow {
+  font-size: 11px;
+  letter-spacing: 2px;
+  color: #6d8d79;
+  margin-bottom: 12px;
+}
+h1 {
+  font-family: "Songti SC", serif;
+  font-size: 30px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  margin: 0 0 16px;
+}
+h2 {
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 1.5;
+  margin: 0 0 12px;
+}
+h3 {
+  font-size: 14px;
+  line-height: 1.6;
+  margin: 18px 0 10px;
+}
+p {
+  color: #718079;
+  line-height: 1.85;
+  margin: 0 0 20px;
+}
+.toolbar {
+  display: flex;
+  gap: 9px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin: 18px 0;
+}
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  margin-bottom: 18px;
+  min-width: 0;
+}
+.field > label {
+  font-size: 12px;
+  color: #60766b;
+}
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 18px;
+}
+.form-grid.compact {
+  gap: 0 10px;
+}
+.form-grid.compact input {
+  padding: 7px 10px;
+  font-size: 12px;
+}
+.background {
+  min-height: 165px;
+}
+.long-text {
+  min-height: 330px;
+  line-height: 1.9;
+}
+.save-state {
+  font-size: 11px;
+  color: #6e8d70;
+  margin: 8px 0 23px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.save-state button {
+  font-size: 11px;
+  padding: 4px 7px;
+}
+.card {
+  border: 1px solid #dfe3d8;
+  background: #fffdf7;
+  padding: 23px;
+  border-radius: 12px;
+  margin: 20px 0;
+}
+.hint {
+  background: #eaf0e6;
+  padding: 15px 18px;
+  border: 1px solid #dbe5d5;
+  border-radius: 9px;
+  font-size: 12px;
+  line-height: 1.8;
+  color: #5f7967;
+  margin: 15px 0;
+}
+.hint p {
+  margin: 7px 0;
+}
+.warn {
+  color: #a47537 !important;
+}
+.hint.warn,
+.badge.warn {
+  background: #f7eedb;
+  border-color: #eee1c9;
+}
+.danger {
+  color: #a75142 !important;
+}
+.error {
+  padding: 12px 18px;
+  background: #f8e8e2;
+  color: #934935;
+  border-bottom: 1px solid #efd4c8;
+  font-size: 12px;
+  line-height: 1.6;
+}
+.global-error {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+.global-error button {
+  background: none;
+  border: 0;
+  padding: 0 6px;
+}
+.notice {
+  background: #e4f0e6;
+  padding: 12px 18px;
+  color: #336b4b;
+}
+.success {
+  color: #367959 !important;
+}
+.muted {
+  color: #899187;
+}
+.small {
+  font-size: 11px;
+}
+.empty {
+  text-align: center;
+  padding: 85px 30px;
+  display: flex;
+  align-items: center;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 350px;
+}
+.empty h2 {
+  font-family: "Songti SC", serif;
+  font-size: 23px;
+  color: #526a58;
+}
+.empty p {
+  line-height: 2;
+  font-size: 13px;
+}
+.empty-mark {
+  font-size: 42px;
+  color: #9bb79d;
+  margin: 0 0 30px;
+}
+.book-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 24px;
+}
+.book {
+  margin: 0;
+  max-width: 300px;
+  padding: 20px;
+}
+.book h2 {
+  margin-top: 22px;
+}
+.book p {
+  font-size: 12px;
+}
+.book-cover {
+  background: #e1e8d8;
+  border-radius: 5px;
+  box-shadow: inset 6px 0 #ccd7c6;
+  min-height: 220px;
+  padding: 25px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  color: #4d6c55;
+}
+.book-cover span {
+  font-size: 10px;
+  letter-spacing: 4px;
+  margin: 6px 0 35px;
+}
+.book-cover strong {
+  font-family: "Songti SC", serif;
+  font-size: 23px;
+  writing-mode: vertical-rl;
+  letter-spacing: 3px;
+  max-height: 120px;
+}
+.book-cover small {
+  font-size: 10px;
+  color: #7d9074;
+  margin-top: 25px;
+}
+.book button {
+  margin-right: 8px;
+  padding: 8px 10px;
+  font-size: 12px;
+}
+.split-page {
+  display: flex;
+  min-height: 100%;
+  align-items: stretch;
+}
+.item-list {
+  width: 178px;
+  flex-shrink: 0;
+  border-right: 1px solid #e0e4d9;
+  background: #f3f3eb;
+  padding: 25px 14px;
+  overflow: auto;
+}
+.item-list h2 {
+  font-size: 14px;
+  padding: 0 4px 14px;
+}
+.item-list > .primary {
+  width: 100%;
+  margin-bottom: 14px;
+}
+.item-list .field {
+  margin-top: 10px;
+  font-size: 11px;
+}
+.item-list input,
+.item-list select {
+  padding: 6px 9px;
+  font-size: 11px;
+}
+.item-list > button:not(.item) {
+  font-size: 12px;
+}
+.item {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  text-align: left;
+  border: 1px solid transparent;
+  background: none;
+  padding: 13px 12px;
+  width: 100%;
+  margin: 6px 0;
+}
+.item strong {
+  font-size: 13px;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+.item small {
+  font-size: 10px;
+  color: #869080;
+  line-height: 1.5;
+}
+.item.selected {
+  background: #e4ebe0;
+  border: 1px solid #d9e2d1;
+}
+.badge {
+  display: inline-block;
+  width: fit-content;
+  border: 1px solid #dce5d8;
+  border-radius: 4px;
+  padding: 3px 6px;
+  font-size: 10px;
+  color: #768b75;
+  background: #edf2e8;
+}
+.split-page > .page {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  max-width: none;
+  padding: 30px;
+}
+.chapter-toolbar {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+  font-size: 11px;
+  color: #7b897d;
+  margin-bottom: 14px;
+}
+.chapter-toolbar .eyebrow {
+  margin: 0;
+  margin-right: auto;
+}
+.chapter-title {
+  font-family: "Songti SC", serif;
+  font-size: 24px;
+  border: 0;
+  border-bottom: 1px solid #e0e3d7;
+  border-radius: 0;
+  padding: 8px 0;
+  background: none;
+}
+.prose {
+  font-family: "Songti SC", "STSong", serif;
+  font-size: 18px;
+  line-height: 2.15;
+  min-height: 430px;
+  padding: 24px;
+  border-color: #e3e5da;
+  background: #fffef9;
+}
+.chapter-editor > .field > label {
+  font-size: 10px;
+}
+.compare {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.compare > div {
+  min-width: 0;
+}
+.compare pre {
+  max-height: 350px;
+  overflow: auto;
+  font-size: 13px;
+  line-height: 1.9;
+  background: #f5f5ed;
+  padding: 15px;
+  border-radius: 6px;
+}
+.history {
+  padding: 17px;
+}
+.history h2 {
+  font-size: 15px;
+}
+.sources {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  font-size: 10px;
+  color: #83917f;
+  margin: 12px 0;
+}
+.sources span {
+  border: 1px solid #e0e6d9;
+  padding: 3px 6px;
+  border-radius: 4px;
+}
+.ai-panel {
+  width: 292px;
+  flex-shrink: 0;
+  border-left: 1px solid #dde4d7;
+  background: #f0f3eb;
+  padding: 28px 22px;
+  overflow: auto;
+}
+.ai-panel h2 {
+  font-family: "Songti SC", serif;
+  font-size: 20px;
+  color: #557762;
+}
+.ai-panel p {
+  font-size: 12px;
+  line-height: 1.8;
+}
+.ai-panel .field {
+  margin-bottom: 13px;
+}
+.ai-panel .field > label {
+  font-size: 11px;
+}
+.ai-panel input,
+.ai-panel textarea,
+.ai-panel select {
+  font-size: 12px;
+  padding: 8px 10px;
+}
+.ai-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+.ai-actions button {
+  font-size: 12px;
+}
+.recent-tasks {
+  margin-top: 25px;
+  border-top: 1px solid #dfe5d7;
+  padding-top: 6px;
+}
+.advanced h3 {
+  font-size: 12px;
+}
+.check {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 12px;
+  line-height: 1.7;
+  margin: 12px 0;
+  color: #6c7a69;
+}
+.check input {
+  width: 15px;
+  min-width: 15px;
+  height: 15px;
+  margin: 3px 0;
+  accent-color: #267568;
+}
+.task-detail .card pre {
+  font-family: "Songti SC", serif;
+  font-size: 16px;
+  line-height: 2;
+  max-height: 430px;
+  overflow: auto;
+}
+pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: #42554a;
+  margin: 12px 0;
+}
+blockquote {
+  margin: 12px 0;
+  padding: 10px 14px;
+  border-left: 3px solid #c4d4bb;
+  background: #f2f3e9;
+  line-height: 1.8;
+  color: #6a7664;
+}
+.task-stats {
+  display: flex;
+  gap: 20px;
+  font-size: 11px;
+  color: #83937e;
+  padding: 12px 0;
+}
+.task-detail .card {
+  padding: 19px;
+}
+.task-detail .long-text {
+  min-height: 200px;
+}
+.chapter-export-list > div {
+  display: flex;
+  justify-content: space-between;
+  padding: 12px 0;
+  border-bottom: 1px solid #e5e7dc;
+  gap: 12px;
+}
+.new-project {
+  max-width: 500px;
+}
+.new-project button {
+  margin-right: 10px;
+}
+@media (max-width: 1200px) {
+  .sidebar {
+    width: 164px;
+    padding: 20px 10px;
+  }
+  .ai-panel {
+    width: 245px;
+    padding: 25px 16px;
+  }
+  .item-list {
+    width: 155px;
+    padding: 20px 10px;
+  }
+  .split-page > .page {
+    padding: 24px;
+  }
+  .page {
+    padding: 30px;
+  }
+  .prose {
+    padding: 18px;
+    font-size: 17px;
+  }
+  .chapter-toolbar button {
+    padding: 6px 8px;
+  }
+  .compare {
+    grid-template-columns: 1fr;
+  }
+  .brand {
+    font-size: 21px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+  }
+}
+
+.sidebar button.active {
+  background: #dce9df;
+  border-left: 3px solid #267568;
+  border-radius: 0 8px 8px 0;
+  padding-left: 11px;
+  font-weight: 600;
+}
+.sidebar button:not(.active):hover {
+  background: #e7e9df;
+  color: #566e5a;
+}
+
+.sidebar {
+  overflow-y: auto;
+}
+.sources {
+  overflow-wrap: anywhere;
+}
+
+.modal-scrim {
+  position: fixed;
+  inset: 48px 0 0;
+  z-index: 20;
+  background: #25392b55;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.modal {
+  width: min(520px, 90vw);
+  box-shadow: 0 20px 80px #263b3b33;
+  padding: 30px;
+}

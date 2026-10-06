@@ -498,3 +498,151 @@ it("preserves original material provenance when an already linked project links 
     explanation: "新的适用条件",
   });
 });
+
+it("keeps accepted planning ancestors current through character world outline and chapter outline", async () => {
+  const { buildContext } = await import("../src/main/context");
+  const projectId = createProject();
+  for (const [noteType, title] of [
+    ["character", "人物原文"],
+    ["world", "世界原文"],
+    ["outline", "大纲原文"],
+    ["chapterOutline", "章纲原文"],
+  ] as const) {
+    const context = buildContext(domain.snapshot(), projectId);
+    const r = domain.execute({
+      type: "note.save",
+      projectId,
+      noteType,
+      title,
+      body: title,
+      sources: context.sources,
+    });
+    expect(r.ok).toBe(true);
+    const state = domain.snapshot();
+    expect(state.notes.every((n: any) => !n.needsReview)).toBe(true);
+    expect(
+      buildContext(state, projectId)
+        .documents.filter((d: any) => d.source.kind === "note")
+        .map((d: any) => d.label),
+    ).toHaveLength(state.notes.length);
+  }
+});
+it("marks only derived downstream notes after an ancestor edit while retaining content and revision conflicts", async () => {
+  const { buildContext } = await import("../src/main/context");
+  const projectId = createProject();
+  const character = domain.execute({
+    type: "note.save",
+    projectId,
+    noteType: "character",
+    title: "人物",
+    body: "十七岁",
+    sources: [],
+  });
+  const world = domain.execute({
+    type: "note.save",
+    projectId,
+    noteType: "world",
+    title: "世界",
+    body: "世界原文",
+    sources: [
+      { kind: "note", id: character.entityId, revision: character.revision },
+    ],
+  });
+  const outline = domain.execute({
+    type: "note.save",
+    projectId,
+    noteType: "outline",
+    title: "大纲",
+    body: "大纲原文",
+    sources: [{ kind: "note", id: world.entityId, revision: world.revision }],
+  });
+  const unrelated = domain.execute({
+    type: "note.save",
+    projectId,
+    noteType: "location",
+    title: "独立地点",
+    body: "湖畔",
+    sources: [{ kind: "project", id: projectId, revision: 1 }],
+  });
+  const current = domain
+    .snapshot()
+    .notes.find((n: any) => n.id === character.entityId);
+  expect(
+    domain.execute({
+      type: "note.save",
+      id: character.entityId,
+      revision: current.revision,
+      projectId,
+      noteType: "character",
+      title: "人物",
+      body: "十八岁",
+      sources: [],
+    }).ok,
+  ).toBe(true);
+  const state = domain.snapshot();
+  expect(state.notes.find((n: any) => n.id === world.entityId)).toMatchObject({
+    body: "世界原文",
+    needsReview: true,
+  });
+  expect(state.notes.find((n: any) => n.id === outline.entityId)).toMatchObject(
+    { body: "大纲原文", needsReview: true },
+  );
+  expect(
+    state.notes.find((n: any) => n.id === unrelated.entityId).needsReview,
+  ).toBe(false);
+  expect(buildContext(state, projectId).text).not.toContain("世界原文");
+  expect(
+    domain.execute({
+      type: "note.save",
+      id: character.entityId,
+      revision: current.revision,
+      projectId,
+      noteType: "character",
+      title: "人物",
+      body: "旧覆盖",
+      sources: [],
+    }).error.code,
+  ).toBe("CONFLICT");
+});
+it("accepts chapter-derived facts without invalidating their confirmed upstream chapter", async () => {
+  const { buildContext } = await import("../src/main/context");
+  const projectId = createProject(),
+    id = createChapter(projectId);
+  domain.execute({
+    type: "chapter.save",
+    id,
+    revision: 1,
+    content: "林舟十七岁。",
+  });
+  domain.execute({ type: "chapter.confirm", id, revision: 2 });
+  const before = domain.snapshot().chapters[0];
+  for (const noteType of ["summary", "knowledge"] as const) {
+    const r = domain.execute({
+      type: "note.save",
+      projectId,
+      noteType,
+      title: noteType,
+      body: "林舟十七岁。",
+      sources: [{ kind: "chapter", id, revision: before.revision }],
+    });
+    expect(r.ok).toBe(true);
+    expect(domain.snapshot().chapters[0]).toEqual(before);
+    expect(
+      buildContext(domain.snapshot(), projectId).documents.some(
+        (d: any) => d.source.id === r.entityId,
+      ),
+    ).toBe(true);
+  }
+  expect(
+    domain.execute({
+      type: "chapter.save",
+      id,
+      revision: before.revision,
+      content: "林舟十八岁。",
+    }).ok,
+  ).toBe(true);
+  expect(domain.snapshot().notes.every((n: any) => n.needsReview)).toBe(true);
+  expect(
+    domain.snapshot().notes.every((n: any) => n.body === "林舟十七岁。"),
+  ).toBe(true);
+});

@@ -6,8 +6,21 @@
     "strict": true,
     "noEmit": true,
     "skipLibCheck": true,
-    "types": ["node"],
-    "lib": ["ES2022", "DOM"]
+    "types": [
+      "node"
+    ],
+    "lib": [
+      "ES2022",
+      "DOM"
+    ],
+    "jsx": "react-jsx"
   },
-  "include": ["src/**/*.ts", "tests/**/*.ts", "vitest.config.ts"]
+  "include": [
+    "src/**/*.ts",
+    "tests/**/*.ts",
+    "vitest.config.ts",
+    "src/**/*.tsx",
+    "electron.vite.config.ts",
+    "playwright.config.ts"
+  ]
 }

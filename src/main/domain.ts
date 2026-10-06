@@ -120,27 +120,94 @@ export class DomainService {
   private invalidate(
     projectId: string,
     afterOrdinal?: number,
-    exceptNoteId?: string,
+    changedNoteId?: string,
+    upstream: SourceRevision[] = [],
   ): void {
-    for (const chapter of this.store.list("chapters"))
+    const notes = this.store
+      .list("notes")
+      .filter((n) => n.projectId === projectId);
+    const chapters = this.store
+      .list("chapters")
+      .filter((c) => c.projectId === projectId);
+    const key = (s: Pick<SourceRevision, "kind" | "id">) => `${s.kind}:${s.id}`;
+    // A derived record cannot make its own ancestors obsolete. Follow the persisted
+    // provenance graph, including chapter sources of indirectly referenced notes.
+    const protectedKeys = new Set<string>();
+    const pending = [...upstream];
+    while (pending.length) {
+      const source = pending.pop()!;
+      if (protectedKeys.has(key(source))) continue;
+      protectedKeys.add(key(source));
+      if (source.kind === "note")
+        pending.push(...(notes.find((n) => n.id === source.id)?.sources ?? []));
+    }
+    const affected = new Set<string>();
+    if (changedNoteId) affected.add(`note:${changedNoteId}`);
+    else if (afterOrdinal === undefined) affected.add(`project:${projectId}`);
+    else
+      for (const chapter of chapters)
+        if (chapter.ordinal >= afterOrdinal)
+          affected.add(`chapter:${chapter.id}`);
+    const upstreamOrdinal = changedNoteId
+      ? Math.max(
+          0,
+          ...chapters
+            .filter((c) => protectedKeys.has(`chapter:${c.id}`))
+            .map((c) => c.ordinal),
+        )
+      : 0;
+    for (const chapter of chapters) {
       if (
-        chapter.projectId === projectId &&
         (afterOrdinal === undefined || chapter.ordinal > afterOrdinal) &&
-        !chapter.needsReview
-      )
-        this.store.put("chapters", {
-          ...this.changed(chapter),
-          needsReview: true,
-        });
-    for (const note of this.store.list("notes"))
-      if (
-        note.id !== exceptNoteId &&
-        note.projectId === projectId &&
-        (note.sources.length > 0 ||
-          ["outline", "chapterOutline"].includes(note.type)) &&
-        !note.needsReview
-      )
-        this.store.put("notes", { ...this.changed(note), needsReview: true });
+        (!changedNoteId || chapter.ordinal > upstreamOrdinal) &&
+        !protectedKeys.has(`chapter:${chapter.id}`)
+      ) {
+        affected.add(`chapter:${chapter.id}`);
+        if (!chapter.needsReview)
+          this.store.put("chapters", {
+            ...this.changed(chapter),
+            needsReview: true,
+          });
+      }
+    }
+    const changedNote = notes.find((n) => n.id === changedNoteId);
+    // Unattributed manual outlines have no graph. Conservatively flag later planning
+    // steps after setting changes; source-backed records follow only their real edges.
+    const manualPlanningAffected = (type: string) =>
+      afterOrdinal === undefined &&
+      (changedNoteId === undefined ||
+        (changedNote &&
+          ["character", "world", "location", "storyline"].includes(
+            changedNote.type,
+          )) ||
+        (changedNote?.type === "outline" && type === "chapterOutline"));
+    let progressed = true;
+    while (progressed) {
+      progressed = false;
+      for (const note of notes) {
+        const noteKey = `note:${note.id}`;
+        if (
+          note.id === changedNoteId ||
+          protectedKeys.has(noteKey) ||
+          affected.has(noteKey)
+        )
+          continue;
+        if (
+          note.sources.some((source) => affected.has(key(source))) ||
+          (note.sources.length === 0 &&
+            ["outline", "chapterOutline"].includes(note.type) &&
+            manualPlanningAffected(note.type))
+        ) {
+          affected.add(noteKey);
+          if (!note.needsReview)
+            this.store.put("notes", {
+              ...this.changed(note),
+              needsReview: true,
+            });
+          progressed = true;
+        }
+      }
+    }
   }
   private version(
     chapter: Chapter,
@@ -220,13 +287,13 @@ export class DomainService {
           needsReview: false,
         };
         this.store.put("notes", note);
-        this.invalidate(c.projectId, undefined, note.id);
+        this.invalidate(c.projectId, undefined, note.id, note.sources);
         return this.success(this.read("notes", note.id));
       }
       case "note.delete": {
         const n = this.read("notes", c.id, c.revision);
+        this.invalidate(n.projectId, undefined, n.id, n.sources);
         this.store.remove("notes", n.id);
-        this.invalidate(n.projectId);
         return this.success(n);
       }
       case "chapter.create": {
