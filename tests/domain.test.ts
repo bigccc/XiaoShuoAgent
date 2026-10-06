@@ -421,3 +421,80 @@ it("keeps linked material provenance on edits and guards both material/profile d
   ).toBe(true);
   expect(store.hasProfileKey(profile.entityId)).toBe(false);
 });
+it("preserves original material provenance when an already linked project links again", () => {
+  const projectId = createProject();
+  const saved = domain.execute({
+    type: "material.save",
+    materialType: "plot",
+    title: "反转",
+    source: "原出处",
+    content: "原桥段",
+    explanation: "初次适用条件",
+    approved: true,
+  });
+  const id = saved.entityId;
+  expect(
+    domain.execute({ type: "material.link", id, revision: 1, projectId }).ok,
+  ).toBe(true);
+  const originalLinkedAt =
+    domain.snapshot().materials[0].projectReferences[0].linkedAt;
+  expect(
+    domain.execute({
+      type: "material.save",
+      id,
+      revision: 2,
+      materialType: "plot",
+      title: "新反转",
+      source: "新出处",
+      content: "新桥段",
+      explanation: "新的适用条件",
+      approved: true,
+    }).ok,
+  ).toBe(true);
+  const repeated = domain.execute({
+    type: "material.link",
+    id,
+    revision: 3,
+    projectId,
+    linked: true,
+  });
+  expect(repeated.ok).toBe(true);
+  const refs = domain.snapshot().materials[0].projectReferences;
+  expect(refs).toHaveLength(1);
+  expect(refs[0]).toMatchObject({
+    projectId,
+    linkedAt: originalLinkedAt,
+    snapshot: {
+      title: "反转",
+      source: "原出处",
+      content: "原桥段",
+      explanation: "初次适用条件",
+      revision: 1,
+    },
+  });
+  const unlinked = domain.execute({
+    type: "material.link",
+    id,
+    revision: repeated.revision,
+    projectId,
+    linked: false,
+  });
+  expect(unlinked.ok).toBe(true);
+  expect(
+    domain.execute({
+      type: "material.link",
+      id,
+      revision: unlinked.revision,
+      projectId,
+      linked: true,
+    }).ok,
+  ).toBe(true);
+  expect(
+    domain.snapshot().materials[0].projectReferences[0].snapshot,
+  ).toMatchObject({
+    title: "新反转",
+    source: "新出处",
+    content: "新桥段",
+    explanation: "新的适用条件",
+  });
+});

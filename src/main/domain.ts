@@ -325,6 +325,11 @@ export class DomainService {
       case "material.link": {
         const old = this.read("materials", c.id, c.revision);
         this.read("projects", c.projectId);
+        if (
+          c.linked !== false &&
+          old.projectReferences.some((ref) => ref.projectId === c.projectId)
+        )
+          return this.success(old);
         if (c.linked !== false && !old.approved)
           throw new DomainError("VALIDATION", "请先审核素材再选用");
         const refs = old.projectReferences.filter(
