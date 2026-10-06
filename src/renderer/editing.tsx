@@ -89,6 +89,7 @@ export function useManualGuard<V>(
   value: V,
   save: () => Promise<void>,
   register?: Register,
+  options: { saveLabel?: string; description?: string; canSave?: boolean } = {},
 ) {
   const checkpoint = useRef(JSON.stringify(value)),
     valueRef = useRef(value),
@@ -128,12 +129,12 @@ export function useManualGuard<V>(
         aria-label="尚有未保存的修改"
       >
         <h2>尚有未保存的修改</h2>
-        <p>保存这份表单后再离开，或返回继续编辑。</p>
+        <p>{options.description ?? "保存这份表单后再离开，或返回继续编辑。"}</p>
         <div className="toolbar">
           <button
             type="button"
             className="primary"
-            disabled={busy}
+            disabled={busy || options.canSave === false}
             autoFocus
             onClick={() => {
               setBusy(true);
@@ -144,7 +145,7 @@ export function useManualGuard<V>(
                 .finally(() => setBusy(false));
             }}
           >
-            保存后离开
+            {options.saveLabel ?? "保存后离开"}
           </button>
           <button type="button" disabled={busy} onClick={() => finish(false)}>
             返回编辑

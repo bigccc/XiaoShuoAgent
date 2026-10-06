@@ -34,13 +34,22 @@ function trusted(event: Electron.IpcMainInvokeEvent | Electron.IpcMainEvent) {
 app
   .whenReady()
   .then(() => {
-    const credentials = safeStorage.isEncryptionAvailable()
-      ? {
-          encrypt: (key: string) => safeStorage.encryptString(key),
-          decrypt: (bytes: Uint8Array) =>
-            safeStorage.decryptString(Buffer.from(bytes)),
-        }
-      : undefined;
+    // Keychain availability can block on macOS (including under Rosetta). Never
+    // initialize it while opening offline works; only touch it on credential use.
+    const requireProtectedStorage = () => {
+      if (!safeStorage.isEncryptionAvailable())
+        throw new Error("系统密钥保护不可用");
+    };
+    const credentials = {
+      encrypt: (key: string) => {
+        requireProtectedStorage();
+        return safeStorage.encryptString(key);
+      },
+      decrypt: (bytes: Uint8Array) => {
+        requireProtectedStorage();
+        return safeStorage.decryptString(Buffer.from(bytes));
+      },
+    };
     services = new AppServices({
       dataDir: app.getPath("userData"),
       credentials,

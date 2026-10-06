@@ -8,7 +8,7 @@ import type {
   Command,
 } from "../shared/types";
 import type { Run } from "./api";
-import type { Flush } from "./editing";
+import { useManualGuard, type Flush, type Register } from "./editing";
 import {
   Field,
   Sources,
@@ -388,21 +388,35 @@ export function Tasks({
   projectId,
   run,
   flush,
+  register,
 }: {
   state: AppState;
   projectId?: string;
   run: Run;
   flush: Flush;
+  register: Register;
 }) {
   const tasks = state.tasks
     .filter((t) => !projectId || t.projectId === projectId)
     .slice()
     .reverse();
-  const [id, setId] = useState("");
+  const [id, setId] = useState(() => tasks[0]?.id ?? "");
   const task = tasks.find((t) => t.id === id) ?? tasks[0];
   useEffect(() => {
-    if (tasks[0]) setId(tasks[0].id);
-  }, [tasks[0]?.id]);
+    if (!tasks[0]) return;
+    if (!id) {
+      setId(tasks[0].id);
+      return;
+    }
+    if (id === tasks[0].id) return;
+    let cancelled = false;
+    void flush().then((ok) => {
+      if (ok && !cancelled) setId(tasks[0].id);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [tasks[0]?.id, flush]);
   return (
     <div className="split-page">
       <aside className="item-list">
@@ -411,7 +425,12 @@ export function Tasks({
           <button
             className={"item " + (task?.id === t.id ? "selected" : "")}
             key={t.id}
-            onClick={() => setId(t.id)}
+            onClick={() => {
+              if (task?.id !== t.id)
+                void flush().then((ok) => {
+                  if (ok) setId(t.id);
+                });
+            }}
           >
             <strong>{taskNames[t.kind]}</strong>
             <small>{new Date(t.createdAt).toLocaleString("zh-CN")}</small>
@@ -426,6 +445,7 @@ export function Tasks({
           state={state}
           run={run}
           flush={flush}
+          register={register}
         />
       ) : (
         <Empty title="你的创作任务会保存在这里">
@@ -440,11 +460,13 @@ function TaskDetail({
   state,
   run,
   flush,
+  register,
 }: {
   task: TaskRecord;
   state: AppState;
   run: Run;
   flush: Flush;
+  register: Register;
 }) {
   const r = (task.result ?? {}) as unknown as Result;
   return (
@@ -516,7 +538,13 @@ function TaskDetail({
         </div>
       )}
       {r.suggestion && (
-        <PlanningResult task={task} result={r} state={state} run={run} />
+        <PlanningResult
+          task={task}
+          result={r}
+          state={state}
+          run={run}
+          register={register}
+        />
       )}
       <div className="candidates">
         {r.candidates?.map((c, i) => (
@@ -533,7 +561,7 @@ function TaskDetail({
       {r.materials?.map((m, i) => (
         <div className="card" key={i}>
           <h2>提取候选 · 请先阅读审核</h2>
-          <MaterialForm draft={m} run={run} />
+          <MaterialForm draft={m} run={run} register={register} />
         </div>
       ))}
       {r.check && (
@@ -574,11 +602,13 @@ function PlanningResult({
   result,
   state,
   run,
+  register,
 }: {
   task: TaskRecord;
   result: Result;
   state: AppState;
   run: Run;
+  register: Register;
 }) {
   const [body, setBody] = useState(result.suggestion ?? ""),
     [title, setTitle] = useState("AI 规划建议"),
@@ -593,14 +623,39 @@ function PlanningResult({
   const reviewed = reviewKey === fingerprint;
   const acceptedSources =
     stale && reviewed ? reviewedSources(sources, state) : sources;
+  const authorDraft = { body, title, type };
+  async function adopt() {
+    if (stale && !reviewed) throw new Error("请先对照当前来源复核");
+    await run({
+      type: "note.save",
+      projectId: task.projectId,
+      noteType: type,
+      title,
+      body,
+      sources: acceptedSources,
+    });
+    guard.markSaved(authorDraft);
+    setDone(true);
+  }
+  const guard = useManualGuard(authorDraft, adopt, register, {
+    saveLabel: "采纳为新设定并离开",
+    description: "当前审阅修改尚未采纳。选择采纳为新设定，或返回继续检查。",
+    canSave: !stale || reviewed,
+  });
   return (
     <div className="card">
       <h2>规划建议 · 由作者审阅后保存</h2>
+      {guard.dialog}
       <Field label="建议标题">
-        <input value={title} onChange={(e) => setTitle(e.target.value)} />
+        <input
+          disabled={done}
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+        />
       </Field>
       <Field label="保存为设定类型">
         <select
+          disabled={done}
           value={type}
           onChange={(e) => setType(e.target.value as NoteType)}
         >
@@ -614,6 +669,7 @@ function PlanningResult({
       <Field label="可编辑的规划建议">
         <textarea
           className="long-text"
+          disabled={done}
           value={body}
           onChange={(e) => setBody(e.target.value)}
         />
@@ -634,18 +690,7 @@ function PlanningResult({
       <button
         className="primary"
         disabled={done || (stale && !reviewed)}
-        onClick={() =>
-          void run({
-            type: "note.save",
-            projectId: task.projectId,
-            noteType: type,
-            title,
-            body,
-            sources: acceptedSources,
-          })
-            .then(() => setDone(true))
-            .catch(() => {})
-        }
+        onClick={() => void adopt().catch(() => {})}
       >
         {done ? "已保存为设定" : "采纳为新设定"}
       </button>
@@ -660,7 +705,9 @@ function PlanningResult({
                 id: p.id,
                 revision: p.revision,
                 patch: { background: body },
-              }).catch(() => {});
+              })
+                .then(() => guard.markSaved(authorDraft))
+                .catch(() => {});
           }}
         >
           采用为作品背景

@@ -198,7 +198,9 @@ export function MaterialForm({
     setSuccess(true);
     saved?.(result.entityId);
   }
-  const guard = useManualGuard(v, save, register);
+  const guard = useManualGuard(v, save, register, {
+    description: `“${v.title || "未命名素材"}”的修改尚未保存。保存将保留表单当前的审核选择。`,
+  });
   return (
     <form
       onSubmit={(e) => {

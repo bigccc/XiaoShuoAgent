@@ -40,15 +40,31 @@ function App() {
     [view, setView] = useState<View>("bookcase"),
     [error, setError] = useState(""),
     [notice, setNotice] = useState("");
-  const flushRef = useRef<Flush>(async () => true),
+  const flushers = useRef(new Set<Flush>()),
+    pendingFlush = useRef<Promise<boolean> | null>(null),
     refreshId = useRef(0);
   const register: Register = useCallback((flush) => {
-    flushRef.current = flush;
+    flushers.current.add(flush);
     return () => {
-      if (flushRef.current === flush) flushRef.current = async () => true;
+      flushers.current.delete(flush);
     };
   }, []);
-  const flush = useCallback(() => flushRef.current(), []);
+  const flush = useCallback(() => {
+    if (pendingFlush.current) return pendingFlush.current;
+    const handlers = [...flushers.current];
+    pendingFlush.current = (async () => {
+      await Promise.resolve();
+      try {
+        for (const handler of handlers) {
+          if (flushers.current.has(handler) && !(await handler())) return false;
+        }
+        return true;
+      } finally {
+        pendingFlush.current = null;
+      }
+    })();
+    return pendingFlush.current;
+  }, []);
   const refresh = useCallback(async () => {
     const id = ++refreshId.current;
     const result = await window.novel.snapshot();
@@ -239,6 +255,7 @@ function App() {
                 />
               ) : view === "tasks" ? (
                 <Tasks
+                  register={register}
                   state={state}
                   projectId={project?.id}
                   run={run}

@@ -584,7 +584,9 @@ test("isolated renderer rejects a second window sender and has no Node or creden
       const rogue = new BrowserWindow({
         show: false,
         webPreferences: {
-          preload: decodeURIComponent(new URL('../preload/index.cjs', main.webContents.getURL()).pathname),
+          preload: decodeURIComponent(
+            new URL("../preload/index.cjs", main.webContents.getURL()).pathname,
+          ),
           contextIsolation: true,
           sandbox: true,
           nodeIntegration: false,
@@ -679,5 +681,213 @@ test("streaming cancellation retains partial text and continues through the actu
     ).toBeEnabled();
   } finally {
     await new Promise<void>((r) => server.close(() => r()));
+  }
+});
+
+test("offline startup and editing do not initialize an unavailable Keychain", async () => {
+  test.skip(
+    !!process.env.NOVEL_PACKAGED_EXECUTABLE,
+    "Test-only bootstrap imports the actual compiled main; packaged startup is verified separately without interception.",
+  );
+  await app.close();
+  const observed = join(dir, "keychain-access.txt");
+  app = await electron.launch({
+    args: [join(process.cwd(), "tests/e2e/keychain-unavailable.cjs")],
+    env: {
+      ...process.env,
+      NOVEL_TEST: "1",
+      NOVEL_DATA_DIR: dir,
+      NOVEL_KEYCHAIN_OBSERVATION: observed,
+    },
+  });
+  try {
+    page = await app.firstWindow({ timeout: 5000 });
+    await expect(page.getByText("你的下一部故事，从这里开始")).toBeVisible();
+    expect(await readFile(observed, "utf8").catch(() => "")).toBe("");
+    await createWork("离线钥匙串验收");
+    await page
+      .getByLabel("简介与背景", { exact: true })
+      .fill("钥匙串不可用也能写作。");
+    await page.getByRole("button", { name: "正文与版本", exact: true }).click();
+    await page.getByRole("button", { name: "新建章节", exact: true }).click();
+    await page.getByLabel("章节正文", { exact: true }).fill("作者的离线文字。");
+    await page.getByRole("button", { name: "确认正文", exact: true }).click();
+    expect(await readFile(observed, "utf8").catch(() => "")).toBe("");
+    await page.getByRole("button", { name: "模型设置", exact: true }).click();
+    await page
+      .getByRole("button", { name: "新增模型", exact: true })
+      .first()
+      .click();
+    await page.getByLabel("配置名称").fill("受保护配置");
+    await page.getByLabel("API 地址").fill("https://example.invalid/v1");
+    await page.getByLabel("模型名称").fill("fixture");
+    await page.getByLabel("API 密钥").fill("must-never-be-plaintext");
+    await page.getByRole("button", { name: "保存模型", exact: true }).click();
+    await expect(page.getByRole("alert")).toContainText("密钥");
+    expect(
+      (await page.evaluate(() => window.novel.snapshot())).profiles,
+    ).toHaveLength(0);
+    expect(await readFile(observed, "utf8")).toBe("isEncryptionAvailable\n");
+    await page.getByLabel("API 密钥").fill("");
+    await page.getByRole("button", { name: "保存模型", exact: true }).click();
+    await expect(
+      page.getByRole("button", { name: "测试连接", exact: true }),
+    ).toBeVisible();
+  } catch (error) {
+    app.process().kill("SIGKILL");
+    throw error;
+  }
+});
+
+test("planning edits are guarded across task switch, navigation and close until explicit adoption", async () => {
+  const provider = await localProvider(() => "原始规划建议。");
+  try {
+    await configure(provider.url);
+    await createWork("规划审阅保护");
+    await page
+      .getByRole("button", { name: "生成规划建议", exact: true })
+      .click();
+    await expect(page.getByLabel("可编辑的规划建议")).toHaveValue(
+      "原始规划建议。",
+    );
+    await page
+      .getByRole("button", { name: "生成规划建议", exact: true })
+      .click();
+    await expect(page.locator("main .item-list button")).toHaveCount(2);
+    await page.locator("main .item-list button").nth(1).click();
+    await page.getByLabel("建议标题").fill("作者审阅后的故事线");
+    await page
+      .getByLabel("可编辑的规划建议")
+      .fill("作者修改：林舟决定留在山城。");
+    await page.locator("main .item-list button").nth(0).click();
+    await expect(
+      page.getByRole("dialog", { name: "尚有未保存的修改" }),
+    ).toBeVisible();
+    await page.screenshot({ path: "test-results/planning-edit-guard.png" });
+    await page.getByRole("button", { name: "返回编辑", exact: true }).click();
+    await expect(page.getByLabel("可编辑的规划建议")).toHaveValue(
+      "作者修改：林舟决定留在山城。",
+    );
+    await page.getByRole("button", { name: "正文与版本", exact: true }).click();
+    await expect(
+      page.getByRole("dialog", { name: "尚有未保存的修改" }),
+    ).toBeVisible();
+    await page.getByRole("button", { name: "返回编辑", exact: true }).click();
+    await app.evaluate(({ BrowserWindow }) =>
+      BrowserWindow.getAllWindows()[0].close(),
+    );
+    await expect(
+      page.getByRole("dialog", { name: "尚有未保存的修改" }),
+    ).toBeVisible();
+    await page.getByRole("button", { name: "返回编辑", exact: true }).click();
+    expect(
+      (await page.evaluate(() => window.novel.snapshot())).notes,
+    ).toHaveLength(0);
+    await page.locator("main .item-list button").nth(0).click();
+    await page
+      .getByRole("button", { name: "采纳为新设定并离开", exact: true })
+      .click();
+    await expect(page.getByLabel("可编辑的规划建议")).toHaveValue(
+      "原始规划建议。",
+    );
+    await page.getByRole("button", { name: "故事规划", exact: true }).click();
+    await expect(page.getByLabel("设定标题")).toHaveValue("作者审阅后的故事线");
+    await expect(page.getByLabel("设定正文")).toHaveValue(
+      "作者修改：林舟决定留在山城。",
+    );
+  } finally {
+    await provider.close();
+  }
+});
+
+test("every extraction candidate form is guarded without automatically approving material", async () => {
+  const provider = await localProvider((body) =>
+    body.messages[0].content.includes("materials")
+      ? JSON.stringify({
+          materials: [
+            {
+              type: "expression",
+              title: "第一个候选",
+              content: "初始表达。",
+              explanation: "候选一条件。",
+            },
+            {
+              type: "plot",
+              title: "第二个候选",
+              content: "初始桥段。",
+              explanation: "候选二条件。",
+            },
+          ],
+        })
+      : "原始规划建议。",
+  );
+  try {
+    await configure(provider.url);
+    await createWork("多候选保护");
+    await page
+      .getByRole("button", { name: "生成规划建议", exact: true })
+      .click();
+    await expect(page.getByLabel("可编辑的规划建议")).toHaveValue(
+      "原始规划建议。",
+    );
+    await page
+      .getByRole("button", { name: "展开上下文与批量设置 ↓", exact: true })
+      .click();
+    await page.getByLabel("提取来源备注").fill("作者原文");
+    await page.getByLabel("待提取原文").fill("灵感材料。");
+    await page
+      .getByRole("button", { name: "提取素材候选", exact: true })
+      .click();
+    await expect(page.getByLabel("素材内容")).toHaveCount(2);
+    await page.getByLabel("素材内容").nth(0).fill("作者修改的表达。");
+    await page.getByLabel("我已阅读并审核此素材").nth(0).check();
+    await page.getByLabel("素材内容").nth(1).fill("作者修改的桥段。");
+    await page.locator("main .item-list button").nth(1).click();
+    await expect(
+      page.getByRole("dialog", { name: "尚有未保存的修改" }),
+    ).toBeVisible();
+    await page.getByRole("button", { name: "保存后离开", exact: true }).click();
+    await expect(
+      page.getByRole("dialog", { name: "尚有未保存的修改" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("dialog", { name: "尚有未保存的修改" }),
+    ).toContainText("第二个候选");
+    await page.screenshot({ path: "test-results/extraction-edit-guard.png" });
+    await page.getByRole("button", { name: "返回编辑", exact: true }).click();
+    await expect(page.getByLabel("素材内容").nth(1)).toHaveValue(
+      "作者修改的桥段。",
+    );
+    expect(
+      (await page.evaluate(() => window.novel.snapshot())).materials,
+    ).toHaveLength(1);
+    await app.evaluate(({ BrowserWindow }) =>
+      BrowserWindow.getAllWindows()[0].close(),
+    );
+    await expect(
+      page.getByRole("dialog", { name: "尚有未保存的修改" }),
+    ).toBeVisible();
+    await page.getByRole("button", { name: "返回编辑", exact: true }).click();
+    await page.getByRole("button", { name: "正文与版本", exact: true }).click();
+    await expect(
+      page.getByRole("dialog", { name: "尚有未保存的修改" }),
+    ).toBeVisible();
+    await page.getByRole("button", { name: "保存后离开", exact: true }).click();
+    await expect(
+      page.getByRole("button", { name: "新建章节", exact: true }),
+    ).toBeVisible();
+    const materials = (await page.evaluate(() => window.novel.snapshot()))
+      .materials;
+    expect(materials).toHaveLength(2);
+    expect(materials.find((m) => m.title === "第一个候选")).toMatchObject({
+      content: "作者修改的表达。",
+      approved: true,
+    });
+    expect(materials.find((m) => m.title === "第二个候选")).toMatchObject({
+      content: "作者修改的桥段。",
+      approved: false,
+    });
+  } finally {
+    await provider.close();
   }
 });
