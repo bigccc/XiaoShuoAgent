@@ -363,9 +363,15 @@ export class TaskRunner {
     mode: "continue" | "rewrite",
     signal: AbortSignal,
   ): Promise<void> {
-    const initial = this.store.get("tasks", id)!,
-      snapshot = initial.requestSnapshot as unknown as RequestSnapshot,
-      c = snapshot.command;
+    const initial = this.store.get("tasks", id)!;
+    const persisted = initial.requestSnapshot as unknown as RequestSnapshot;
+    // Portable import remaps structured references. Derive headers from those
+    // references instead of reusing cached text or replacing IDs in author prose.
+    const snapshot: RequestSnapshot = {
+      ...persisted,
+      context: boundContext(persisted.context, [], this.maxContextChars),
+    };
+    const c = snapshot.command;
     let result = initial.result as unknown as ResultData;
     let resumePartial =
       mode === "continue" && result.phase !== "checking" ? initial.partial : "";

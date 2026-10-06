@@ -958,4 +958,136 @@ describe("author-controlled orchestration", () => {
       app.snapshot().versions.find((v) => v.reason === "ai-candidate")?.content,
     ).toBe(fragment + "末尾");
   });
+  it.each(["ai.check", "ai.plan", "ai.extract"] as const)(
+    "preserves prose and regenerates source headers when resuming imported %s",
+    async (type) => {
+      let selected: string | null = null;
+      let importedChapterId = "";
+      let resumedPrompt = "";
+      let originalChapterId = "";
+      const url = await fixture((res, body) => {
+        if (!importedChapterId) {
+          if (type === "ai.plan") {
+            res.writeHead(401);
+            res.end("unauthorized");
+          } else reply(res, "invalid structured output");
+          return;
+        }
+        resumedPrompt = body.messages.find(
+          (m: any) => m.role === "user",
+        ).content;
+        if (type === "ai.check") {
+          const sourceId = /\[chapter:([^@]+)@3\]/.exec(resumedPrompt)![1];
+          reply(
+            res,
+            JSON.stringify({
+              issues: [
+                {
+                  type: "location",
+                  reason: "移动未交代",
+                  evidence: [
+                    {
+                      quote: "人物在北京",
+                      source: { kind: "chapter", id: sourceId, revision: 3 },
+                    },
+                  ],
+                },
+              ],
+              majorChange: false,
+            }),
+          );
+        } else if (type === "ai.plan") reply(res, "以所列来源为依据的人物建议");
+        else
+          reply(
+            res,
+            JSON.stringify({
+              materials: [
+                {
+                  type: "plot",
+                  title: "原文编号",
+                  content: `作者原文引用旧编号 ${originalChapterId}`,
+                  explanation: "作者文本保持原样",
+                },
+              ],
+            }),
+          );
+      });
+      const { app, projectId, dir } = setup({
+        dialogs: {
+          open: async () => selected,
+          save: async () => join(dir, "roundtrip.novel"),
+        },
+      });
+      [originalChapterId] = chapters(app, projectId, 1);
+      const authorProse = `作者原文引用旧编号 ${originalChapterId}。人物在北京，后文在上海。`;
+      ok(
+        app.domain.execute({
+          type: "chapter.save",
+          id: originalChapterId,
+          revision: 1,
+          content: authorProse,
+        }),
+      );
+      ok(
+        app.domain.execute({
+          type: "chapter.confirm",
+          id: originalChapterId,
+          revision: 2,
+        }),
+      );
+      const profileId = model(
+        app,
+        url,
+        type === "ai.check" ? "checking" : "planning",
+      );
+      const base = { projectId, profileId, tokenBudget: 20000 };
+      const command: Command =
+        type === "ai.check"
+          ? { type, ...base, chapterIds: [originalChapterId] }
+          : type === "ai.plan"
+            ? { type, ...base, step: "character" }
+            : { type, ...base, source: "作者原文", sourceText: authorProse };
+      const taskId = ok(await app.dispatch(command));
+      expect((await finish(app, taskId)).status).toBe("failed");
+      ok(await app.dispatch({ type: "file.backup", projectId }));
+      selected = join(dir, "roundtrip.novel");
+      const importedProjectId = ok(
+        await app.dispatch({ type: "file.importBackup" }),
+      );
+      importedChapterId = app
+        .snapshot()
+        .chapters.find((c) => c.projectId === importedProjectId)!.id;
+      expect(importedChapterId).not.toBe(originalChapterId);
+      expect(
+        app.snapshot().chapters.find((c) => c.id === importedChapterId)!
+          .content,
+      ).toBe(authorProse);
+      const importedTask = app
+        .snapshot()
+        .tasks.find((t) => t.projectId === importedProjectId)!;
+      ok(
+        await app.dispatch({
+          type: "task.resume",
+          id: importedTask.id,
+          mode: "rewrite",
+        }),
+      );
+      const result = await finish(app, importedTask.id);
+      expect(result.status).toBe("awaiting-author");
+      expect(resumedPrompt).toContain(
+        `作者原文引用旧编号 ${originalChapterId}`,
+      );
+      if (type !== "ai.extract") {
+        expect(resumedPrompt).toContain(`[chapter:${importedChapterId}@3]`);
+        expect(resumedPrompt).not.toContain(`[chapter:${originalChapterId}@3]`);
+      }
+      if (type === "ai.check") {
+        const issue = app
+          .snapshot()
+          .issues.find((i) => i.projectId === importedProjectId)!;
+        expect(issue.evidence[0].source.id).toBe(importedChapterId);
+        expect(issue.evidence[0].quote).toBe("人物在北京");
+      }
+    },
+  );
 });
