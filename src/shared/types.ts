@@ -30,7 +30,11 @@ export type NoteType =
   | "location"
   | "storyline"
   | "outline"
-  | "chapterOutline";
+  | "chapterOutline"
+  | "summary"
+  | "timeline"
+  | "knowledge"
+  | "foreshadowing";
 export interface SourceRevision {
   kind: "project" | "note" | "chapter";
   id: ID;
@@ -144,11 +148,16 @@ export interface CheckIssue extends RecordMeta {
     | "knowledge"
     | "foreshadowing";
   reason: string;
-  evidence: { quote: string; source: SourceRevision }[];
+  evidence: {
+    quote: string;
+    source: SourceRevision;
+    candidateVersionId?: ID;
+  }[];
   status: "open" | "resolved" | "ignored";
 }
 export interface AppState {
   schemaVersion: number;
+  persistence?: { lastRecoveryAt: string | null; recoveryError: string | null };
   projects: Project[];
   notes: Note[];
   chapters: Chapter[];
@@ -160,7 +169,7 @@ export interface AppState {
 }
 type Existing = { id: ID; revision: number };
 type Saving = { id?: ID; revision?: number };
-export type Command =
+export type DomainCommand =
   | ({ type: "project.create" } & Pick<ProjectFields, "title"> &
       Partial<Omit<ProjectFields, "title">>)
   | ({ type: "project.update"; patch: Partial<ProjectFields> } & Existing)
@@ -212,12 +221,53 @@ export type Command =
     } & Saving)
   | ({ type: "profile.delete" } & Existing)
   | ({ type: "issue.resolve"; status: "resolved" | "ignored" } & Existing);
+export interface AiContextOptions {
+  includeDraftIds?: ID[];
+  noteIds?: ID[];
+  materialIds?: ID[];
+  allowAutoMaterials?: boolean;
+}
+export interface AiBase extends AiContextOptions {
+  projectId: ID;
+  profileId: ID;
+  tokenBudget: number;
+  instruction?: string;
+}
+export type AsyncCommand =
+  | { type: "model.test"; profileId: ID; projectId?: ID }
+  | ({ type: "ai.plan"; step: NoteType | "idea" } & AiBase)
+  | ({
+      type: "ai.chapter";
+      chapterIds: ID[];
+      authorizeBatch?: boolean;
+      checkingProfileId?: ID;
+    } & AiBase)
+  | ({ type: "ai.check"; chapterIds?: ID[] } & AiBase)
+  | ({ type: "ai.extract"; sourceText?: string; source: string } & AiBase)
+  | { type: "task.cancel"; id: ID }
+  | { type: "task.resume"; id: ID; mode: "continue" | "rewrite" }
+  | {
+      type: "file.importMaterial";
+      source: string;
+      materialType: Material["type"];
+    }
+  | {
+      type: "file.exportText" | "file.exportDocx";
+      projectId: ID;
+      includeDrafts?: boolean;
+    }
+  | { type: "file.backup"; projectId: ID }
+  | { type: "file.importBackup" };
+export type Command = DomainCommand | AsyncCommand;
 export type ErrorCode =
   | "VALIDATION"
   | "NOT_FOUND"
   | "CONFLICT"
   | "STORAGE"
-  | "KEY_PROTECTION";
+  | "KEY_PROTECTION"
+  | "PROVIDER"
+  | "BUDGET"
+  | "CANCELLED";
 export type CommandResult =
   | { ok: true; entityId: ID; revision?: number }
   | { ok: false; error: { code: ErrorCode; message: string } };

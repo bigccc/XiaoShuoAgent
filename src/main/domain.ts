@@ -5,6 +5,7 @@ import type {
   Chapter,
   ChapterVersion,
   Command,
+  DomainCommand,
   CommandResult,
   ModelProfile,
   RecordMeta,
@@ -169,7 +170,7 @@ export class DomainService {
       ...(record.revision !== undefined ? { revision: record.revision } : {}),
     };
   }
-  private apply(c: Command): CommandResult {
+  private apply(c: DomainCommand): CommandResult {
     switch (c.type) {
       case "project.create": {
         const p = {

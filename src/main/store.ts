@@ -16,7 +16,10 @@ import {
   validateTask,
   validateIssue,
 } from "../shared/validation";
-export type Collection = Exclude<keyof AppState, "schemaVersion">;
+export type Collection = Exclude<
+  keyof AppState,
+  "schemaVersion" | "persistence"
+>;
 export type Entity<K extends Collection> = AppState[K][number];
 const collections: Collection[] = [
   "projects",

@@ -1,6 +1,6 @@
 import type {
   CandidateInput,
-  Command,
+  DomainCommand,
   ErrorCode,
   JsonValue,
   SourceRevision,
@@ -67,7 +67,7 @@ export function validateCandidate(x: unknown): asserts x is CandidateInput {
   if (!(x.sourceRevisions as unknown[]).length)
     invalid("生成结果必须记录来源版本");
 }
-export function validateCommand(x: unknown): asserts x is Command {
+export function validateCommand(x: unknown): asserts x is DomainCommand {
   object(x);
   text(x.type, true);
   const c = x;
@@ -196,6 +196,10 @@ export function validateCommand(x: unknown): asserts x is Command {
           "storyline",
           "outline",
           "chapterOutline",
+          "summary",
+          "timeline",
+          "knowledge",
+          "foreshadowing",
         ].includes(String(c.noteType))
       )
         invalid();
