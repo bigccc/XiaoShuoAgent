@@ -6,7 +6,7 @@
 
 | 边界                     | 实际状态／证据                                                                                                                                                    |
 | ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 完整服务层               | 5 文件 60 测试（原 57 加 3 条来源图回归），SQLite／兼容 HTTP／上下文／DOCX／备份等；不替代 UI 验收                                                                |
+| 完整服务层               | 最终 5 文件 77 测试，覆盖 SQLite／兼容 HTTP／上下文／DOCX／备份／连续中断／恶形任务包；不替代 UI 验收                                                           |
 | Electron 开发构建        | 实际运行所有控件工作流；作品、设定、确认、恢复、重启持久化通过                                                                                                    |
 | Electron node:sqlite     | 实际创建／重开数据库；不只在宿主 Node 中测试                                                                                                                      |
 | API 配置与保护           | 本机 Electron safeStorage 保存 fixture 密钥并发起连接；快照只显示 hasKey，作品包验证无密钥；真实服务商接入未测                                                    |
@@ -18,8 +18,8 @@
 | 导出／备份               | UI 真实 TXT/DOCX/完整作品包导出；导入副本保留素材且原作品存在；文件路径只在主进程原生对话框中处理                                                                 |
 | DOCX 排版                | 根任务用真实 ProjectFiles 导出中文两章，再用 bundled LibreOffice renderer 渲染一页并人工看图；中文、emoji、换行和顺序通过，无裁切；WPS／Microsoft Word 本体未验证 |
 | 窗口与无障碍             | 1440×920 和最小 1050×680；阅读／动作可见、页面内部滚动；Field 显式 label/id，重新挂载仍保持精确名称；已检查截图                                                   |
-| arm64 .app / ZIP / DMG   | Forge 本机实际生成，独立启动／保存验证；FIX1 arm64 ASAR 11 条 Electron E2E 通过／1 条 bootstrap 跳过（29.6s）；最终候选提示再测 2 条通过（6.9s）                  |
-| x64 .app / ZIP / DMG     | Forge 交叉架构实际生成；FIX1 direct Rosetta 启动成功、原生基础验收由控制器补证；未在 Intel 物理 Mac 安装／执行                                                    |
+| arm64 .app / ZIP / DMG   | 最终 Forge 包实际运行 13 条 Electron E2E 通过／1 条开发 bootstrap 按预期跳过；开发构建 14 条全部通过；两套独立结果分别记录                                      |
+| x64 .app / ZIP / DMG     | 最终 Forge 包在 Rosetta 下通过新建作品、中文编辑、即时导航保存、精确控件名称、章节确认、退出后持久化核对；未在 Intel 物理 Mac 安装／执行                       |
 | Apple Developer ID／公证 | 未执行；本机 0 有效签名身份；本地包不是已公证公开发行版                                                                                                           |
 | 真实 API 三角色          | 未执行；需要作者的真实配置并接受相应服务商调用费用                                                                                                                |
 | 连续二十章约 3000 字质量 | 未执行；需真实生成后人工阅读连贯性、可读性、误报与修改记录                                                                                                        |
@@ -38,11 +38,11 @@ Forge 首次失败：默认 `out/` 输出目录自动被排除，与构建 `out/
 - ZIP：`release/make/zip/darwin/{arm64,x64}/XiaoShuoAgent-darwin-{arch}-0.1.0.zip`
 - DMG：`release/make/dmg/{arm64,x64}/XiaoShuoAgent-0.1.0-{arch}.dmg`
 - 实际 UI 截图：`docs/screenshots/`（仅验收数据）
-- DOCX 渲染原始记录：`.superpowers/sdd/2026-10-06-novel-desktop/docx-qa/verification.md`
+- DOCX 渲染：本记录的 DOCX 排版行及 `docs/screenshots/` 中的渲染图；测试使用原应用导出文件，未为通过渲染修改导出内容。
 
 ## 实用限制
 
-使用启发式 Token 估算，不声称精确费用；改预算需新任务。AI 检查与清洁样例不保证检测所有冲突。TXT/DOCX 素材导入只提取正文文本，不导入图片布局或自动拆分整本小说。来源版本保存到任务／章节版本，旧设定内容没有独立全量版本历史；作者应对照当前来源复核。API 密钥不能从备份恢复，换机后重新配置。未签名包的 Gatekeeper 行为、Intel 运行及最低 macOS13 实体设备均需另行验证。
+使用启发式 Token 估算，不声称精确费用；改预算需新任务。AI 检查与清洁样例不保证检测所有冲突。TXT/DOCX 素材导入只提取正文文本，不导入图片布局或自动拆分整本小说。来源版本保存到任务／章节版本，旧设定内容没有独立全量版本历史；作者应对照当前来源复核。API 密钥不能从备份恢复，换机后重新配置。未公证包的 Gatekeeper 行为、Intel 物理机器及最低 macOS13 实体设备均需另行验证。
 
 来源图修复没有 schema 迁移：采纳新派生记录沿来源方向保护上游人物／世界及其已确认章节，不反向令来源过期；更新原人物沿依赖边标记派生世界／大纲，更新正文标记摘要／知情记录，原文保留。无来源手工大纲采用保守的后续规划复核规则。真实 DomainService＋buildContext 三条回归先 RED（全部失败），修复后完整 60 测试 GREEN。
 
@@ -58,6 +58,41 @@ Task3 初次匹配构建检验：npm ci、typecheck、60 服务测试、npm audi
 
 完整服务测试 60 项、typecheck 和 audit（0 漏洞）通过；开发 Electron 12 项通过（29.7s）；arm64 实际 ASAR 应用 11 项通过（29.6s），仅编译 main 的 Keychain 拦截 bootstrap 在打包模式跳过（开发模式已验证）。两架构 .app、ZIP、DMG 已重新生成并通过包完整性检验。新增实际 guard 截图在 docs/screenshots；最终 bundle／checksum 见 FIX1 任务报告。
 
-**x64 运行边界：** 控制器重试修复后的实际 x64 包时，Playwright 调试入口曾在 15 秒内未获得窗口；确认 ASAR 包含延迟修复。随后 direct launch 在 Rosetta 下成功，原生 CUA 读到真实窗口及 release/x64 的 ASAR 页面 URL，隔离目录 /tmp/xiaoshuo-intel-fixed-direct-20261006 创建 works.sqlite。因此调试入口超时不能等同实际 app 失败。基础创建／保存 smoke 仍由控制器验证并补证；物理 Intel Mac 未验，未自动授权或修改 Keychain。
+**x64 运行边界：** 控制器重试修复后的实际 x64 包时，Playwright 调试入口曾在 15 秒内未获得窗口；确认 ASAR 包含延迟修复。随后 direct launch 在 Rosetta 下成功，原生 CUA 读到真实窗口及 release/x64 的 ASAR 页面 URL。在隔离目录 /tmp/xiaoshuo-intel-fixed-direct-20261006 中，经原生控件创建“Intel 安装包验证”、填写中文背景，界面显示“已保存到本机”；Cmd+Q 退出后，进程已结束，SQLite 只读查询确认名称与背景完整持久化。因此调试入口超时不能等同实际 app 失败。这是 Rosetta 基础运行验证，不是 Intel 物理设备完整验收；未自动授权或修改 Keychain。
 
 最终 FIX1 bundle：index-DQydBrK5.js。针对多表单提示增加明确候选名后，最终 .app 两项审阅回归再次通过（6.9s），并人工看过弹窗截图，无裁切。两架构包再次生成、DMG 与 ZIP 完整性通过；SHA-256 记录在任务报告的 FIX1 段。
+
+## 最终整体审查与交付构建
+
+代码基线 `46db508`。整体审查发现的两项重要问题已在同一修复波次处理：规划多次中断保留完整累积片段；持久化任务的请求、结果和引用归属按实际生产协议校验，恶形作品包在事务前整体拒绝。本地已有损坏任务保留原记录，禁止续跑，任务页面显示中文提示与可读片段，不再令整个页面崩溃。
+
+新增真实回归包括两次失败／取消后第三次完成、13 种重新计算有效 SHA-256 的恶形任务包、损坏 running／waiting 任务重启。Store 测试样例调整为真实生产协议形状，没有为旧样例放宽校验。先确认 RED，再完成 GREEN。
+
+最终验证结果：
+
+- `npm test`：5 文件、77 项通过；`npm run typecheck` 通过；`npm audit` 为 0 漏洞。
+- `npm run e2e`：14 项实际开发 Electron 工作流通过。
+- 最终 arm64 ASAR：13 项通过，1 项仅开发启动可注入的 Keychain bootstrap 按预期跳过；该项在开发构建已通过。
+- 两架构 Forge `.app`、ZIP、DMG 构建成功；两份 DMG 与 ZIP 完整性通过；Mach-O 分别为 arm64／x86_64。
+- 从两个 ASAR 抽取 main 和 renderer 与最终 `out/` 逐字节一致，renderer 为 `index-0TrCqDKg.js`。
+- 最终 x64 包在现有 Rosetta 环境中直接启动，并通过调试连接执行真实 UI：空书架、新建、背景／标题／正文输入、立即切换、精确字段名称查找与确认正文。原生 Cmd+Q 退出后，SQLite 只读核对章节状态 `confirmed` 及中文内容完整。使用独立临时目录，无真实模型或生产作品；截图 `docs/screenshots/final-intel-smoke.png`。
+- 新鲜独立复核阅读了全部 7 个修复文件及回归测试，确认两项重要问题均已解决，没有发现修复引入的新 Critical／Important 问题。
+
+最终文件 SHA-256：
+
+| 文件 | SHA-256 |
+| --- | --- |
+| arm64 DMG | `2851c4c34749ee353858ca95c657d48512f923afef5f1494942f3cd804c8008f` |
+| x64 DMG | `066df9dc27344d40f473d32cf4496fcf940892b1ea46e338589da76bec0d7dd8` |
+| arm64 ZIP | `2e8978a84f25e21a0e5927b63d4b12900db614ab20c8a0dee3b5847251621e57` |
+| x64 ZIP | `8d916043cab7c0b71082fc7eb5209170e50289d959001ae1b43578444d57ed65` |
+
+实际截图中的小说与模型输出均为隔离验收数据。真实 API 兼容性、二十章文学质量、Intel 物理设备、最低系统设备、两台实体 Mac 迁移及 Developer ID／公证仍未验证。Rosetta 验证不替代物理 Intel 验收。宿主 Node 的 SQLite experimental 和 Playwright 颜色环境警告保留记录，不当作应用功能失败，也不据此声称完全无警告。
+
+## 实施选择记录
+
+1. 新项目原本没有代码或 Git 仓库，在用户指定目录初始化 `codex/macos-authoring` 开发分支，没有额外搬到工作树；如需其他工作区，后续需迁移检出。
+2. 用户对完整规格的“OK”作为实施授权，直接执行确认范围，没有再要求选择实现流程；若范围解释不同，需要相应修改和返工。
+3. DOCX 使用 fflate 与 fast-xml-parser 的内置 OOXML 读写实现，替代最初列出的 docx／mammoth 库；当前纯正文往返与渲染通过，复杂 Word 版式需要进一步兼容验证或替换实现。
+
+正式签名公证、真实服务验证和用户阅读验收是后续验收事项，不由本次本地测试结果代替。
