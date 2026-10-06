@@ -1,0 +1,12 @@
+node_modules/
+out/
+dist/
+release/
+.DS_Store
+.superpowers/
+test-results/
+playwright-report/
+*.log
+*.sqlite*
+.env*
+!.env.example
