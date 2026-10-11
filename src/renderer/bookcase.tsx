@@ -55,7 +55,7 @@ export function Bookcase({
           className="card new-project"
           onSubmit={(e) => {
             e.preventDefault();
-            void run({ type: "project.create", title })
+            void run({ type: "project.create", title: title.trim() || "未命名故事" })
               .then((r) => {
                 setCreating(false);
                 open(r.entityId);
@@ -68,8 +68,7 @@ export function Bookcase({
               autoFocus
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="给故事起个名字"
-              required
+              placeholder="可以先留空，和 AI 一起起名"
             />
           </Field>
           <button className="primary">创建作品</button>
@@ -83,7 +82,7 @@ export function Bookcase({
           title={archived ? "这里还没有归档作品" : "你的下一部故事，从这里开始"}
         >
           <p>
-            新建作品，先写下创意，再整理设定与章节。
+            新建作品，聊一个想法，或让 AI 推荐故事方向。
             <br />
             已有作品包？可以导入为独立副本。
           </p>

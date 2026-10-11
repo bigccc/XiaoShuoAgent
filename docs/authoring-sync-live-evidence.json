@@ -1,0 +1,97 @@
+{
+  "date": "2026-10-11T06:00:58.701Z",
+  "isolated": true,
+  "steps": [
+    {
+      "stage": "overview",
+      "status": "passed",
+      "characters": 449,
+      "bindings": 3
+    },
+    {
+      "stage": "settings",
+      "status": "passed",
+      "characters": 832,
+      "bindings": 7
+    },
+    {
+      "stage": "outline",
+      "status": "passed",
+      "characters": 795,
+      "bindings": 3
+    },
+    {
+      "action": "auxiliary rename/body edit",
+      "status": "passed",
+      "sameIdentity": true,
+      "modelCalls": 0
+    },
+    {
+      "action": "free text normalization",
+      "status": "passed",
+      "calls": 1,
+      "sourcePreserved": true,
+      "retainedFailedDraft": true
+    }
+  ],
+  "productionModified": false,
+  "model": "deepseek-flash",
+  "wordTargets": {
+    "targetWords": 100000,
+    "chapterWords": 3000
+  },
+  "result": "passed",
+  "syncJobs": [
+    {
+      "stage": "overview",
+      "status": "succeeded",
+      "calls": 0,
+      "usage": null
+    },
+    {
+      "stage": "settings",
+      "status": "succeeded",
+      "calls": 0,
+      "usage": null
+    },
+    {
+      "stage": "outline",
+      "status": "succeeded",
+      "calls": 0,
+      "usage": null
+    },
+    {
+      "stage": "settings",
+      "status": "succeeded",
+      "calls": 0,
+      "usage": null
+    },
+    {
+      "stage": "settings",
+      "status": "failed",
+      "calls": 2,
+      "usage": {
+        "inputTokens": 4047,
+        "outputTokens": 701,
+        "totalTokens": 4748,
+        "estimated": false
+      }
+    },
+    {
+      "stage": "settings",
+      "status": "succeeded",
+      "calls": 1,
+      "usage": {
+        "inputTokens": 2823,
+        "outputTokens": 525,
+        "totalTokens": 3348,
+        "estimated": false
+      }
+    }
+  ],
+  "acceptanceProjectGenerationResponses": 3,
+  "acceptanceProjectNormalizationAttempts": 3,
+  "completedAt": "2026-10-11T06:03:23.475Z",
+  "portableV3Roundtrip": "passed",
+  "portableExcludesProfilesAndCredentials": true
+}

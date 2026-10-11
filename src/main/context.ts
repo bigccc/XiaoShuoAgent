@@ -114,6 +114,7 @@ export function buildContext(
   for (const n of state.notes.filter(
     (n) =>
       n.projectId === projectId &&
+      !n.archived &&
       (!options.noteIds || options.noteIds.includes(n.id)),
   )) {
     if (n.needsReview || n.sources.some((ref) => !sourceCurrent(state, ref))) {

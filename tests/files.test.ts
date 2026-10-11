@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { Store } from "../src/main/store";
 import { DomainService } from "../src/main/domain";
 import { ProjectFiles, readMaterialFile } from "../src/main/files";
+import { createHash } from "node:crypto";
 const dirs: string[] = [];
 const stores: Store[] = [];
 afterEach(() => {
@@ -53,6 +54,43 @@ function chapter(
   return c.entityId;
 }
 describe("portable files", () => {
+  it("preserves conversations and remaps chapter/proposal references, including interrupted work", async () => {
+    const { files, store, dir, id, domain } = setup();
+    const cid = chapter(domain, id, 1, "正文");
+    const time = new Date().toISOString();
+    store.put("conversations", { id: "turn-1", revision: 1, createdAt: time, updatedAt: time, projectId: id, text: "修改职业", reply: "建议回改", status: "awaiting-author", suggestions: ["一起改"], chapterIds: [cid], chapterId: cid, memory: "偏好轻松风格", contextWarnings: [], usage: null, profileId: "private-profile", proposal: { chapterIds: [cid], reason: "职业变更" }, response: { message: "修改", chapters: [{ id: cid, title: "章", content: "正文", stage: "complete" }] } });
+    store.put("conversations", { id: "turn-2", revision: 1, createdAt: time, updatedAt: time, projectId: id, text: "一起改", reply: "", status: "running", suggestions: [], chapterIds: [], memory: "", contextWarnings: [], usage: null, proposalTurnId: "turn-1" });
+    const path = join(dir, "conversation.novel");
+    await files.backup(id, path);
+    expect(readFileSync(path, "utf8")).not.toContain("private-profile");
+    const copy = await files.importBackup(path);
+    const turns = store.snapshot().conversations.filter(t => t.projectId === copy);
+    expect(turns).toHaveLength(2);
+    const copiedChapter = store.snapshot().chapters.find(c => c.projectId === copy)!;
+    expect(turns[0].proposal!.chapterIds).toEqual([copiedChapter.id]);
+    expect(turns[0].response!.chapters![0].id).toBe(copiedChapter.id);
+    expect(turns[1].proposalTurnId).toBe(turns[0].id);
+    expect(turns[1].status).toBe("interrupted");
+    expect(turns[0].memory).toBe("偏好轻松风格");
+  });
+  it("imports legacy packages without conversations and rejects foreign conversation targets", async () => {
+    const { files, store, dir, id } = setup();
+    const path = join(dir, "legacy.novel"); await files.backup(id, path);
+    const pack = JSON.parse(readFileSync(path, "utf8"));
+    delete pack.payload.conversations; pack.version = 1;
+    pack.sha256 = createHash("sha256").update(JSON.stringify(pack.payload)).digest("hex");
+    writeFileSync(path, JSON.stringify(pack));
+    const copy = await files.importBackup(path);
+    expect(store.snapshot().projects.find(p => p.id === copy)).toBeTruthy();
+    expect(store.snapshot().conversations).toEqual([]);
+    const time = new Date().toISOString();
+    pack.version = 2;
+    pack.payload.conversations = [{ id: "bad-turn", revision: 1, createdAt: time, updatedAt: time, projectId: id, text: "想法", reply: "回答", status: "completed", suggestions: [], chapterIds: ["foreign"], memory: "", contextWarnings: [], usage: null }];
+    pack.sha256 = createHash("sha256").update(JSON.stringify(pack.payload)).digest("hex");
+    writeFileSync(path, JSON.stringify(pack));
+    await expect(files.importBackup(path)).rejects.toThrow();
+    expect(store.snapshot().projects).toHaveLength(2);
+  });
   it("exports ordered Chinese DOCX and TXT, excluding drafts by default", async () => {
     const { files, dir, id, domain } = setup();
     chapter(domain, id, 2, "后文 & <伏笔>");
@@ -165,4 +203,15 @@ describe("portable files", () => {
     writeFileSync(txt, "a".repeat(2_000_001));
     await expect(readMaterialFile(txt)).rejects.toThrow(/大小|长度/);
   });
+});
+it("remaps conversation reference fields without rewriting literal prose that happens to equal an identity", async () => {
+  const { files, store, dir, id, domain } = setup();
+  const cid = chapter(domain, id, 1, "正文");
+  const time = "2026-10-09T00:00:00.000Z";
+  store.put("conversations", { id: "turn-id", revision: 1, createdAt: time, updatedAt: time, projectId: id, text: cid, reply: id, status: "completed", suggestions: [cid], chapterIds: [cid], memory: "turn-id", contextWarnings: [], usage: null, response: { message: cid, chapters: [{ id: cid, title: cid, content: id, stage: "complete" }] } });
+  const path = join(dir, "literal.novel"); await files.backup(id, path);
+  const copy = await files.importBackup(path), turn = store.snapshot().conversations.find(t => t.projectId === copy)!;
+  expect(turn.chapterIds[0]).not.toBe(cid); expect(turn.response!.chapters![0].id).toBe(turn.chapterIds[0]);
+  expect(turn.text).toBe(cid); expect(turn.reply).toBe(id); expect(turn.suggestions).toEqual([cid]); expect(turn.memory).toBe("turn-id");
+  expect(turn.response!.message).toBe(cid); expect(turn.response!.chapters![0].content).toBe(id); expect(turn.response!.chapters![0].title).toBe(cid);
 });

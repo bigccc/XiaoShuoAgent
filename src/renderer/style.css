@@ -7,6 +7,95 @@
   font-synthesis: none;
   font-size: 14px;
 }
+.conversation-workspace { height: 100%; display: grid; grid-template-columns: minmax(340px, 42%) minmax(360px, 1fr); overflow: hidden; }
+.authoring-progress { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; padding: 18px 18px 12px; border-bottom: 1px solid #e5e6dd; }
+.authoring-progress button { display: flex; align-items: center; justify-content: center; gap: 9px; border: 0; background: transparent; padding: 9px 4px; font-size: 13px; }
+.authoring-progress button.selected { background: #e6eee3; }
+.authoring-progress small { display: block; margin-top: 4px; font-size: 10px; color: #879681; }
+.stage-number { display: flex; width: 24px; height: 24px; align-items: center; justify-content: center; border-radius: 50%; background: #edf0e8; color: #71896e; font-size: 11px; flex-shrink: 0; }
+.authoring-progress [aria-current="step"] .stage-number { background: #267568; color: white; }
+.current-stage-label { padding: 8px 10px 8px 0; font-size: 12px; color: #66816c; }
+.stage-editor { padding: 26px 30px; }
+.stage-document-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.stage-document-heading h2 { font-family: "Songti SC", serif; font-size: 26px; }
+.stage-editor > p { font-size: 12px; margin-bottom: 15px; }
+.stage-content { min-height: 400px; border: 0; padding: 10px 0; font-size: 16px; line-height: 2; }
+.stage-editor .stage-editor-hint { font-size: 11px; color: #84957c; }
+.stage-history summary { cursor: pointer; font-size: 12px; color: #74876f; margin: 12px 0; }
+.stage-history pre { white-space: pre-wrap; overflow-wrap: anywhere; font: inherit; line-height: 1.9; }
+.preview-progress, .stage-review-group { padding: 10px 24px; background: #f2f2e6; color: #74816b; font-size: 11px; line-height: 1.6; }
+.preview-progress button { padding: 4px 8px; margin-left: 8px; font-size: 11px; }
+@media (max-width: 1150px) { .authoring-progress { padding: 10px 8px; gap: 0; } .authoring-progress button { gap: 5px; font-size: 12px; } .stage-editor { padding: 20px; } }
+.conversation-pane { min-width: 0; min-height: 0; display: flex; flex-direction: column; border-right: 1px solid #dce1d7; background: #f8f7f1; }
+.conversation-heading { padding: 27px 26px 12px; border-bottom: 1px solid #e5e6dd; }
+.conversation-heading h1 { font-size: 25px; margin-bottom: 8px; }
+.conversation-heading p { font-size: 12px; margin-bottom: 4px; }
+.conversation-heading .eyebrow { font-size: 10px; margin-bottom: 10px; }
+.conversation-log { flex: 1; overflow-y: auto; min-height: 0; padding: 24px; scroll-behavior: smooth; }
+.conversation-welcome { padding: 12px 0; }
+.welcome-mark { font-size: 28px; color: #428372; margin-bottom: 16px; }
+.conversation-welcome h2 { font-family: "Songti SC", serif; font-size: 23px; }
+.conversation-welcome p { font-size: 13px; }
+.starter-list { display: grid; gap: 10px; margin-top: 24px; }
+.starter-list button { text-align: left; display: flex; justify-content: space-between; gap: 12px; padding: 13px; font-size: 13px; }
+.starter-list span { color: #819b8d; }
+.conversation-exchange { margin-bottom: 26px; }
+.chat-message { font-size: 14px; line-height: 1.85; overflow-wrap: anywhere; }
+.chat-message > div { white-space: pre-wrap; }
+.chat-message > small { display: block; font-size: 11px; letter-spacing: 1px; margin-bottom: 6px; color: #7c8f81; }
+.author-message { margin: 0 0 20px 28px; padding: 12px 16px; background: #e8eee5; border-radius: 14px 14px 3px 14px; }
+.assistant-message { padding: 0 3px; }
+.chat-saved { color: #648272; font-size: 11px; margin-top: 10px; }
+.chat-details { font-size: 11px; color: #7b857e; margin: 9px 0; }
+.chat-details summary { cursor: pointer; }
+.chat-details pre, .conversation-notes pre { white-space: pre-wrap; font: inherit; line-height: 1.9; overflow-wrap: anywhere; }
+.chat-details p { margin: 5px 0; }
+.thinking { color: #668571; }
+.conversation-compose { border-top: 1px solid #e0e4d8; padding: 14px 20px 16px; background: #f8f7f1; }
+.conversation-compose form { background: #fffefb; border: 1px solid #cfdccd; border-radius: 12px; padding: 5px; }
+.conversation-compose textarea { border: none; min-height: 76px; max-height: 180px; resize: vertical; background: transparent; font-size: 13px; padding: 9px; }
+.composer-actions { display: flex; justify-content: space-between; align-items: end; gap: 12px; padding: 4px; }
+.compose-hint { display: block; color: #91a08e; font-size: 10px; margin-top: 9px; }
+.model-choice { min-width: 0; font-size: 11px; color: #748571; }
+.model-choice summary { cursor: pointer; max-width: 210px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.model-choice .field { margin: 10px 0; }
+.model-choice select { max-width: 230px; font-size: 12px; }
+.model-choice button { font-size: 11px; padding: 5px 9px; }
+.chat-suggestions { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.chat-suggestions button { font-size: 12px; padding: 6px 10px; border-radius: 16px; background: #edf2e8; }
+.model-nudge { font-size: 12px; margin-bottom: 12px; display: flex; gap: 8px; align-items: center; }
+.model-nudge button { flex-shrink: 0; padding: 7px; font-size: 12px; }
+.manuscript-pane { min-width: 0; min-height: 0; display: flex; flex-direction: column; background: #fffefb; }
+.manuscript-heading { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 18px 24px; border-bottom: 1px solid #e5e6dd; }
+.manuscript-tabs { display: flex; gap: 5px; flex-shrink: 0; }
+.manuscript-tabs button { border: 0; font-size: 12px; }
+.manuscript-heading select { width: auto; max-width: 48%; font-size: 12px; padding: 7px; }
+.manuscript-scroll { min-height: 0; overflow: auto; flex: 1; }
+.manuscript-scroll .chapter-editor { padding: 24px 30px; }
+.manuscript-scroll .chapter-toolbar { flex-wrap: wrap; gap: 9px; }
+.manuscript-scroll .prose { min-height: 480px; border: none; padding: 8px 0; font-family: "Songti SC", "Noto Serif SC", serif; font-size: 18px; line-height: 2.1; }
+.manuscript-scroll .chapter-title { border: none; border-bottom: 1px solid #e6e8de; border-radius: 0; padding-left: 0; }
+.manuscript-scroll .compare { grid-template-columns: 1fr; }
+.manuscript-empty { max-width: 500px; margin: 12vh auto 0; padding: 36px; }
+.manuscript-empty h2 { font-family: "Songti SC", serif; font-size: 26px; line-height: 1.65; margin: 16px 0; }
+.manuscript-empty p { font-size: 13px; }
+.paper-lines { display: grid; gap: 26px; padding: 26px 0; }
+.paper-lines i { display: block; height: 1px; background: #e6e9de; }
+.paper-lines i:last-child { width: 63%; }
+.conversation-notes { padding: 30px; }
+.conversation-notes .card { margin-top: 20px; }
+.conversation-notes small { color: #7d917c; font-size: 11px; }
+@media (max-width: 1150px) {
+  .conversation-workspace { grid-template-columns: minmax(330px, 42%) minmax(0, 1fr); }
+  .conversation-heading { padding: 20px 18px 12px; }
+  .conversation-log { padding: 18px; }
+  .conversation-compose { padding: 12px; }
+  .manuscript-heading { padding: 14px 12px; flex-wrap: wrap; }
+  .manuscript-heading select { max-width: 100%; }
+  .manuscript-scroll .chapter-editor { padding: 20px; }
+  .conversation-heading h1 { font-size: 22px; }
+  .sidebar { overflow-y: auto; }
+}
 * {
   box-sizing: border-box;
 }
@@ -725,3 +814,14 @@ blockquote {
   box-shadow: 0 20px 80px #263b3b33;
   padding: 30px;
 }
+
+.stage-sync { margin: 14px 0 20px; padding: 12px 14px; border: 1px solid #dce1d7; border-radius: 10px; background: #f8f7f1; }
+.stage-sync-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
+.stage-sync-heading .toolbar { margin: 0; }
+.stage-sync [role="status"] { font-size: 13px; font-weight: 600; }
+.stage-sync details { margin-top: 10px; font-size: 13px; }
+.stage-sync pre { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 240px; overflow-y: auto; font: inherit; }
+.stage-sync-conflict { margin-top: 12px; }
+.stage-sync-conflict article { border-top: 1px solid #dce1d7; padding: 10px 0; }
+.stage-sync-conflict article small { overflow-wrap: anywhere; }
+.archive-toggle { margin: 14px 0; font-size: 12px; }

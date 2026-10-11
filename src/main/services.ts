@@ -19,6 +19,8 @@ import {
 } from "./provider";
 import { TaskRunner, type CredentialCodec } from "./tasks";
 import { ProjectFiles, readMaterialFile, atomicWrite } from "./files";
+import { ConversationRunner } from "./conversation";
+import { StageSyncService } from "./stage-sync";
 export interface FileDialogAdapter {
   open: (kind: "material" | "backup") => Promise<string | null>;
   save: (
@@ -34,12 +36,15 @@ export interface AppServicesOptions {
   provider?: Omit<ProviderOptions, "fetch">;
   maxContextChars?: number;
   recoveryIntervalMs?: number;
+  syncDebounceMs?: number;
 }
 export class AppServices {
   readonly domain: DomainService;
   private store: Store;
   private files: ProjectFiles;
   private tasks: TaskRunner;
+  private conversations: ConversationRunner;
+  private sync: StageSyncService;
   private timer: ReturnType<typeof setInterval>;
   private recovering: Promise<void> | null = null;
   private lastDigest = "";
@@ -56,6 +61,8 @@ export class AppServices {
     this.store = new Store(join(options.dataDir, "works.sqlite"));
     this.domain = new DomainService(this.store, {
       encryptKey: options.credentials?.encrypt,
+      onContentChange: (command, before) =>
+        this.sync?.onContentChange(command, before),
     });
     this.files = new ProjectFiles(this.store);
     this.tasks = new TaskRunner(
@@ -64,6 +71,31 @@ export class AppServices {
       new ChatProvider({ ...options.provider, fetch: options.fetch }),
       options.credentials,
       options.maxContextChars ?? 24000,
+    );
+    this.sync = new StageSyncService(
+      this.store,
+      this.domain,
+      new ChatProvider({ ...options.provider, fetch: options.fetch }),
+      options.credentials,
+      options.syncDebounceMs ?? 5000,
+      (id) =>
+        this.store
+          .list("conversations")
+          .some((t) => t.projectId === id && t.status === "running") ||
+        this.store
+          .list("tasks")
+          .some(
+            (t) =>
+              t.projectId === id && ["running", "waiting"].includes(t.status),
+          ),
+    );
+    this.conversations = new ConversationRunner(
+      this.store,
+      this.domain,
+      new ChatProvider({ ...options.provider, fetch: options.fetch }),
+      options.credentials,
+      options.maxContextChars ?? 48000,
+      this.sync,
     );
     this.timer = setInterval(
       () => {
@@ -91,16 +123,143 @@ export class AppServices {
       )
         throw new DomainError("VALIDATION", "请求格式不正确");
       if (!isAsync(command.type)) {
+        if (command.type === "authoring.save") {
+          const result = this.conversations.saveDocument(command);
+          if (result.revision !== command.revision)
+            this.sync.schedule(command.id, command.stage);
+          return result;
+        }
+        if (command.type === "authoring.sync") {
+          if (
+            Object.keys(command).some(
+              (k) => !["type", "projectId", "stage", "profileId"].includes(k),
+            )
+          )
+            throw new DomainError("VALIDATION", "同步参数不正确");
+          return {
+            ok: true,
+            entityId: this.sync.start(
+              command.projectId,
+              command.stage,
+              command.profileId,
+            ),
+          };
+        }
+        if (
+          command.type === "authoring.retrySync" ||
+          command.type === "authoring.cancelSync"
+        ) {
+          if (
+            typeof command.id !== "string" ||
+            !command.id ||
+            Object.keys(command).some((k) => !["type", "id"].includes(k))
+          )
+            throw new DomainError("VALIDATION", "同步参数不正确");
+          if (command.type === "authoring.cancelSync") {
+            this.sync.cancel(command.id);
+            return { ok: true, entityId: command.id };
+          }
+          return { ok: true, entityId: this.sync.retry(command.id) };
+        }
+        if (command.type === "authoring.resolveSync") {
+          if (
+            Object.keys(command).some(
+              (k) => !["type", "id", "resolution", "links"].includes(k),
+            ) ||
+            typeof command.id !== "string" ||
+            !command.id ||
+            (command.links !== undefined &&
+              (!command.links ||
+                typeof command.links !== "object" ||
+                Array.isArray(command.links) ||
+                Object.entries(command.links).some(
+                  ([k, v]) => !k || (v !== null && typeof v !== "string"),
+                )))
+          )
+            throw new DomainError("VALIDATION", "差异处理参数不正确");
+          return {
+            ok: true,
+            entityId: this.sync.resolve(
+              command.id,
+              command.resolution,
+              command.links,
+            ),
+          };
+        }
+        if (command.type === "authoring.restore") {
+          if (
+            Object.keys(command).some(
+              (k) =>
+                ![
+                  "type",
+                  "projectId",
+                  "stage",
+                  "revision",
+                  "historyRevision",
+                ].includes(k),
+            ) ||
+            !["overview", "settings", "outline"].includes(command.stage) ||
+            !Number.isSafeInteger(command.revision) ||
+            !Number.isSafeInteger(command.historyRevision)
+          )
+            throw new DomainError("VALIDATION", "恢复参数不正确");
+          return {
+            ok: true,
+            entityId: this.sync.restore(
+              command.projectId,
+              command.stage,
+              command.revision,
+              command.historyRevision,
+            ),
+          };
+        }
+        if (command.type === "conversation.send") {
+          await this.sync.barrier(command.projectId);
+          return { ok: true, entityId: this.conversations.start(command) };
+        }
+        if (
+          command.type === "conversation.cancel" ||
+          command.type === "conversation.retry"
+        ) {
+          if (
+            typeof command.id !== "string" ||
+            !command.id ||
+            Object.keys(command).some((k) => !["type", "id"].includes(k))
+          )
+            throw new DomainError("VALIDATION", "对话操作参数不正确");
+          if (command.type === "conversation.cancel") {
+            this.conversations.cancel(command.id);
+            return { ok: true, entityId: command.id };
+          }
+          return { ok: true, entityId: this.conversations.retry(command.id) };
+        }
         if (command.type === "profile.save") chatUrl(command.baseUrl);
         return this.domain.execute(command);
       }
-      const c = command as AsyncCommand;
+      const c = command as Exclude<
+        AsyncCommand,
+        {
+          type:
+            | "conversation.send"
+            | "conversation.cancel"
+            | "conversation.retry"
+            | "authoring.save"
+            | "authoring.sync"
+            | "authoring.retrySync"
+            | "authoring.cancelSync"
+            | "authoring.resolveSync"
+            | "authoring.restore";
+        }
+      >;
       validateAsync(c);
       if (c.type === "task.cancel") {
         this.tasks.cancel(c.id);
         return { ok: true, entityId: c.id };
       }
       if (c.type === "task.resume") {
+        const old = this.store.get("tasks", c.id);
+        if (old && old.projectId !== "@connection")
+          await this.sync.barrier(old.projectId);
         this.tasks.resume(c.id, c.mode);
         return { ok: true, entityId: c.id };
       }
@@ -109,8 +268,10 @@ export class AppServices {
         c.type === "ai.plan" ||
         c.type === "ai.chapter" ||
         c.type === "ai.check"
-      )
+      ) {
+        if (c.type !== "model.test") await this.sync.barrier(c.projectId);
         return { ok: true, entityId: this.tasks.start(c) };
+      }
       if (c.type === "ai.extract") {
         let text = c.sourceText;
         if (text === undefined) {
@@ -199,6 +360,11 @@ export class AppServices {
         materials: state.materials,
         tasks: state.tasks,
         issues: state.issues,
+        conversations: state.conversations.map(
+          ({ profileId, ...turn }) => turn,
+        ),
+        syncJobs: state.syncJobs.map(({ profileId, ...job }) => job),
+        syncBatches: state.syncBatches,
       };
       validatePublicJson(payload);
       const sha256 = createHash("sha256")
@@ -215,7 +381,7 @@ export class AppServices {
         file,
         JSON.stringify({
           format: "xiaoshuo-recovery",
-          version: 1,
+          version: 3,
           sha256,
           payload,
         }),
@@ -238,6 +404,8 @@ export class AppServices {
     clearInterval(this.timer);
     this.disposePromise = (async () => {
       await this.tasks.dispose();
+      await this.conversations.dispose();
+      await this.sync.dispose();
       await this.recovering;
       await this.recovery();
       this.store.close();
@@ -276,12 +444,13 @@ function validateAsync(value: AsyncCommand): void {
   ];
   const fields: Record<string, string[]> = {
     "model.test": ["profileId", "projectId"],
-    "ai.plan": [...common, "step"],
+    "ai.plan": [...common, "step", "planningMaxWords", "maxOutputTokens"],
     "ai.chapter": [
       ...common,
       "chapterIds",
       "authorizeBatch",
       "checkingProfileId",
+      "chapterWords",
     ],
     "ai.check": [...common, "chapterIds"],
     "ai.extract": [...common, "sourceText", "source"],
@@ -338,9 +507,27 @@ function validateAsync(value: AsyncCommand): void {
     )
       fail();
   }
+  for (const [field, max] of [
+    ["planningMaxWords", 300000],
+    ["maxOutputTokens", 32000],
+  ] as const)
+    if (
+      c[field] !== undefined &&
+      (!Number.isSafeInteger(c[field]) ||
+        Number(c[field]) < 1 ||
+        Number(c[field]) > max)
+    )
+      fail();
   if (
     value.type === "ai.chapter" &&
     (!Array.isArray(c.chapterIds) || !c.chapterIds.length)
+  )
+    fail();
+  if (
+    c.chapterWords !== undefined &&
+    (!Number.isSafeInteger(c.chapterWords) ||
+      Number(c.chapterWords) < 1 ||
+      Number(c.chapterWords) > 16000)
   )
     fail();
   if (

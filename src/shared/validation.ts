@@ -200,6 +200,7 @@ export function validateCommand(x: unknown): asserts x is DomainCommand {
           "timeline",
           "knowledge",
           "foreshadowing",
+          "supplement",
         ].includes(String(c.noteType))
       )
         invalid();
@@ -375,6 +376,7 @@ const noteTypes = [
   "timeline",
   "knowledge",
   "foreshadowing",
+          "supplement",
 ];
 function matchingSource(source: any, sources: SourceRevision[]): boolean {
   return sources.some(
@@ -420,11 +422,16 @@ function validateTaskPayload(task: Record<string, any>): void {
       : [
           ...common,
           ...(command.type === "ai.chapter"
-            ? ["chapterIds", "authorizeBatch", "checkingProfileId"]
+            ? [
+                "chapterIds",
+                "authorizeBatch",
+                "checkingProfileId",
+                "chapterWords",
+              ]
             : command.type === "ai.check"
               ? ["chapterIds"]
               : command.type === "ai.plan"
-                ? ["step"]
+                ? ["step", "planningMaxWords", "maxOutputTokens"]
                 : ["source", "sourceText"]),
         ],
   );
@@ -452,6 +459,10 @@ function validateTaskPayload(task: Record<string, any>): void {
       taskBoolean(command.allowAutoMaterials);
     if (command.type === "ai.plan" && !noteTypes.includes(command.step))
       invalid("任务规划步骤不正确");
+    if (command.type === "ai.plan")
+      for (const [field, max] of [["planningMaxWords", 300000], ["maxOutputTokens", 32000]] as const)
+        if (command[field] !== undefined && (!Number.isSafeInteger(command[field]) || command[field] < 1 || command[field] > max))
+          invalid("规划字数或单次输出上限不正确");
     if (command.type === "ai.chapter") {
       const ids = taskStrings(command.chapterIds);
       if (
@@ -464,6 +475,13 @@ function validateTaskPayload(task: Record<string, any>): void {
         taskBoolean(command.authorizeBatch);
       if (command.checkingProfileId !== undefined)
         text(command.checkingProfileId, true);
+      if (
+        command.chapterWords !== undefined &&
+        (!Number.isSafeInteger(command.chapterWords) ||
+          command.chapterWords < 1 ||
+          command.chapterWords > 16000)
+      )
+        invalid("任务章节字数不正确");
     } else if (command.type === "ai.check" && command.chapterIds !== undefined)
       taskStrings(command.chapterIds);
     if (command.type === "ai.extract") {
@@ -593,6 +611,7 @@ function validateTaskPayload(task: Record<string, any>): void {
     "connection",
     "pauseReason",
     "phase",
+    "checkProgress",
   ]);
   if (result.disclosures !== undefined)
     taskStrings(result.disclosures, 1000000);
@@ -617,11 +636,22 @@ function validateTaskPayload(task: Record<string, any>): void {
       "needsReview",
       "checked",
       "check",
+      "lengthAttempts",
     ]);
     text(candidate.chapterId, true);
     text(candidate.text, true);
     taskBoolean(candidate.needsReview);
     taskBoolean(candidate.checked);
+    if (
+      candidate.lengthAttempts !== undefined &&
+      ![1, 2].includes(candidate.lengthAttempts)
+    )
+      invalid("任务字数修订次数不正确");
+    if (
+      candidate.lengthAttempts !== undefined &&
+      command.chapterWords === undefined
+    )
+      invalid("任务字数修订缺少目标");
     if (!command.chapterIds.includes(candidate.chapterId))
       invalid("任务候选不属于所选章节");
     if (candidate.versionId !== undefined) text(candidate.versionId, true);
@@ -633,9 +663,15 @@ function validateTaskPayload(task: Record<string, any>): void {
   if (
     result.phase !== undefined &&
     (task.kind !== "generation" ||
-      !["generation", "checking"].includes(result.phase))
+      !["generation", "checking", "length"].includes(result.phase))
   )
     invalid("任务执行阶段不正确");
+  if (
+    result.phase === "length" &&
+    (!command.chapterWords ||
+      !candidates.some((c) => [1, 2].includes(c.lengthAttempts) && !c.checked))
+  )
+    invalid("任务字数修订阶段缺少待修订候选");
   if (result.suggestion !== undefined || result.step !== undefined) {
     if (task.kind !== "planning") invalid("任务建议与任务类型不一致");
     text(result.suggestion, true);
@@ -669,6 +705,19 @@ function validateTaskPayload(task: Record<string, any>): void {
     if (task.kind !== "check") invalid("任务检查与任务类型不一致");
     validateTaskCheck(result.check, documents, candidates, sources);
   }
+  if (result.checkProgress !== undefined) {
+    const progress = taskObject(result.checkProgress);
+    taskFields(progress, ["chapterId", "completed", "total", "checked"]);
+    if (!["check", "generation"].includes(task.kind)) invalid("任务检查进度与类型不一致");
+    if (!Number.isSafeInteger(progress.total) || progress.total < 1 ||
+        !Number.isSafeInteger(progress.completed) || progress.completed < 0 || progress.completed > progress.total)
+      invalid("任务检查覆盖进度不正确");
+    if (task.kind === "generation") {
+      if (!candidates.some(c => c.chapterId === progress.chapterId)) invalid("检查进度缺少对应候选");
+    } else if (progress.chapterId !== undefined) invalid("全文检查进度不能包含候选章节");
+    validateTaskCheck(progress.checked, documents, candidates, sources);
+    if (task.status === "completed" && progress.completed !== progress.total) invalid("检查尚未覆盖全部分段");
+  }
   if (result.issueIds !== undefined) {
     if (task.kind !== "check") invalid("任务问题与任务类型不一致");
     taskStrings(result.issueIds);
@@ -699,7 +748,7 @@ function validateTaskCheck(
   taskFields(check, ["issues", "majorChange", "reason"]);
   taskBoolean(check.majorChange);
   if (check.reason !== undefined) text(check.reason);
-  for (const value of taskArray(check.issues, 100)) {
+  for (const value of taskArray(check.issues, 10000)) {
     const issue = taskObject(value);
     taskFields(issue, ["type", "reason", "evidence"]);
     if (

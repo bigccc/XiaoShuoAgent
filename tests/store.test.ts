@@ -100,6 +100,19 @@ it("rolls back a transaction when its work throws", () => {
   expect(a.snapshot().projects).toEqual([]);
   a.close();
 });
+it("upgrades a v1 database with a recoverable backup and an empty conversation table", () => {
+  const path = dbPath();
+  const seed = new Store(path);
+  new DomainService(seed).execute({ type: "project.create", title: "升级前的作品" });
+  seed.close();
+  const legacy = new DatabaseSync(path);
+  legacy.exec("DROP TABLE conversations; PRAGMA user_version=1;"); legacy.close();
+  const upgraded = new Store(path);
+  expect(upgraded.snapshot().conversations).toEqual([]);
+  expect(upgraded.snapshot().projects[0].title).toBe("升级前的作品");
+  expect(readdirSync(paths.at(-1)!).some(f => f.includes("before-v2"))).toBe(true);
+  upgraded.close();
+});
 it("backs up a version zero database before migrating and refuses unknown future versions", () => {
   const path = dbPath();
   const seed = new DatabaseSync(path);
@@ -210,4 +223,40 @@ it("keeps a task request snapshot immutable as progress is persisted", () => {
   ).toThrow(/快照/);
   expect(a.snapshot().tasks[0].requestSnapshot).toEqual(taskRequest("p"));
   a.close();
+});
+it("backs up the complete v2 database before adding persistent synchronization tables", () => {
+  const path = dbPath();
+  const seed = new Store(path);
+  const domain = new DomainService(seed);
+  domain.execute({ type: "project.create", title: "同步升级" });
+  seed.setProfileKey("private-profile", Buffer.from("opaque-credential"));
+  seed.close();
+  const legacy = new DatabaseSync(path);
+  legacy.exec("DROP TABLE IF EXISTS syncJobs; DROP TABLE IF EXISTS syncBatches; PRAGMA user_version=2;");
+  legacy.close();
+  const upgraded = new Store(path);
+  expect(upgraded.snapshot()).toMatchObject({ schemaVersion: 3, syncJobs: [], syncBatches: [] });
+  const backups = readdirSync(paths.at(-1)!).filter(f => f.includes("before-v3"));
+  expect(backups).toHaveLength(1);
+  const original = new DatabaseSync(join(paths.at(-1)!, backups[0]));
+  expect(original.prepare("PRAGMA user_version").get()?.user_version).toBe(2);
+  expect(JSON.parse(String(original.prepare("SELECT json FROM projects").get()?.json)).title).toBe("同步升级");
+  expect(original.prepare("SELECT ciphertext FROM credentials WHERE profile_id=?").get("private-profile")?.ciphertext).toEqual(new Uint8Array(Buffer.from("opaque-credential")));
+  expect(original.prepare("SELECT name FROM sqlite_master WHERE name='syncJobs'").get()).toBeUndefined();
+  original.close();
+  upgraded.close();
+});
+it("persists synchronization jobs and batches across SQLite reopen", () => {
+  const path = dbPath();
+  const store = new Store(path);
+  const time = "2026-10-09T00:00:00.000Z";
+  const job = { id: "job", projectId: "p", revision: 1, createdAt: time, updatedAt: time, stage: "overview" as const, documentRevision: 1, status: "pending" as const, sourceContent: "草稿", baseProjectRevision: 1, baseNoteRevisions: [], conflicts: [], summary: [], calls: 0, usage: null };
+  const snapshot = { fields: { title: "标题", genre: "", background: "", style: "", pace: "" }, notes: [], bindings: [], content: "草稿" };
+  store.put("syncJobs", job);
+  store.put("syncBatches", { origin: "generation", id: "batch", projectId: "p", revision: 1, createdAt: time, updatedAt: time, jobId: "job", stage: "overview", before: snapshot, after: snapshot });
+  store.close();
+  const reopened = new Store(path);
+  expect(reopened.snapshot().syncJobs).toEqual([job]);
+  expect(reopened.snapshot().syncBatches[0].after.content).toBe("草稿");
+  reopened.close();
 });

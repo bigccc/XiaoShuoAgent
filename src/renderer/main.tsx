@@ -9,9 +9,11 @@ import { Chapters } from "./chapters";
 import { Materials } from "./materials";
 import { Profiles } from "./profiles";
 import { AiPanel, Tasks, Issues } from "./tasks";
+import { Conversation } from "./conversation";
 import "./style.css";
 type View =
   | "bookcase"
+  | "conversation"
   | "project"
   | "notes"
   | "planning"
@@ -31,6 +33,9 @@ const empty: AppState = {
   profiles: [],
   tasks: [],
   issues: [],
+  conversations: [],
+  syncJobs: [],
+  syncBatches: [],
 };
 function App() {
   const [state, setState] = useState(empty),
@@ -40,6 +45,7 @@ function App() {
     [view, setView] = useState<View>("bookcase"),
     [error, setError] = useState(""),
     [notice, setNotice] = useState("");
+  const [toolsOpen, setToolsOpen] = useState(false);
   const flushers = useRef(new Set<Flush>()),
     pendingFlush = useRef<Promise<boolean> | null>(null),
     refreshId = useRef(0);
@@ -126,7 +132,8 @@ function App() {
     if (!(await flush())) return;
     setProjectId(id);
     setChapterId("");
-    setView("project");
+    setView("conversation");
+    setToolsOpen(false);
   }
   const project = state.projects.find((p) => p.id === projectId),
     nav: Array<[View, string]> = [
@@ -144,7 +151,7 @@ function App() {
     state.chapters
       .filter((c) => c.projectId === projectId)
       .sort((a, b) => a.ordinal - b.ordinal)[0];
-  const workView = project && !["profiles", "bookcase", "files"].includes(view);
+  const workView = project && !["profiles", "bookcase", "files", "conversation"].includes(view);
   return (
     <>
       <header className="window-header">
@@ -167,7 +174,9 @@ function App() {
           {project && (
             <>
               <div className="nav-section">{project.title}</div>
-              {nav.map(([id, label]) => (
+              <button className={view === "conversation" ? "active" : ""} onClick={() => void navigate("conversation")}>创作对话</button>
+              <button aria-expanded={toolsOpen} onClick={() => setToolsOpen(!toolsOpen)}>辅助工具</button>
+              {toolsOpen && nav.map(([id, label]) => (
                 <button
                   className={view === id ? "active" : ""}
                   key={id}
@@ -238,6 +247,8 @@ function App() {
                   run={run}
                   open={(id) => void open(id)}
                 />
+              ) : project && view === "conversation" ? (
+                <Conversation key={project.id} state={state} projectId={project.id} run={run} register={register} flush={flush} showProfiles={() => void navigate("profiles")} showNotes={() => { setToolsOpen(true); void navigate("notes"); }} />
               ) : view === "profiles" ? (
                 <Profiles
                   state={state}
@@ -331,7 +342,7 @@ function Files({
   flush: Flush;
   notify: (text: string) => void;
 }) {
-  const [drafts, setDrafts] = useState(false),
+  const [drafts, setDrafts] = useState(() => state.conversations.some(t => t.projectId === projectId)),
     chapters = state.chapters
       .filter((c) => c.projectId === projectId)
       .sort((a, b) => a.ordinal - b.ordinal);
@@ -354,7 +365,7 @@ function Files({
     <section className="page">
       <div className="eyebrow">迁移 / 给文字一个出口</div>
       <h1>导出与备份</h1>
-      <p>导出默认包含已确认正文；完整作品包保留设定、历史、任务和引用素材。</p>
+      <p>选择需要导出的正文；完整作品包保留对话、设定、版本历史和引用素材。</p>
       <div className="card">
         <h2>导出正文</h2>
         <label className="check">

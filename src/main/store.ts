@@ -30,6 +30,9 @@ const collections: Collection[] = [
   "profiles",
   "tasks",
   "issues",
+  "conversations",
+  "syncJobs",
+  "syncBatches",
 ];
 export class Store {
   private db: DatabaseSync;
@@ -49,7 +52,7 @@ export class Store {
       const version = Number(
         this.db.prepare("PRAGMA user_version").get()?.user_version,
       );
-      if (version > 1)
+      if (version > 3)
         throw new DomainError(
           "STORAGE",
           "数据库版本较新，请使用更新版本的应用",
@@ -57,7 +60,7 @@ export class Store {
       if (version < 1) {
         if (existing) this.backup(`${path}.before-v1-${Date.now()}.sqlite`);
         this.transaction(() => {
-          for (const table of collections)
+          for (const table of collections.filter(t => t !== "syncJobs" && t !== "syncBatches"))
             this.db.exec(
               `CREATE TABLE IF NOT EXISTS ${table}(id TEXT PRIMARY KEY, json TEXT NOT NULL)`,
             );
@@ -65,6 +68,14 @@ export class Store {
             "CREATE TABLE IF NOT EXISTS credentials(profile_id TEXT PRIMARY KEY, ciphertext BLOB NOT NULL); PRAGMA user_version=1;",
           );
         });
+      }
+      if (version < 2) {
+        if (existing && version === 1) this.backup(`${path}.before-v2-${Date.now()}.sqlite`);
+        this.transaction(() => this.db.exec("CREATE TABLE IF NOT EXISTS conversations(id TEXT PRIMARY KEY, json TEXT NOT NULL); PRAGMA user_version=2;"));
+      }
+      if (version < 3) {
+        if (existing) this.backup(`${path}.before-v3-${Date.now()}.sqlite`);
+        this.transaction(() => this.db.exec("CREATE TABLE IF NOT EXISTS syncJobs(id TEXT PRIMARY KEY, json TEXT NOT NULL); CREATE TABLE IF NOT EXISTS syncBatches(id TEXT PRIMARY KEY, json TEXT NOT NULL); PRAGMA user_version=3;"));
       }
       this.db.exec("PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL;");
       if (path !== ":memory:") chmodSync(path, 0o600);
@@ -118,7 +129,7 @@ export class Store {
     this.db.prepare(`DELETE FROM ${table} WHERE id=?`).run(id);
   }
   snapshot(): AppState {
-    const state = { schemaVersion: 1 } as AppState;
+    const state = { schemaVersion: 3 } as AppState;
     for (const table of collections)
       (state[table] as unknown[]) = this.list(table);
     state.profiles = state.profiles.map((p) => ({

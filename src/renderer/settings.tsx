@@ -1,5 +1,6 @@
 import type { Project, AppState, Note, NoteType } from "../shared/types";
 import type { Run } from "./api";
+import { NoteHistory } from "./note-history";
 import { useEditor, type Register } from "./editing";
 import {
   Field,
@@ -127,12 +128,16 @@ export function Notes({
   register: Register;
 }) {
   const [selected, setSelected] = useState("");
+  const [showArchived, setShowArchived] = useState(false);
   const notes = state.notes.filter(
     (n) =>
       n.projectId === projectId &&
-      (planning
-        ? !["character", "world", "location"].includes(n.type)
-        : ["character", "world", "location"].includes(n.type)),
+      (showArchived || !n.archived) &&
+      (n.type === "supplement"
+        ? planning ? n.supplementStage !== "settings" : n.supplementStage === "settings"
+        : planning
+          ? !["character", "world", "location"].includes(n.type)
+          : ["character", "world", "location"].includes(n.type)),
   );
   const note = notes.find((n) => n.id === selected) ?? notes[0];
   const activeFlush = useRef(async () => true);
@@ -175,6 +180,7 @@ export function Notes({
         >
           新建设定
         </button>
+        <label className="check archive-toggle"><input type="checkbox" checked={showArchived} onChange={e => { const checked = e.target.checked; void activeFlush.current().then(ok => { if (ok) setShowArchived(checked); }); }} />显示已归档资料</label>
         {notes.map((n) => (
           <button
             className={"item " + (note?.id === n.id ? "selected" : "")}
@@ -183,6 +189,7 @@ export function Notes({
           >
             <small>{noteNames[n.type]}</small>
             <strong>{n.title}</strong>
+            {n.archived && <span className="badge">已归档</span>}
             {n.needsReview && <span className="badge warn">需要复核</span>}
           </button>
         ))}
@@ -261,6 +268,13 @@ function NoteEditor({
         </button>
       </div>
       <SaveStatus editor={editor} />
+      {note.archived && <div className="hint"><p>这份资料已归档，仍保留正文与历史。</p><button onClick={() => {
+        void editor.flush().then(async ok => {
+          if (!ok) return;
+          const current = (await window.novel.snapshot()).notes.find(n => n.id === note.id)!;
+          await run({ type: "note.save", id: current.id, revision: current.revision, projectId: current.projectId, noteType: current.type, title: current.title, body: current.body, sources: current.sources });
+        }).catch(() => {});
+      }}>恢复归档资料</button></div>}
       <Field label="设定类型">
         <select
           value={v.type}
@@ -295,6 +309,7 @@ function NoteEditor({
         </div>
       )}
       <Sources sources={note.sources} state={state} />
+      <NoteHistory note={note} run={run} flush={editor.flush} />
       {(note.needsReview || stale) && (
         <>
           <label className="check">

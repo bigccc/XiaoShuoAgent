@@ -23,6 +23,37 @@ export interface ProjectFields {
 }
 export interface Project extends RecordMeta, ProjectFields {
   archived: boolean;
+  authoring?: AuthoringState;
+}
+export type PlanningStage = "overview" | "settings" | "outline";
+export type AuthoringStage = PlanningStage | "writing";
+export interface AuthoringDocument {
+  content: string;
+  revision: number;
+  approved: boolean;
+  needsReview: boolean;
+  history: {
+    revision: number;
+    content: string;
+    createdAt: string;
+    batchId?: ID;
+  }[];
+  sync?: StageSyncState;
+}
+export interface AuthoringState {
+  activeStage: AuthoringStage;
+  writingStarted?: boolean;
+  documents: Partial<Record<PlanningStage, AuthoringDocument>>;
+  reviewGroup?: PlanningStage[];
+}
+export interface AuthoringIntent {
+  targetStage: AuthoringStage;
+  outputStages: PlanningStage[];
+  approveStages: PlanningStage[];
+  allowWriting: boolean;
+  preview: boolean;
+  delegated: boolean;
+  reconciliation: boolean;
 }
 export type NoteType =
   | "character"
@@ -34,7 +65,94 @@ export type NoteType =
   | "summary"
   | "timeline"
   | "knowledge"
-  | "foreshadowing";
+  | "foreshadowing"
+  | "supplement";
+export type SyncField = "title" | "genre" | "background" | "style" | "pace";
+export type SyncNoteType =
+  | "character"
+  | "world"
+  | "location"
+  | "storyline"
+  | "outline"
+  | "chapterOutline"
+  | "supplement";
+export interface StageBlockInput {
+  id?: ID;
+  kind: "field" | "note";
+  field?: SyncField;
+  noteId?: ID;
+  noteType?: SyncNoteType;
+  title?: string;
+  text?: string;
+  startLine?: number;
+  endLine?: number;
+  heading?: boolean;
+}
+export interface StageBundle {
+  stage: PlanningStage;
+  blocks: StageBlockInput[];
+  removeNoteIds?: ID[];
+  removeFields?: SyncField[];
+}
+export interface StageBinding {
+  id: ID;
+  kind: "field" | "note";
+  field?: SyncField;
+  noteId?: ID;
+  heading?: boolean;
+}
+export interface StageSyncState {
+  status: "synced" | "pending" | "running" | "failed" | "conflict";
+  bindings: StageBinding[];
+  lastSyncedContent: string;
+  lastSyncedRevision: number;
+  jobId?: ID;
+  batchId?: ID;
+  error?: string;
+}
+export interface SyncConflict {
+  blockId: ID;
+  title: string;
+  reason: string;
+  noteIds: ID[];
+}
+export interface StageSyncJob extends RecordMeta {
+  projectId: ID;
+  stage: PlanningStage;
+  documentRevision: number;
+  status:
+    | "pending"
+    | "running"
+    | "succeeded"
+    | "failed"
+    | "conflict"
+    | "cancelled"
+    | "interrupted";
+  sourceContent: string;
+  baseProjectRevision: number;
+  baseNoteRevisions: { id: ID; revision: number }[];
+  proposal?: StageBundle;
+  conflicts: SyncConflict[];
+  summary: string[];
+  calls: number;
+  usage: TaskUsage | null;
+  profileId?: ID;
+  error?: string;
+}
+export interface StageSyncSnapshot {
+  fields: Pick<ProjectFields, SyncField>;
+  notes: Note[];
+  bindings: StageBinding[];
+  content: string;
+}
+export interface StageSyncBatch extends RecordMeta {
+  projectId: ID;
+  stage: PlanningStage;
+  jobId: ID;
+  origin: "generation" | "draft" | "auxiliary" | "restore";
+  before: StageSyncSnapshot;
+  after: StageSyncSnapshot;
+}
 export interface SourceRevision {
   kind: "project" | "note" | "chapter";
   id: ID;
@@ -47,6 +165,16 @@ export interface Note extends RecordMeta {
   body: string;
   sources: SourceRevision[];
   needsReview: boolean;
+  history?: {
+    revision: number;
+    type: NoteType;
+    title: string;
+    body: string;
+    createdAt: string;
+  }[];
+  archived?: boolean;
+  syncManaged?: boolean;
+  supplementStage?: PlanningStage;
 }
 export type ChapterStatus = "draft" | "confirmed";
 export interface Chapter extends RecordMeta {
@@ -58,6 +186,7 @@ export interface Chapter extends RecordMeta {
   needsReview: boolean;
   style: string;
   pace: string;
+  writingStage?: "opening" | "complete";
 }
 export type VersionReason =
   | "create"
@@ -80,6 +209,56 @@ export interface ChapterVersion {
   taskId?: ID;
   restoredFrom?: ID;
   sourceRevisions: SourceRevision[];
+  writingStage?: "opening" | "complete";
+}
+export interface ConversationResponse {
+  message: string;
+  artifacts?: {
+    stage: PlanningStage;
+    content?: string;
+    blocks?: StageBlockInput[];
+    removeNoteIds?: ID[];
+    removeFields?: SyncField[];
+  }[];
+  suggestions?: string[];
+  memory?: string;
+  project?: Partial<
+    Pick<ProjectFields, "title" | "background" | "genre" | "style" | "pace">
+  >;
+  notes?: { id?: ID; type: NoteType; title: string; body: string }[];
+  chapters?: {
+    id?: ID;
+    title: string;
+    content: string;
+    stage: "opening" | "complete";
+  }[];
+  proposal?: { chapterIds: ID[]; reason: string };
+}
+export interface ConversationTurn extends RecordMeta {
+  projectId: ID;
+  authoringIntent?: AuthoringIntent;
+  authoringSource?: string;
+  text: string;
+  reply: string;
+  status:
+    | "running"
+    | "completed"
+    | "awaiting-author"
+    | "failed"
+    | "cancelled"
+    | "interrupted";
+  suggestions: string[];
+  chapterIds: ID[];
+  memory: string;
+  contextWarnings: string[];
+  usage: TaskUsage | null;
+  profileId?: ID;
+  chapterId?: ID;
+  proposalTurnId?: ID;
+  proposal?: { chapterIds: ID[]; reason: string };
+  response?: ConversationResponse;
+  rawResponse?: string;
+  error?: string;
 }
 export interface MaterialSnapshot {
   title: string;
@@ -166,6 +345,9 @@ export interface AppState {
   profiles: ModelProfile[];
   tasks: TaskRecord[];
   issues: CheckIssue[];
+  conversations: ConversationTurn[];
+  syncJobs: StageSyncJob[];
+  syncBatches: StageSyncBatch[];
 }
 type Existing = { id: ID; revision: number };
 type Saving = { id?: ID; revision?: number };
@@ -234,13 +416,56 @@ export interface AiBase extends AiContextOptions {
   instruction?: string;
 }
 export type AsyncCommand =
+  | {
+      type: "conversation.send";
+      projectId: ID;
+      text: string;
+      profileId?: ID;
+      chapterId?: ID;
+      proposalTurnId?: ID;
+      stage?: AuthoringStage;
+    }
+  | {
+      type: "authoring.save";
+      id: ID;
+      revision: number;
+      stage: PlanningStage;
+      content: string;
+    }
+  | {
+      type: "authoring.sync";
+      projectId: ID;
+      stage: PlanningStage;
+      profileId?: ID;
+    }
+  | { type: "authoring.retrySync" | "authoring.cancelSync"; id: ID }
+  | {
+      type: "authoring.resolveSync";
+      id: ID;
+      resolution: "draft" | "records";
+      links?: Record<string, ID | null>;
+    }
+  | {
+      type: "authoring.restore";
+      projectId: ID;
+      stage: PlanningStage;
+      revision: number;
+      historyRevision: number;
+    }
+  | { type: "conversation.cancel" | "conversation.retry"; id: ID }
   | { type: "model.test"; profileId: ID; projectId?: ID }
-  | ({ type: "ai.plan"; step: NoteType | "idea" } & AiBase)
+  | ({
+      type: "ai.plan";
+      step: NoteType | "idea";
+      planningMaxWords?: number;
+      maxOutputTokens?: number;
+    } & AiBase)
   | ({
       type: "ai.chapter";
       chapterIds: ID[];
       authorizeBatch?: boolean;
       checkingProfileId?: ID;
+      chapterWords?: number;
     } & AiBase)
   | ({ type: "ai.check"; chapterIds?: ID[] } & AiBase)
   | ({ type: "ai.extract"; sourceText?: string; source: string } & AiBase)

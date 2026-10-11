@@ -29,12 +29,14 @@ test.afterEach(async () => {
   await app?.close();
   await rm(dir, { recursive: true, force: true });
 });
+
 // A missing flush/save or wrong revision loses edits across immediate navigation/restart.
 test("author edits persist across navigation, confirmation, history and restart", async () => {
   await expect(page.getByText("你的下一部故事，从这里开始")).toBeVisible();
   await page.getByRole("button", { name: "新建作品", exact: true }).click();
   await page.getByLabel("作品名称").fill("纸上的星河");
   await page.getByRole("button", { name: "创建作品", exact: true }).click();
+  await openAuxiliaryTools();
   await page
     .getByLabel("简介与背景", { exact: true })
     .fill("山城少年与回声列车。");
@@ -68,6 +70,7 @@ test("author edits persist across navigation, confirmation, history and restart"
   await app.close();
   await launch();
   await page.getByRole("button", { name: /打开 纸上的星河/ }).click();
+  await openAuxiliaryTools();
   await expect(page.getByLabel("简介与背景", { exact: true })).toHaveValue(
     "山城少年与回声列车。",
   );
@@ -121,9 +124,11 @@ test("real local provider creates reviewed AI candidate without replacing author
     await page.getByRole("button", { name: "新建作品", exact: true }).click();
     await page.getByLabel("作品名称").fill("列车");
     await page.getByRole("button", { name: "创建作品", exact: true }).click();
+  await openAuxiliaryTools();
     await page.getByRole("button", { name: "正文与版本", exact: true }).click();
     await page.getByRole("button", { name: "新建章节", exact: true }).click();
     await page.getByLabel("章节正文", { exact: true }).fill("作者保留的草稿。");
+    await page.getByLabel("本次章节字数").fill("14");
     await page
       .getByRole("button", { name: "生成选中章节", exact: true })
       .click();
@@ -146,11 +151,16 @@ test("real local provider creates reviewed AI candidate without replacing author
     await new Promise<void>((r) => server.close(() => r()));
   }
 });
+async function openAuxiliaryTools() {
+  await page.getByRole("button", { name: "辅助工具", exact: true }).click();
+  await page.getByRole("button", { name: "创意与风格", exact: true }).click();
+}
 async function createWork(title = "验收小说") {
   await page.getByRole("button", { name: "书架", exact: true }).click();
   await page.getByRole("button", { name: "新建作品", exact: true }).click();
   await page.getByLabel("作品名称").fill(title);
   await page.getByRole("button", { name: "创建作品", exact: true }).click();
+  await openAuxiliaryTools();
 }
 async function configure(url: string) {
   await page.getByRole("button", { name: "模型设置", exact: true }).click();
@@ -185,6 +195,10 @@ async function localProvider(reply: (body: any) => string | Promise<string>) {
     close: () => new Promise<void>((r) => server.close(() => r())),
   };
 }
+
+
+
+
 // Lost UI wiring, auto-promotion, missing provenance or wrong issue status fails this real workflow.
 test("planning, materials, source evidence, export and backup work through visible controls", async () => {
   const provider = await localProvider((body) => {
@@ -389,6 +403,7 @@ test("dirty edits survive polling, pending close and a real revision conflict", 
   await app.close();
   await launch();
   await page.getByRole("button", { name: /打开 保存验收/ }).click();
+  await openAuxiliaryTools();
   await page.getByRole("button", { name: "正文与版本", exact: true }).click();
   await expect(page.getByLabel("章节正文", { exact: true })).toHaveValue(
     "关闭前仍待保存的文字。",
@@ -446,6 +461,7 @@ test("explicit batch generation, cancellation and continuation retain reviewed c
     await configure(provider.url);
     await createWork("批量验收");
     await page.getByRole("button", { name: "正文与版本", exact: true }).click();
+    await page.getByLabel("本次章节字数").fill("16");
     for (let i = 0; i < 3; i++)
       await page.getByRole("button", { name: "新建章节", exact: true }).click();
     await page
@@ -527,6 +543,7 @@ test("changed-source planning and generation require explicit review", async () 
       page.getByRole("button", { name: "已保存为设定", exact: true }),
     ).toBeVisible();
     await page.getByRole("button", { name: "正文与版本", exact: true }).click();
+    await page.getByLabel("本次章节字数").fill("10");
     await page.getByRole("button", { name: "新建章节", exact: true }).click();
     await page
       .getByRole("button", { name: "生成选中章节", exact: true })
@@ -658,6 +675,7 @@ test("streaming cancellation retains partial text and continues through the actu
     );
     await createWork("流式验收");
     await page.getByRole("button", { name: "正文与版本", exact: true }).click();
+    await page.getByLabel("本次章节字数").fill("18");
     await page.getByRole("button", { name: "新建章节", exact: true }).click();
     await page
       .getByRole("button", { name: "生成选中章节", exact: true })
@@ -1041,6 +1059,7 @@ test("malformed valid-checksum task import is atomic and corrupt stored task rev
     await app.close();
     await launch();
     await page.getByRole("button", { name: /打开 任务包校验/ }).click();
+  await openAuxiliaryTools();
     await page.getByRole("button", { name: "任务与审阅", exact: true }).click();
     await expect(
       page.getByText("任务数据格式异常", { exact: false }),

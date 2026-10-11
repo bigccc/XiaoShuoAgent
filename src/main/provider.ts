@@ -28,6 +28,7 @@ export interface ChatRequest {
   key?: string;
   messages: ChatMessage[];
   maxTokens: number;
+  jsonResponse?: boolean;
   signal?: AbortSignal;
   onChunk?: (chunk: string) => void;
   onAttempt?: () => void;
@@ -172,6 +173,8 @@ export class ChatProvider {
           model: r.model,
           messages: r.messages,
           max_tokens: r.maxTokens,
+          ...(r.jsonResponse && new URL(url).hostname === "api.deepseek.com" && ["deepseek-flash", "deepseek-v4-pro"].includes(r.model)
+            ? { thinking: { type: "disabled" }, response_format: { type: "json_object" } } : {}),
           stream: true,
           stream_options: { include_usage: true },
         }),

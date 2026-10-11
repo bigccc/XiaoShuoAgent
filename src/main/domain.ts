@@ -19,6 +19,7 @@ import {
 import { Store, type Collection, type Entity } from "./store";
 export interface DomainOptions {
   encryptKey?: (plaintext: string) => Uint8Array;
+  onContentChange?: (command: DomainCommand, before: AppState) => void;
 }
 export class DomainService {
   constructor(
@@ -31,7 +32,16 @@ export class DomainService {
   execute(command: Command): CommandResult {
     return this.result(() => {
       validateCommand(command);
-      return this.store.transaction(() => this.apply(command));
+      return this.store.transaction(() => {
+        const before = this.options.onContentChange && ["project.update", "note.save", "note.delete"].includes(command.type) ? this.store.snapshot() : undefined;
+        const result = this.apply(command);
+        if (before && result.ok) {
+          this.options.onContentChange!(command, before);
+          const current = command.type.startsWith("note.") ? this.store.get("notes", result.entityId) : this.store.get("projects", result.entityId);
+          if (current) return { ...result, revision: current.revision };
+        }
+        return result;
+      });
     });
   }
   saveCandidate(input: CandidateInput): CommandResult {
@@ -227,6 +237,7 @@ export class DomainService {
       reason,
       createdAt: new Date().toISOString(),
       sourceRevisions: [],
+      ...(chapter.writingStage ? { writingStage: chapter.writingStage } : {}),
       ...extra,
     };
   }
@@ -283,6 +294,10 @@ export class DomainService {
           type: c.noteType,
           title: c.title.trim(),
           body: c.body,
+          ...(old?.archived ? { archived: false } : {}),
+          ...(old ? { history: old.type !== c.noteType || old.title !== c.title.trim() || old.body !== c.body
+            ? [...(old.history ?? []), { revision: old.revision, type: old.type, title: old.title, body: old.body, createdAt: old.updatedAt }]
+            : old.history ?? [] } : {}),
           sources: c.sources,
           needsReview: false,
         };
@@ -361,6 +376,7 @@ export class DomainService {
           content: v.content,
           style: v.style,
           pace: v.pace,
+          writingStage: v.writingStage ?? "complete",
           status: "draft",
           needsReview: old.needsReview || v.reason === "ai-candidate",
         };

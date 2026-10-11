@@ -79,16 +79,18 @@ export function Chapters({
     </div>
   );
 }
-function ChapterEditor({
+export function ChapterEditor({
   chapter,
   state,
   run,
   register,
+  conversational = false,
 }: {
   chapter: Chapter;
   state: AppState;
   run: Run;
   register: Register;
+  conversational?: boolean;
 }) {
   const [history, setHistory] = useState(false),
     [chosen, setChosen] = useState("");
@@ -112,7 +114,7 @@ function ChapterEditor({
     v = editor.value;
   const versions = state.versions
     .filter((x) => x.chapterId === chapter.id)
-    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    .sort((a, b) => b.chapterRevision - a.chapterRevision || b.createdAt.localeCompare(a.createdAt));
   const compare =
     versions.find((x) => x.id === chosen) ??
     versions.find((x) => x.content !== v.content) ??
@@ -145,20 +147,20 @@ function ChapterEditor({
       <div className="chapter-toolbar">
         <span className="eyebrow">第 {chapter.ordinal} 章</span>
         <span className="badge">
-          {chapter.status === "confirmed" ? "已确认" : "草稿"}
+          {conversational ? chapter.writingStage === "opening" ? "试写开篇" : "当前正文" : chapter.status === "confirmed" ? "已确认" : "草稿"}
         </span>
         <span>{v.content.replace(/\s/g, "").length.toLocaleString()} 字</span>
         <button onClick={() => setHistory(!history)}>历史版本</button>
-        <button
+        {!conversational && <button
           className="primary"
           onClick={() => void confirm().catch(() => {})}
         >
           确认正文
-        </button>
+        </button>}
       </div>
       <SaveStatus editor={editor} />
       {chapter.needsReview && (
-        <div className="hint warn">本章有待复核的改动，确认正文前请检查。</div>
+          <div className="hint warn">本章有待复核的改动，可以在对话中要求 AI 检查相关情节。</div>
       )}
       <Field label="章节标题">
         <input
@@ -167,7 +169,7 @@ function ChapterEditor({
           onChange={(e) => editor.edit({ ...v, title: e.target.value })}
         />
       </Field>
-      <div className="form-grid compact">
+      {!conversational && <div className="form-grid compact">
         <Field label="本章文风">
           <input
             value={v.style}
@@ -182,7 +184,7 @@ function ChapterEditor({
             placeholder="空白时使用作品节奏"
           />
         </Field>
-      </div>
+      </div>}
       <Field label="章节正文">
         <textarea
           className="prose"
@@ -230,7 +232,7 @@ function ChapterEditor({
               </div>
               <Sources sources={compare.sourceRevisions} state={state} />
               <p className="muted">
-                恢复会形成新草稿，保留恢复前的版本。阅读后再确认正文。
+                恢复会保留当前版本，之后可以接着编辑或继续创作。
               </p>
               <button onClick={() => void restore().catch(() => {})}>
                 恢复此版本

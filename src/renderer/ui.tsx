@@ -11,6 +11,7 @@ export const noteNames: Record<NoteType, string> = {
   timeline: "时间线",
   knowledge: "角色知情",
   foreshadowing: "伏笔进展",
+  supplement: "补充说明",
 };
 export function Field({
   label,
