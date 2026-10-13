@@ -22,6 +22,17 @@ describe("context capacity", () => {
     expect(bounded.documents.filter(d=>d.reference)).toEqual([]);
     expect(bounded.text.length).toBeLessThanOrEqual(3200);
   });
+  it("keeps reference offsets aligned with the actual passage when a check window splits it", () => {
+    const reference = {source:{kind:"chapter" as const,id:"old",revision:1},ordinal:8,title:"旧章",start:25,end:505,excerpt:"钥匙".repeat(240),matchedTerms:["钥匙"]};
+    const documents = [{source:reference.source,label:"片段",text:reference.excerpt,reference}];
+    const windows = checkWindows({documents,sources:[reference.source],text:"",materials:[],disclosures:[]},400);
+    expect(windows.length).toBeGreaterThan(1);
+    for(const window of windows) for(const doc of window.documents) {
+      expect(doc.reference!.excerpt).toBe(doc.text);
+      expect(doc.reference!.end-doc.reference!.start).toBe(doc.text.length);
+      expect(reference.excerpt.slice(doc.reference!.start-25,doc.reference!.end-25)).toBe(doc.text);
+    }
+  });
   it("reuses unused short-document capacity for a long setting", () => {
     const documents = [
       { source: { kind: "project" as const, id: "p", revision: 1 }, label: "作品", text: "短设定" },

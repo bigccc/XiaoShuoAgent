@@ -4,6 +4,7 @@ import { MAX_WRITING_TOKEN_BUDGET, type WritingJob } from "../shared/writing";
 import type { Run } from "./api";
 import type { Flush } from "./editing";
 import { authorError, budgetStopped, continuationBudget } from "./author-experience";
+import { ContextReferences } from "./context-references";
 
 const statusNames: Record<WritingJob["status"], string> = {
   running: "正在推进", paused: "已暂停", interrupted: "等待手动续跑",
@@ -81,6 +82,7 @@ export function WritingProgress({ job, state, run, flush, otherBusy, openChapter
         {(job.usage?.totalTokens == null && job.budgetUsed > 0 || job.budgetUsed > (job.usage?.totalTokens ?? 0)) && <small>占用额度包含调用预留或未报告用量，续跑不会清零。</small>}
       </details>
       {job.reply && <p>{authorError(job.reply)}</p>}
+      <ContextReferences references={job.contextReferences} chapters={state.chapters} label="逐章参考的远章原文（最近一次）" />
       {(job.error || error) && <p className="error" role="alert">{authorError(error || job.error || "")}</p>}
       {job.warnings.map((warning, index) => <p className="hint warn" key={index}>{warning}</p>)}
       {job.issues.length > 0 && <details className="writing-issues" open={job.status === "awaiting-author"}>

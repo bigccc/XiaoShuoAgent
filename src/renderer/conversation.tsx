@@ -1,3 +1,4 @@
+import { ContextReferences } from "./context-references";
 import { useEffect, useRef, useState } from "react";
 import type { AppState, AuthoringStage } from "../shared/types";
 import type { Run } from "./api";
@@ -292,6 +293,7 @@ export function Conversation({
                     ))}
                   </details>
                 )}
+                <ContextReferences references={t.contextReferences} chapters={state.chapters} />
                 {(t.usage?.totalTokens != null || !!t.attempts?.length) && (
                   <details className="chat-details">
                     <summary>本轮用量</summary>

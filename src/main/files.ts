@@ -26,6 +26,7 @@ import { writeDocument } from "./authoring";
 import { validateRevisionJob } from "../shared/revision";
 import { authoringDigest } from "./revision";
 import { validateWritingJob } from "../shared/writing";
+import { validateRecallReferences } from "../shared/recall";
 const MAX_SOURCE = 2_000_000,
   MAX_PACKAGE = 512_000_000;
 function fail(message: string): never {
@@ -303,6 +304,9 @@ export class ProjectFiles {
     // Deleted notes can still be mentioned in historic conversation responses.
     // Give those historical identities fresh ids too, without recreating the notes.
     for (const t of s.conversations) for (const n of t.response?.notes ?? []) if (n.id && !ids.has(n.id)) ids.set(n.id, randomUUID());
+    // Deleted historical sources also receive fresh identities in the imported copy.
+    for (const record of [...s.conversations, ...s.writingJobs]) for (const ref of record.contextReferences ?? [])
+      if (!ids.has(ref.source.id)) ids.set(ref.source.id, randomUUID());
     const remap = (id: string) => {
       if (!ids.has(id)) ids.set(id, randomUUID());
       return ids.get(id)!;
@@ -613,6 +617,7 @@ function validatePortable(s: any): asserts s is Portable {
       fail("作品包检查问题引用不正确");
   }
   const turns = new Set(s.conversations.map((t: any) => t.id));
+  validateRecallOwnership(s);
   for (const t of s.conversations) {
     validateConversationTurn(t);
     if ([...t.chapterIds, ...(t.chapterId ? [t.chapterId] : []), ...(t.proposal?.chapterIds ?? []), ...(t.response?.proposal?.chapterIds ?? []), ...(t.response?.chapters ?? []).flatMap((c: any) => c.id ? [c.id] : [])].some(id => !chapters.has(id)) || (t.proposalTurnId && !turns.has(t.proposalTurnId))) fail("作品包对话引用不正确");
@@ -658,6 +663,7 @@ function validateRecovery(s: any): void {
     validateTask(task);
     validateTaskReferences(task, s);
   }
+  validateRecallOwnership(s);
   for (const project of s.projects) {
     const pid = project.id;
     validatePortable({
@@ -705,6 +711,20 @@ function validateRecovery(s: any): void {
         m.projectReferences.length
     )
       fail("恢复包素材格式或引用不正确");
+  }
+}
+
+function validateRecallOwnership(s: Portable): void {
+  const chapters = new Map(s.chapters.map(c => [c.id,c]));
+  for (const record of [...s.conversations, ...s.writingJobs]) {
+    if (record.contextReferences === undefined) continue;
+    validateRecallReferences(record.contextReferences);
+    for (const ref of record.contextReferences) {
+      const c = chapters.get(ref.source.id);
+      if (c && (c.projectId !== record.projectId || ref.source.revision > c.revision ||
+        ref.source.revision === c.revision && c.content.slice(ref.start,ref.end) !== ref.excerpt))
+        fail("远章原文引用与作品或来源版本不一致");
+    }
   }
 }
 

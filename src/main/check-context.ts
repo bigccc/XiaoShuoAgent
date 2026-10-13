@@ -20,7 +20,10 @@ export function checkWindows(context: BuiltContext, maxChars: number): BuiltCont
         const boundary = Math.max(text.lastIndexOf("\n"), text.lastIndexOf("。"));
         if (boundary >= capacity / 2) end = start + boundary + 1;
       }
-      parts.push({ ...doc, text: doc.text.slice(start, end) });
+      const text = doc.text.slice(start, end);
+      parts.push({ ...doc, text, ...(doc.reference ? { reference: {
+        ...doc.reference, start:doc.reference.start + start, end:doc.reference.start + end, excerpt:text,
+      } } : {}) });
       if (end === doc.text.length) break;
       start = end - Math.min(256, Math.floor((end - start) / 4));
     }
