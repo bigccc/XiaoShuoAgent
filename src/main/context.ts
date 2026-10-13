@@ -76,8 +76,8 @@ export function buildContext(
   if (draftIds.some((id) => !chapters.some((c) => c.id === id)))
     throw new DomainError("VALIDATION", "授权草稿不属于该作品");
   const maxOrdinal = targetChapters.length
-    ? Math.max(...targetChapters.map((c) => c.ordinal))
-    : Infinity;
+    ? Math.min(Math.max(...targetChapters.map((c) => c.ordinal)), recall?.beforeOrdinal ?? Infinity)
+    : recall?.beforeOrdinal ?? Infinity;
   const previous = chapters
     .filter((c) => c.ordinal < maxOrdinal && c.status === "confirmed")
     .slice(-3);
@@ -124,6 +124,10 @@ export function buildContext(
       !n.archived &&
       (!options.noteIds || options.noteIds.includes(n.id)),
   )) {
+    if (recall && n.sources.some(ref => ref.kind === "chapter" && chapters.some(c => c.id === ref.id && c.ordinal >= recall.beforeOrdinal))) {
+      disclosures.push(`未使用当前位置之后的来源记录：${n.title}`);
+      continue;
+    }
     if (n.needsReview || n.sources.some((ref) => !sourceCurrent(state, ref))) {
       disclosures.push(`未使用需要复核的记录：${n.title}`);
       continue;

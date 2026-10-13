@@ -1,6 +1,6 @@
 # 质量基线与远章召回 Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** 在不增加作者配置的条件下，为对话和连续写作召回版本化远章原文，并提供可重复的质量基线。
 
@@ -34,10 +34,10 @@
 
 **Interfaces:** `RecallReference` 为 `{source: SourceRevision & {kind:"chapter"}, ordinal, title, start, end, excerpt, matchedTerms:string[]}`；`RecallOptions` 为 `{query:string,beforeOrdinal:number,excludeChapterIds?:string[]}`；`recallPassages(state:AppState,projectId:string,options:RecallOptions):RecallReference[]`。
 
-- [ ] 先写失败用例：第8章钥匙到120章召回，原文偏移逐字一致；草稿、未来、他书、needsReview不命中；名称/别名；空/泛操作无词不召回；源改后取新版。
-- [ ] 运行 `npm test -- tests/recall.test.ts`，确认在空实现上因缺失行为失败。
-- [ ] 实现有界查询、单章最佳片段与稳定排序，补固定样本和`npm run benchmark:recall`，报告baseline与recall的实际差别和5000章耗时。
-- [ ] 运行目标测试与 `npm test`，记录基准。选择性提交本任务文件。
+- [x] 先写失败用例：第8章钥匙到120章召回，原文偏移逐字一致；草稿、未来、他书、needsReview不命中；名称/别名；空/泛操作无词不召回；源改后取新版。
+- [x] 运行 `npm test -- tests/recall.test.ts`，确认在空实现上因缺失行为失败。
+- [x] 实现有界查询、单章最佳片段与稳定排序，补固定样本和`npm run benchmark:recall`，报告baseline与recall的实际差别和5000章耗时。
+- [x] 运行目标测试与 `npm test`，记录基准。选择性提交本任务文件。
 
 ### Task 2: 上下文片段与全文保护
 
@@ -45,19 +45,19 @@
 
 **Interfaces:** `ContextDocument` 增加 `reference?:RecallReference` 与 `required?:boolean`。`buildContext` 可接第8参数 `recall?:RecallOptions`；`boundContext` 保留required全文（超限时披露而不假称完整），引用片段只在余量中加入，返回的reference与text一致。
 
-- [ ] 写失败用例：新增引用的sources进入保护；既有required完整目标优先；预算不足时引用不记录为已读；无recall参数保持旧行为。
-- [ ] 运行 `npm test -- tests/context.test.ts` 验证失败，接入Task1接口并使其通过。
-- [ ] 运行 `npm test`，选择性提交。
+- [x] 写失败用例：新增引用的sources进入保护；既有required完整目标优先；预算不足时引用不记录为已读；无recall参数保持旧行为。
+- [x] 运行 `npm test -- tests/context.test.ts` 验证失败，接入Task1接口并使其通过。
+- [x] 运行 `npm test`，选择性提交。
 
 ### Task 3: 对话与连续写作实际接入
 
 **Files:** Modify `src/main/conversation.ts`, `src/main/writing.ts`, `src/shared/types.ts`, `src/shared/conversation.ts`, `src/shared/writing.ts`, `tests/conversation.test.ts`, `tests/writing.test.ts`。
 
-**Interfaces:** ConversationTurn/WritingJob 增加可选 `contextReferences?:RecallReference[]`，共享 `validateRecallReferences(value:unknown):void` 在两种记录校验中调用。旧记录无该字段有效。
+**Interfaces:** ConversationTurn/WritingJob 增加可选 `contextReferences?:RecallReference[]`；WritingJob另有可选 `contextReferenceCall` 标明实际提供引用的请求序号、阶段和章号，共享 `validateRecallReferences(value:unknown):void` 在两种记录校验中调用。旧记录无该字段有效。
 
-- [ ] 写真实SQLite/HTTP失败用例：旧章片段进入发送给模型的上下文，保存相同出处；早章参考不含后章；旧章片段不取得整章覆盖权限；模型返回前旧章修订后拒绝陈旧结果。
-- [ ] 运行上述相关用例确认失败，接入召回与记录；连续任务生成/单章检查使用相同查询来源，required目标不能截断改稿。
-- [ ] 执行相关测试、类型检查与`npm test`，选择性提交。
+- [x] 写真实SQLite/HTTP失败用例：旧章片段进入发送给模型的上下文，保存相同出处；早章参考不含后章；旧章片段不取得整章覆盖权限；模型返回前旧章修订后拒绝陈旧结果。
+- [x] 运行上述相关用例确认失败，接入召回与记录；连续任务生成/单章检查使用相同查询来源，required目标不能截断改稿。
+- [x] 执行相关测试、类型检查与`npm test`，选择性提交。
 
 ### Task 4: 引用可见、恢复与作品包
 
@@ -65,20 +65,22 @@
 
 **Interfaces:** `ContextReferences({references,chapters})` 基于章节ID/revision判别当前/已改变/已移除，只显示已有快照的片段，不拉全书正文；沿用作品包nested引用重映射。
 
-- [ ] 写失败用例：重启保留、导入副本引用重新映射、跨作品引用拒绝、已删除来源仍可备份；桌面折叠出处和源更改提示。
-- [ ] 运行失败用例，补包校验与组件；不新增强制步骤。
-- [ ] 执行单测、构建、桌面召回用例与既有作者流程，选择性提交。
+- [x] 写失败用例：重启保留、导入副本引用重新映射、跨作品引用拒绝、已删除来源仍可备份；桌面折叠出处和源更改提示。
+- [x] 运行失败用例，补包校验与组件；不新增强制步骤。
+- [x] 执行单测、构建、桌面召回用例与既有作者流程，选择性提交。
 
 ### Task 5: 完整复验、独立审查与交付记录
 
 **Files:** Update `README.md`, `docs/verification.md`, this plan; Create `docs/context-recall-verification.md`, `docs/research/2026-10-13-recall-benchmark.json`。
 
-**Interfaces:** `npm run benchmark:recall` stdout 为机器可读JSON；验证记录分别列基准、自动化、界面和未做的真实模型/安装验证。
+**Interfaces:** `npm run --silent benchmark:recall` stdout 为机器可读JSON；验证记录分别列基准、自动化、界面和未做的真实模型/安装验证。
 
-- [ ] 跑 `npm test`、`npm run typecheck`、`npm run build`、完整桌面回归、基准，检查退出码与结果。
-- [ ] 请求一次只读独立代码审查，重点为上述Review Focus；重要问题先复现再修复，补全套复验。
-- [ ] 核对所有Task与Spec交付，选择性提交并将完成记录写入文档；后续阶段保持明确未实施。
+- [x] 跑 `npm test`、`npm run typecheck`、`npm run build`、完整桌面回归、基准，检查退出码与结果。
+- [x] 请求一次只读独立代码审查，重点为上述Review Focus；重要问题先复现再修复，补全套复验。
+- [x] 核对所有Task与Spec交付，选择性提交并将完成记录写入文档；后续阶段保持明确未实施。
 
 ## 执行记录
 
 采用当前会话原生实施，末尾一次独立审查；用户已明确本轮实施范围，无需再次确认。当前目录435项测试的基线在隔离工作区重跑通过；Homebrew默认Node因缺失simdjson无法启动，执行命令使用已安装Node v22.22.1，未修改系统运行时。
+
+独立审查提出4项Important，均补红绿回归：明确目标优先于编辑器选择；空开篇目标及未来来源笔记；同章后段集中证据；预算未发送时不建立实际引用。无Critical或待延后Minor。最终证据见 `docs/context-recall-verification.md`。

@@ -82,7 +82,8 @@ export function WritingProgress({ job, state, run, flush, otherBusy, openChapter
         {(job.usage?.totalTokens == null && job.budgetUsed > 0 || job.budgetUsed > (job.usage?.totalTokens ?? 0)) && <small>占用额度包含调用预留或未报告用量，续跑不会清零。</small>}
       </details>
       {job.reply && <p>{authorError(job.reply)}</p>}
-      <ContextReferences references={job.contextReferences} chapters={state.chapters} label="逐章参考的远章原文（最近一次）" />
+      <ContextReferences references={job.contextReferences} chapters={state.chapters} label="最近一次提供的远章原文"
+        description={job.contextReferenceCall ? `来自第${job.contextReferenceCall.number}次请求：${job.contextReferenceCall.phase}${job.contextReferenceCall.ordinal ? ` · 第${job.contextReferenceCall.ordinal}章` : ""}。当前任务进度可能已推进。` : "历史记录未注明对应请求。"} />
       {(job.error || error) && <p className="error" role="alert">{authorError(error || job.error || "")}</p>}
       {job.warnings.map((warning, index) => <p className="hint warn" key={index}>{warning}</p>)}
       {job.issues.length > 0 && <details className="writing-issues" open={job.status === "awaiting-author"}>

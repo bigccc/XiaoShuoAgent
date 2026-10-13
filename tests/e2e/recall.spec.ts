@@ -48,6 +48,8 @@ test("authors can inspect actual remote evidence, see changed sources and reopen
     await page.getByText("本次参考的远章原文",{exact:true}).click();
     await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].setSize(1050,680));
     await expect(page.getByLabel("远章原文出处")).toContainText("原文已改变");
+    await page.getByLabel("远章原文出处").getByText(/原文已改变/).scrollIntoViewIfNeeded();
+    await expect(page.getByLabel("远章原文出处").getByText(/原文已改变/)).toBeVisible();
     expect(calls).toBe(1);
     await page.screenshot({path:"docs/screenshots/context-recall-narrow-20261013.png"});
   } finally {await new Promise<void>(r=>{server.closeAllConnections();server.close(()=>r());});}

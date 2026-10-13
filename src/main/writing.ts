@@ -1,3 +1,4 @@
+import type { RecallReference } from "../shared/recall";
 import { createHash, randomUUID } from "node:crypto";
 import { Annotation, END, START, StateGraph } from "@langchain/langgraph";
 import type { AppState, CommandResult, DomainCommand, ModelProfile, SourceRevision, TaskUsage } from "../shared/types";
@@ -166,12 +167,10 @@ export class WritingRunner {
     const all = state.chapters.filter(c => c.projectId === j.projectId).sort((a, b) => a.ordinal - b.ordinal);
     const selected = full ? all.filter(c => c.ordinal >= j.goal.startOrdinal && c.ordinal <= j.goal.endOrdinal)
       : ordinal ? all.filter(c => c.ordinal <= ordinal).slice(-4) : all.slice(-3);
-    const built = buildContext(state, j.projectId, { includeDraftIds: selected.map(c => c.id) }, selected.map(c => c.id), [], this.maxChars, true);
-    if (ordinal && !full) {
-      const query = [j.text, j.plan, ...all.filter(c => c.ordinal <= ordinal).slice(-2).map(c => c.content.slice(0,1200))].join("\n");
-      const recalled = buildContext(state, j.projectId, { includeDraftIds: selected.map(c=>c.id) }, selected.map(c=>c.id), [], this.maxChars, true, { query, beforeOrdinal:ordinal });
-      built.documents = recalled.documents;
-    }
+    const recall = ordinal && !full ? {
+      query:[j.text,j.plan,...all.filter(c=>c.ordinal<=ordinal).slice(-2).map(c=>c.content.slice(0,1200))].join("\n"), beforeOrdinal:ordinal,
+    } : undefined;
+    const built = buildContext(state,j.projectId,{includeDraftIds:selected.map(c=>c.id)},selected.map(c=>c.id),[],this.maxChars,true,recall);
     for (const doc of built.documents) if (doc.source.kind === "chapter") {
       const chapter = all.find(c => c.id === doc.source.id)!;
       // Display metadata is not manuscript evidence. Avoid duplicating an ordinal
@@ -195,10 +194,9 @@ export class WritingRunner {
       if (!full || kept?.text !== full.text) throw new WritingPause("本章全文超过本次上下文限制，已暂停，不能用截断原文改稿");
     }
     if (result.disclosures.length) this.update(j.id, { warnings: [...new Set([...this.job(j.id).warnings, ...result.disclosures])].slice(-100) });
-    if (context.documents.some(d=>d.reference)) this.update(j.id, { contextReferences:result.documents.flatMap(d=>d.reference ? [d.reference] : []) });
     return result;
   }
-  private async call(id: string, phase: string, input: unknown, instruction: string, maxTokens: number, signal: AbortSignal, check = false) {
+  private async call(id: string, phase: string, input: unknown, instruction: string, maxTokens: number, signal: AbortSignal, check = false, references: RecallReference[] = []) {
     for (let attempt = 0; attempt < 2; attempt++) {
       this.assertRunning(id, signal);
       const j = this.job(id), profile = this.profile(j, check);
@@ -224,7 +222,9 @@ export class WritingRunner {
       let result;
       try {
         result = await this.provider.complete({ baseUrl: profile.baseUrl, model: profile.model, key, messages, maxTokens, jsonResponse: true, maxAttempts: 1, signal,
-          onAttempt: () => { this.assertRunning(id, signal); const latest = this.job(id); this.update(id, { calls: latest.calls + 1, budgetUsed: latest.budgetUsed + reservation }); requested = true; } });
+          onAttempt: () => { this.assertRunning(id, signal); const latest = this.job(id); this.update(id, { calls: latest.calls + 1, budgetUsed: latest.budgetUsed + reservation,
+            ...(references.length ? {contextReferences:references,contextReferenceCall:{number:latest.calls+1,phase,...(typeof (input as any)?.ordinal === "number" ? {ordinal:(input as any).ordinal} : {})}} : {}),
+          }); requested = true; } });
       } catch (error) {
         settle(error instanceof ProviderError ? error.usage : undefined);
         if (attempt === 0 && error instanceof ProviderError && (error.code === "EMPTY" || error.transient && !error.partial) && !signal.aborted) continue;
@@ -266,7 +266,7 @@ export class WritingRunner {
     const source = this.context(j, progress.ordinal), context = this.bounded(j, source, existing?.content.trim() ? existing.id : undefined);
     this.update(id, { reply: `${revising ? "正在修订" : "正在写作"}第${progress.ordinal}章${revising ? `（第${progress.revisionRounds + 1}/2轮）` : ""}` });
     const raw = await this.call(id, revising ? "修订" : "生成", this.input(j, context, progress.ordinal),
-      '只返回JSON {"title":"章节标题","content":"本章完整正文","majorChange":false,"reason":""}。不套type/content外壳，不添加其他字段。只完成指定ordinal章节，不输出摘要或其他章节。content严格控制在wordLimit.min到wordLimit.max个字符内，汉字和标点都计数、空白不计；当前字数见wordLimit.current。字数上限较短时只展开本章最必要场景，超过上限的修订应删除冗余描写而非继续增加情节。修订时保留仍有效内容并解决pendingIssues，不擅自推翻已确认人设、主线和结局；必须变更时返回majorChange=true及具体reason，不输出改稿。', Math.min(32000, Math.max(1024, this.project(j.projectId).chapterWords * 3)), signal);
+      '只返回JSON {"title":"章节标题","content":"本章完整正文","majorChange":false,"reason":""}。不套type/content外壳，不添加其他字段。只完成指定ordinal章节，不输出摘要或其他章节。content严格控制在wordLimit.min到wordLimit.max个字符内，汉字和标点都计数、空白不计；当前字数见wordLimit.current。字数上限较短时只展开本章最必要场景，超过上限的修订应删除冗余描写而非继续增加情节。修订时保留仍有效内容并解决pendingIssues，不擅自推翻已确认人设、主线和结局；必须变更时返回majorChange=true及具体reason，不输出改稿。', Math.min(32000, Math.max(1024, this.project(j.projectId).chapterWords * 3)), signal, false, context.documents.flatMap(d=>d.reference ? [d.reference] : []));
     const result = parseObject(raw, ["title", "content", "majorChange", "reason"]); this.checkSources(source.sources); this.assertRunning(id, signal);
     if (result.majorChange) { this.update(id, { status: "awaiting-author", reply: String(result.reason) }); return; }
     if (typeof result.content !== "string" || !result.content.trim() || result.content.length > 200000 || typeof result.title !== "string" || !result.title.trim() || result.title.length > 200)
@@ -314,10 +314,9 @@ export class WritingRunner {
   private async inspect(id: string, context: BuiltContext, signal: AbortSignal, final: boolean) {
     const j = this.job(id);
     const references = context.documents.flatMap(d=>d.reference ? [d.reference] : []);
-    if (references.length) this.update(id,{contextReferences:[...new Map(references.map(r=>[r.source.id,r])).values()]});
     const input = { instruction: j.text, ordinal: final ? undefined : j.chapters[j.cursor]?.ordinal, context: context.text };
     const instruction = writingReviewInstruction + "\n将需要修改的本章/后出现章节的证据放在最后。方括号来源标记及紧接其后的章节索引说明是程序元数据，不是正文，不得作为quote或格式/文风问题；只引用下一行开始的正文。只依据context中带来源标记的原文独立检查，不引用计划或作者指令作为已发生事实，不依赖此前检查结论。篇幅由程序单独核验，不在这里输出length问题。";
-    const raw = await this.call(id, final ? "跨章复核" : "检查", input, instruction, 3000, signal, true);
+    const raw = await this.call(id, final ? "跨章复核" : "检查", input, instruction, 3000, signal, true, [...new Map(references.map(r=>[r.source.id,r])).values()]);
     this.checkSources(context.sources);
     try { return parseWritingReview(raw, context.documents); }
     catch (error) {

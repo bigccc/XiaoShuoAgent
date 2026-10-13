@@ -33,14 +33,25 @@ export function recallPassages(state: AppState, projectId: string, options: Reca
   const hits: { score: number; reference: RecallReference }[] = [];
   for (const c of state.chapters) {
     if (c.projectId !== projectId || c.ordinal >= options.beforeOrdinal || c.status !== "confirmed" || c.needsReview || excluded.has(c.id)) continue;
-    const matches = [...terms].map(([term, weight]) => ({ term, weight, at: c.content.indexOf(term) })).filter(m => m.at >= 0);
-    if (!matches.length) continue;
+    // Bound work for repeated terms, while retaining both early and late occurrences.
+    const anchors = new Set<number>();
+    for (const term of terms.keys()) {
+      let at = c.content.indexOf(term);
+      for (let i=0; at>=0 && i<16; i++) {
+        anchors.add(at);
+        at=c.content.indexOf(term,at+term.length);
+      }
+      const last=c.content.lastIndexOf(term);
+      if(last>=0)anchors.add(last);
+    }
+    if (!anchors.size) continue;
     let best: { score: number; start: number; end: number; matchedTerms: string[] } | undefined;
-    for (const m of matches) {
-      const start = Math.max(0, m.at - 120), end = Math.min(c.content.length, start + 480);
-      const local = matches.filter(x => x.at >= start && x.at + x.term.length <= end);
-      const score = local.reduce((sum, x) => sum + x.weight, 0);
-      if (!best || score > best.score) best = { score, start, end, matchedTerms: local.map(x => x.term) };
+    for (const at of [...anchors].sort((a,b)=>a-b)) {
+      const start = Math.max(0, at - 120), end = Math.min(c.content.length, start + 480);
+      const excerpt=c.content.slice(start,end);
+      const local=[...terms].filter(([term])=>excerpt.includes(term));
+      const score=local.reduce((sum,[,weight])=>sum+weight,0);
+      if (!best || score > best.score) best = { score, start, end, matchedTerms: local.map(([term]) => term) };
     }
     if (!best) continue;
     hits.push({ score: best.score, reference: { source: { kind: "chapter", id: c.id, revision: c.revision }, ordinal: c.ordinal, title: c.title.slice(0, 200), start: best.start, end: best.end, excerpt: c.content.slice(best.start, best.end), matchedTerms: best.matchedTerms } });

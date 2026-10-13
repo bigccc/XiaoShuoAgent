@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { createServer, type ServerResponse } from "node:http";
 import { AppServices } from "../src/main/services";
 import type { Command, CommandResult } from "../src/shared/types";
-import { chapter } from "./fixtures/recall-cases";
+import { chapter, meta } from "./fixtures/recall-cases";
 
 const cleanups: (() => Promise<void>)[] = [];
 afterEach(async () => { for (const fn of cleanups.splice(0).reverse()) await fn(); });
@@ -55,6 +55,35 @@ it("recall: continuous generation and chapter checks see distant evidence and re
   expect(calls.find(c=>c.phase.includes("连续写作·生成"))!.input.context).toContain("铜钥匙由老周保管。");
   expect(calls.filter(c=>c.phase.includes("连续写作·检查")).some(c=>c.input.context.includes("铜钥匙由老周保管。"))).toBe(true);
   expect(job.contextReferences?.[0]).toMatchObject({source:{id:"remote8",revision:1},excerpt:"铜钥匙由老周保管。"});
+  expect(job.contextReferenceCall?.phase).toBe("检查");
+  expect(job.contextReferenceCall?.ordinal).toBe(121);
+  expect(job.contextReferenceCall!.number).toBeLessThan(job.calls);
+});
+it("recall: filling a missing opening never treats later existing chapters as earlier facts", async () => {
+  const {app,projectId,calls,dir}=await setup();
+  const seed=new Store(join(dir,"works.sqlite"));
+  for(const n of [3,4]) seed.put("chapters",chapter(`later${n}`,n,"国王已死，未来暗号已经公开。".repeat(8),{projectId}));
+  seed.put("notes",{...meta,id:"future-knowledge",projectId,type:"knowledge",title:"未来知情记录",body:"王后已经登基，唯一秘密已经公开。",sources:[{kind:"chapter",id:"later3",revision:1}],needsReview:false});
+  seed.close();
+  await done(app,await start(app,projectId,"写完前五章"));
+  const opening=calls.find(c=>c.phase.includes("连续写作·生成")&&c.input.ordinal===1)!;
+  expect(opening.input.context).not.toContain("国王已死");
+  expect(opening.input.context).not.toContain("未来暗号已经公开");
+  expect(opening.input.context).not.toContain("王后已经登基");
+});
+it("recall: budget refusal leaves no audit reference for a request that was never sent", async () => {
+  const {app,projectId,calls,dir}=await setup((phase,_input,res)=>{
+    if(phase.includes("连续写作·规划")){reply(res,{plan:"铜钥匙后续目标。".repeat(1000),majorChange:false,reason:""});return true;}
+  });
+  const seed=new Store(join(dir,"works.sqlite"));
+  seed.put("chapters",chapter("old8",8,"铜钥匙由老周保管。",{projectId}));
+  for(const n of [117,118,119,120]) seed.put("chapters",chapter(`r${n}`,n,"雨落。",{projectId}));
+  seed.close();
+  const job=await done(app,await start(app,projectId,"接着写一章",8000));
+  expect(job.status).toBe("paused");
+  expect(calls).toHaveLength(1);
+  expect(calls[0].phase).toContain("连续写作·规划");
+  expect(job.contextReferences ?? []).toEqual([]);
 });
 it("fulfils a five-chapter goal with separate writes, chapter checks and a final review", async () => {
   const { app, projectId, calls } = await setup();

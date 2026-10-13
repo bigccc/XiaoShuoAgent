@@ -1,14 +1,16 @@
 import type { Chapter } from "../shared/types";
 import type { RecallReference } from "../shared/recall";
 
-export function ContextReferences({ references, chapters, label = "本次参考的远章原文" }: {
+export function ContextReferences({ references, chapters, label = "本次参考的远章原文", description }: {
   references?: RecallReference[];
   chapters: Pick<Chapter,"id"|"revision">[];
   label?: string;
+  description?: string;
 }) {
   if (!references?.length) return null;
   return <details className="chat-details" aria-label="远章原文出处">
     <summary>{label}</summary>
+    {description && <p className="muted">{description}</p>}
     <p className="muted">以下为本次调用实际参考的原文片段，不能代表已读或检查全书。</p>
     {references.map(ref=>{
       const current=chapters.find(c=>c.id===ref.source.id);

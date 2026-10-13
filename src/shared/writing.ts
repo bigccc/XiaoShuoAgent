@@ -51,6 +51,7 @@ export interface WritingJob extends RecordMeta {
   revisionJobIds: ID[];
   warnings: string[];
   contextReferences?: RecallReference[];
+  contextReferenceCall?: { number: number; phase: string; ordinal?: number };
   tokenBudget: number;
   budgetUsed: number;
   usage: TaskUsage | null;
@@ -135,7 +136,7 @@ function array(value: unknown, max: number): asserts value is any[] {
 }
 
 export function validateWritingJob(value: unknown): asserts value is WritingJob {
-  object(value, ["id", "revision", "createdAt", "updatedAt", "projectId", "profileId", "checkingProfileId", "text", "goal", "status", "phase", "chapters", "cursor", "plan", "planningDone", "reviewCursor", "reviewRounds", "reviewSourceDigest", "checkCursor", "checkSourceDigest", "checkIssues", "issues", "revisionJobIds", "warnings", "contextReferences", "tokenBudget", "budgetUsed", "usage", "calls", "reply", "error"]);
+  object(value, ["id", "revision", "createdAt", "updatedAt", "projectId", "profileId", "checkingProfileId", "text", "goal", "status", "phase", "chapters", "cursor", "plan", "planningDone", "reviewCursor", "reviewRounds", "reviewSourceDigest", "checkCursor", "checkSourceDigest", "checkIssues", "issues", "revisionJobIds", "warnings", "contextReferences", "contextReferenceCall", "tokenBudget", "budgetUsed", "usage", "calls", "reply", "error"]);
   for (const key of ["id", "projectId"]) string(value[key], 200);
   for (const key of ["profileId", "checkingProfileId"]) if (value[key] !== undefined) string(value[key], 200);
   integer(value.revision, 1);
@@ -174,6 +175,13 @@ export function validateWritingJob(value: unknown): asserts value is WritingJob 
   if (typeof value.planningDone !== "boolean") fail();
   if (value.status === "completed" && (value.phase !== "done" || !value.planningDone || value.cursor !== length || value.chapters.some(chapter => chapter.status !== "checked"))) fail();
   if (value.contextReferences !== undefined) validateRecallReferences(value.contextReferences);
+  if (value.contextReferenceCall !== undefined) {
+    object(value.contextReferenceCall,["number","phase","ordinal"]);
+    integer(value.contextReferenceCall.number,1,value.calls);
+    if (!["规划","生成","修订","检查","检查整理","跨章复核"].includes(value.contextReferenceCall.phase)) fail();
+    if(value.contextReferenceCall.ordinal!==undefined)integer(value.contextReferenceCall.ordinal,1);
+    if(!value.contextReferences?.length)fail();
+  }
   array(value.issues, 1000);
   if (value.checkIssues !== undefined) array(value.checkIssues, 1000);
   if (value.status === "completed" && value.issues.length) fail();

@@ -163,6 +163,20 @@ it("recall: changing a remote source while the model is answering rejects the la
   expect(turn.status).toBe("failed");
   expect(app.snapshot().chapters.find(c=>c.id==="r120")!.content).toBe("雨落。");
 });
+it("recall: explicit later-chapter scope takes precedence over the editor's selected earlier chapter", async () => {
+  let prompt="";
+  const {app,projectId,dir}=await setup((body,res)=>{prompt=JSON.stringify(body.messages);reply(res,{message:"讨论完成"});});
+  const store=new Store(join(dir,"works.sqlite"));
+  store.put("chapters",chapter("remote8",8,"铜钥匙由老周保管。",{projectId}));
+  for(const n of [117,118,119,120]) store.put("chapters",chapter(`r${n}`,n,`近期${n}原文。`,{projectId}));
+  const runner=new ConversationRunner(store,new DomainService(store),new ChatProvider({retryDelayMs:1}));
+  legacyRunners.push({runner,store});
+  const turn=await done(app,runner.start({type:"conversation.send",projectId,text:"修改第120章，继续寻找铜钥匙",chapterId:"remote8"}));
+  expect(turn.status).toBe("completed");
+  expect(prompt).toContain("近期119原文。");
+  expect(prompt).toContain("铜钥匙由老周保管。");
+  expect(turn.contextReferences?.[0].source.id).toBe("remote8");
+});
 
 it("recovery: retries an empty response once and accounts for both requests", async () => {
   let calls = 0;

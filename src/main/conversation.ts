@@ -418,7 +418,8 @@ export class ConversationRunner {
     const { authoring: _authoring, ...projectFields } = p;
     const fullProject = add("作品", JSON.stringify(projectFields));
     add("创作共识（正文与最新作者指示优先）", memory);
-    const scopedChapters = chapters.filter(c => authorized.ids.has(c.id) || c.id === turn.chapterId);
+    const authorizedChapters = chapters.filter(c => authorized.ids.has(c.id));
+    const scopedChapters = authorizedChapters.length ? authorizedChapters : chapters.filter(c => c.id === turn.chapterId);
     const beforeOrdinal = scopedChapters.length ? Math.min(...scopedChapters.map(c => c.ordinal)) : (chapters.at(-1)?.ordinal ?? 0) + 1;
     const targets = [...new Set([
       ...authorized.ids,
@@ -459,7 +460,11 @@ export class ConversationRunner {
       )
         fullArtifacts.add(stage);
     }
-    for (const n of notes)
+    for (const n of notes) {
+      if (n.sources.some(ref=>ref.kind==="chapter" && chapters.some(c=>c.id===ref.id && c.ordinal>=beforeOrdinal))) {
+        warnings.push(`未使用当前位置之后的来源记录：${n.title}`);
+        continue;
+      }
       if (
         add(
           `资料 ${n.id} ${n.type} ${n.title}${n.needsReview ? "（待复核）" : ""}`,
@@ -467,6 +472,7 @@ export class ConversationRunner {
         )
       )
         fullNotes.add(n.id);
+    }
     add(
       "全书章节索引（未提供全文的章节不能回改）",
       JSON.stringify(

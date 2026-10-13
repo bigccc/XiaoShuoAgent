@@ -11,6 +11,7 @@ export function state(chapters: Chapter[], notes: Note[] = []): AppState {
 
 export function recallCases() {
   return [
+    { name:"repeated-term-evidence", state:state([chapter("c8",8,"铜钥匙落满灰尘。"+"甲".repeat(600)+"老周一直在等待。"+"乙".repeat(600)+"铜钥匙被交到老周手中。"),chapter("c117",117,"雨停了。"),chapter("c118",118,"灯亮了。"),chapter("c119",119,"她进门。")]),query:"铜钥匙 老周",beforeOrdinal:120,relevant:["c8"],gold:{c8:"铜钥匙被交到老周手中。"} },
     { name: "remote-transfer", state: state([chapter("c8", 8, "阿宁把铜钥匙交给老周。"), chapter("c117", 117, "她望向窗外。"), chapter("c118", 118, "雨已经停了。"), chapter("c119", 119, "她走入大厅。")]), query: "铜钥匙在谁手中", beforeOrdinal: 120, relevant: ["c8"] },
     { name: "recent-and-remote", state: state([chapter("c8", 8, "铜钥匙交给老周。"), chapter("c117", 117, "阿宁回到旧城。"), chapter("c118", 118, "灯已经点亮。"), chapter("c119", 119, "老周收起铜钥匙。")]), query: "铜钥匙 老周", beforeOrdinal: 120, relevant: ["c8", "c119"] },
     { name: "irrelevant-control", state: state([chapter("c8", 8, "铜钥匙在老周手里。")]), query: "蓝宝石", beforeOrdinal: 120, relevant: [] },

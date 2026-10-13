@@ -5,6 +5,13 @@ import type { AppState, Chapter, Note } from "../src/shared/types";
 import { chapter, state, meta } from "./fixtures/recall-cases";
 
 describe("versioned remote chapter recall", () => {
+  it("selects later combined evidence instead of only the first mention of each keyword", () => {
+    const s=state([chapter("c8",8,"铜钥匙落满灰尘。"+"甲".repeat(600)+"老周一直在等待。"+"乙".repeat(600)+"铜钥匙被交到老周手中。")]);
+    const refs=recallPassages(s,"p",{query:"铜钥匙 老周",beforeOrdinal:120});
+    expect(refs).toHaveLength(1);
+    expect(refs[0].excerpt).toContain("铜钥匙被交到老周手中。");
+    expect(refs[0].matchedTerms).toContain("老周");
+  });
   it("finds the chapter-eight transfer beyond the recent window with exact original offsets", () => {
     const s = state([chapter("c8", 8, "雨落。".repeat(300) + "阿宁将铜钥匙交给老周。" + "灯亮。".repeat(300)), chapter("c119", 119, "阿宁走进大厅。")]);
     const result = recallPassages(s, "p", { query: "铜钥匙现在在谁手里", beforeOrdinal: 120, excludeChapterIds: ["c119"] });
