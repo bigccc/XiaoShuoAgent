@@ -1,9 +1,10 @@
+import type {TextSelection} from "../shared/reader";
 import type { RevisionCommand } from "../shared/revision";
 import type { SceneSource, SceneCommand } from "../shared/scenes";
 import { randomUUID } from "node:crypto";
 import { Store } from "./store";
 import { DomainError } from "../shared/validation";
-import { validateSceneCards, validateSceneCommand, validateScenePlan } from "../shared/scenes";
+import { validateSceneCards, validateSceneCommand, validateScenePlan,validateSceneSelection } from "../shared/scenes";
 import type { SceneSave, ScenePlan, SceneCardDraft, SceneWorkspace } from "../shared/scenes";
 import type { Chapter, SourceRevision } from "../shared/types";
 import { buildContext, sourceCurrent } from "./context";
@@ -15,6 +16,7 @@ export class SceneService {
         throw new DomainError("CONFLICT", "作品不存在或已归档"); return c; }
     record(id: string) { const p = this.store.get("scenePlans", id); if (!p)
         throw new DomainError("NOT_FOUND", "场景计划不存在"); return p; }
+    targetWords(chapterId:string,fallback:number){return this.forChapter(chapterId)?.targetWords??fallback;}
     forChapter(chapterId: string) { return this.store.selectByProject("scenePlans", this.chapter(chapterId).projectId).find(p => p.chapterId === chapterId); }
     current(p: ScenePlan) { const state = this.store.snapshot(); return p.sources.every(s => sourceCurrent(state, s)) && storyStampCurrent(state, p.projectId, p.storyStamp) && p.cards.every(c => !c.anchor || this.anchorCurrent(c.anchor, p.chapterId)); }
     private anchorCurrent(a: NonNullable<SceneCardDraft["anchor"]>, chapterId: string) { const c = this.store.get("chapters", chapterId); return !!c && a.chapterId === chapterId && a.revision === c.revision && c.content.slice(a.start, a.end) === a.quote; }
@@ -56,8 +58,8 @@ export class SceneService {
     restore(id: string, revision: number, historyRevision: number) { const p = this.record(id); if (p.revision !== revision)
         throw new DomainError("CONFLICT", "场景计划已改变"); const h = p.history.find(h => h.revision === historyRevision); if (!h)
         throw new DomainError("NOT_FOUND", "场景历史不存在"); const ch = this.chapter(p.chapterId); const cards = h.cards.map(card => { const current = p.cards.find(v => v.id === card.id); const a = card.anchor; const start = a ? ch.content.indexOf(a.quote) : -1; return { ...card, ...(current ? { revision: current.revision } : {}), anchor: a && start >= 0 && ch.content.indexOf(a.quote, start + 1) < 0 ? { ...a, revision: ch.revision, start, end: start + a.quote.length } : undefined }; }); return this.save({ type: "scene.save", id: p.id, revision: p.revision, projectId: p.projectId, chapterId: p.chapterId, targetWords: h.targetWords, cards }); }
-    assertSource(source: SceneSource, projectId: string) { const p = this.record(source.id); if (p.projectId !== projectId || p.revision !== source.revision || !p.cards.some(c => c.id === source.cardId) || !this.current(p) || source.storyStamp && !storyStampCurrent(this.store.snapshot(), projectId, source.storyStamp))
-        throw new DomainError("CONFLICT", "场景计划或故事依据已改变，请重新生成定向候选稿"); return p; }
+    assertSource(source: SceneSource, projectId: string,selection?:TextSelection) { const p = this.record(source.id); if (p.projectId !== projectId || p.revision !== source.revision || !p.cards.some(c => c.id === source.cardId) || !this.current(p) || source.storyStamp && !storyStampCurrent(this.store.snapshot(), projectId, source.storyStamp))
+        throw new DomainError("CONFLICT", "场景计划或故事依据已改变，请重新生成定向候选稿"); validateSceneSelection(p,source,selection);return p; }
     revisionStart(c: Extract<SceneCommand, {
         type: "scene.revise";
     }>): Extract<RevisionCommand, {

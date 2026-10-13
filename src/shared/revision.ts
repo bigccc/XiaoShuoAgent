@@ -1,4 +1,4 @@
-import {validateSceneSource,type SceneSource} from "./scenes";
+import {validateSceneSource,validateSceneReplacement,type SceneSource} from "./scenes";
 import { DomainError, validatePublicJson } from "./validation";
 import type {
   ID,
@@ -374,6 +374,7 @@ export function validateRevisionJob(
       )
         bad();
     }
+    if(value.sceneSource)validateSceneReplacement(value.selection,c as unknown as RevisionCandidate);
     candidateIds.push(c.chapterId);
   }
   if (new Set(candidateIds).size !== candidateIds.length) bad();

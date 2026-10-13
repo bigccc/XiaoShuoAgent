@@ -1,5 +1,5 @@
 import {SceneService} from "./scenes";
-import {validateSceneSource} from "../shared/scenes";
+import {validateSceneSource,validateSceneReplacement} from "../shared/scenes";
 import { createHash, randomUUID } from "node:crypto";
 import type {
   AsyncCommand,
@@ -315,7 +315,7 @@ export class RevisionRunner {
       (c.profileId !== undefined && !idValue(c.profileId))
     )
       fail("改稿请求格式不正确");
-    if(c.sceneSource!==undefined){validateSceneSource(c.sceneSource);if(c.scope!=="selection")fail("场景改稿须限定原文片段");new SceneService(this.store).assertSource(c.sceneSource,c.projectId);}
+    if(c.sceneSource!==undefined){validateSceneSource(c.sceneSource);if(c.scope!=="selection")fail("场景改稿须限定原文片段");new SceneService(this.store).assertSource(c.sceneSource,c.projectId,c.selection);}
     const tokenBudget = budget(c.tokenBudget),
       p = this.project(c.projectId);
     if (
@@ -413,7 +413,7 @@ export class RevisionRunner {
     return p;
   }
   private sourceCheck(j: RevisionJob, chapterId?: string) {
-    if(j.sceneSource)new SceneService(this.store).assertSource(j.sceneSource,j.projectId);
+    if(j.sceneSource)new SceneService(this.store).assertSource(j.sceneSource,j.projectId,j.selection);
     const p = this.project(j.projectId);
     if (!j.sourceProjectDigest || projectHash(p) !== j.sourceProjectDigest)
       fail("作品设定已修改，改稿来源发生变化", "CONFLICT");
@@ -642,6 +642,7 @@ export class RevisionRunner {
     j: RevisionJob,
     c: RevisionCandidate,
   ): RevisionCandidate {
+    if(j.sceneSource)validateSceneReplacement(j.selection,c);
     const current = this.chapter(c.chapterId, j.projectId);
     if (
       current.content !== c.baseContent ||

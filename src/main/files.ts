@@ -1,4 +1,4 @@
-import {validateScenePlan,validateSceneJob} from "../shared/scenes";
+import {validateScenePlan,validateSceneJob,validateSceneSelection,validateSceneReplacement} from "../shared/scenes";
 import { validateStoryRecord, validateStoryJob } from "../shared/story-state";
 import { chapterDigest,storyContext,storyStampCurrent } from "./story-context";
 import { randomUUID, createHash } from "node:crypto";
@@ -1125,6 +1125,12 @@ function validateSceneOwnership(s:Portable):void{
   for(const p of s.scenePlans){validateScenePlan(p);const ch=chapters.get(p.chapterId);if(!ch||ch.projectId!==p.projectId)fail("场景章节归属不正确");
     for(const f of [p,...p.history]){references(f);for(const card of f.cards){const owner=owners.get(card.id);if(owner&&owner!==p.id)fail("场景卡身份重复");owners.set(card.id,p.id);const a=card.anchor;if(a&&(a.chapterId!==ch.id||a.revision===ch.revision&&(a.end>ch.content.length||ch.content.slice(a.start,a.end)!==a.quote)))fail("场景绑定原文不正确");}}
   }
-  for(const j of s.revisionJobs)if(j.sceneSource){const p=plans.get(j.sceneSource.id);if(!p||p.projectId!==j.projectId||!j.chapterIds.includes(p.chapterId)||![p,...p.history].some(f=>f.cards.some(c=>c.id===j.sceneSource!.cardId)))fail("定向场景改稿引用不正确");}
+  for(const j of s.revisionJobs)if(j.sceneSource){
+    const p=plans.get(j.sceneSource.id),owner=owners.get(j.sceneSource.cardId);
+    if(!p||p.projectId!==j.projectId||!j.chapterIds.includes(p.chapterId)||owner&&owner!==p.id)fail("定向场景改稿引用不正确");
+    const completedHistory=["completed","cancelled"].includes(j.status)&&j.candidates.every(c=>c.status!=="pending");
+    validateSceneSelection(p,j.sceneSource,j.selection,completedHistory);
+    for(const c of j.candidates)validateSceneReplacement(j.selection,c);
+  }
   for(const j of s.sceneJobs){validateSceneJob(j);const ch=chapters.get(j.chapterId);if(!ch||ch.projectId!==j.projectId)fail("场景任务章节不正确");references(j);const p=j.basePlanId?plans.get(j.basePlanId):undefined;if(j.basePlanId&&(!p||p.projectId!==j.projectId||p.chapterId!==j.chapterId))fail("场景任务原计划引用不正确");}
 }

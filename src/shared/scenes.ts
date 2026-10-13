@@ -147,3 +147,21 @@ export function validateSceneCommand(value: unknown): asserts value is SceneComm
         z.object({ type: z.literal("scene.revise"), id, revision: rev, cardId: id, text, tokenBudget: budget, profileId: id.optional() }).strict(),
     ]), value);
 }
+
+/** Scene revisions retain the original authority even after backup/import. */
+export function validateSceneReplacement(selection:TextSelection|undefined,candidate:{chapterId:ID;sourceRevision:number;title:string;baseTitle?:string;baseContent:string;content:string}):void {
+  if(!selection||candidate.chapterId!==selection.chapterId||candidate.sourceRevision!==selection.revision||candidate.baseTitle===undefined||candidate.title!==candidate.baseTitle||selection.end>candidate.baseContent.length||candidate.baseContent.slice(selection.start,selection.end)!==selection.quote)
+    throw new DomainError("VALIDATION","场景候选的原文范围或标题不正确");
+  const prefix=candidate.baseContent.slice(0,selection.start),suffix=candidate.baseContent.slice(selection.end);
+  if(candidate.content.length<prefix.length+suffix.length||!candidate.content.startsWith(prefix)||!candidate.content.endsWith(suffix))
+    throw new DomainError("VALIDATION","场景候选越过了绑定片段的修改范围");
+}
+export function validateSceneSelection(plan:ScenePlan,source:SceneSource,selection:TextSelection|undefined,completedHistory=false):void {
+  if(plan.id!==source.id||!selection||selection.chapterId!==plan.chapterId)throw new DomainError("VALIDATION","场景卡与实际选段不一致");
+  const frames=[plan,...plan.history],frame=frames.find(f=>f.revision===source.revision);
+  // Trimmed completed history is read-only: it cannot resume or acquire current authority.
+  if(!frame&&completedHistory&&source.revision<Math.min(...frames.map(f=>f.revision)))return;
+  const anchor=frame?.cards.find(c=>c.id===source.cardId)?.anchor;
+  if(!anchor||(["chapterId","revision","start","end","quote"] as const).some(k=>anchor[k]!==selection[k]))
+    throw new DomainError("VALIDATION","场景卡绑定原文与实际选段不一致");
+}
