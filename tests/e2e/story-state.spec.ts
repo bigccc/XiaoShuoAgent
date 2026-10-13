@@ -31,3 +31,11 @@ test("author resumes a budget-paused extraction after restart without automatic 
     await app.close();await launch();await open();expect(calls).toBe(0);await page.getByLabel("状态提取任务").getByRole("button",{name:"增加本次调用额度并继续",exact:true}).click();await expect(page.getByLabel("状态提取任务")).toContainText("提取执行结束");await expect(page.getByLabel("状态记录列表")).toContainText("暗号：已解开");expect(calls).toBe(1);
   }finally{await new Promise<void>(r=>{server.closeAllConnections();server.close(()=>r());});}
 });
+
+test("archived records can be found after leaving the page and restored with their history",async()=>{
+  const f=await seed();await page.evaluate(async projectId=>{const r=await window.novel.invoke({type:"story.save",projectId,entry:{kind:"foreshadowing",subject:"失踪旧信",attribute:"线索",value:"计划埋设",statement:"plan",storyTime:"",foreshadowingStage:"planned"},evidence:[]});if(!r.ok)throw Error();},f.projectId);await open();
+  const list=page.getByLabel("状态记录列表");await list.getByRole("button",{name:"归档记录",exact:true}).click();await expect(list).not.toContainText("失踪旧信");
+  await page.getByRole("button",{name:"创作",exact:true}).click();await page.getByRole("button",{name:"故事资料",exact:true}).click();await page.getByRole("button",{name:"状态与伏笔",exact:true}).click();
+  await page.getByLabel("记录筛选",{exact:true}).selectOption("archived");await expect(list).toContainText("失踪旧信");await list.getByText("历史版本",{exact:true}).click();await expect(list).toContainText("版本1");
+  await list.getByRole("button",{name:"恢复记录",exact:true}).click();await page.getByLabel("记录筛选",{exact:true}).selectOption("active");await expect(list).toContainText("失踪旧信");
+});

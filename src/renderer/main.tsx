@@ -172,7 +172,7 @@ function App() {
       .sort((a, b) => a.ordinal - b.ordinal)[0];
   const workView =
     project &&
-    ["project", "notes", "story-state", "planning", "chapters", "issues", "materials", "tasks"].includes(view);
+    ["project", "notes", "planning", "chapters", "issues", "materials", "tasks"].includes(view);
   return (
     <>
       <header className="window-header">

@@ -743,7 +743,7 @@ test("isolated renderer rejects a second window sender and has no Node or creden
     })),
   ).toEqual({
     node: "undefined",
-    keys: ["chapter", "chapterVersions", "closeReady", "conversation", "invoke", "onBeforeClose", "revisionJob", "search", "snapshot", "workspaceSnapshot"],
+    keys: ["chapter", "chapterVersions", "closeReady", "conversation", "invoke", "onBeforeClose", "revisionJob", "search", "snapshot", "storyRecord", "storyWorkspace", "workspaceSnapshot"],
   });
   expect(
     await app.evaluate(async ({ BrowserWindow }) => {

@@ -2239,3 +2239,19 @@ describe("author-controlled orchestration", () => {
     },
   );
 });
+
+it.each([false,true])("rebases only current story digests when importing resumable tasks (stale=%s)",async(stale)=>{
+  let path="";const {app,projectId,dir}=setup({dialogs:{open:async()=>path,save:async()=>path}});path=join(dir,"story-task.novel");
+  const [chapterId,targetId]=chapters(app,projectId,2),content="铜钥匙在老周手中。";
+  ok(app.domain.execute({type:"chapter.save",id:targetId,revision:1,content:"阿宁走进旧城。"}));ok(app.domain.execute({type:"chapter.confirm",id:targetId,revision:2}));
+  ok(app.domain.execute({type:"chapter.save",id:chapterId,revision:1,content}));ok(app.domain.execute({type:"chapter.confirm",id:chapterId,revision:2}));
+  const recordId=ok(await app.dispatch({type:"story.save",projectId,entry:{kind:"item",subject:"铜钥匙",attribute:"持有人",value:"老周",statement:"fact",storyTime:""},evidence:[{chapterId,revision:3,start:0,end:content.length}]}));
+  ok(await app.dispatch({type:"story.confirm",id:recordId,revision:1}));
+  let calls=0;const url=await fixture(res=>{calls++;reply(res,calls===1?"bad-json":JSON.stringify({issues:[],majorChange:false}));});
+  const taskId=ok(await app.dispatch({type:"ai.check",projectId,chapterIds:[targetId],profileId:model(app,url,"checking"),tokenBudget:100000}));expect((await finish(app,taskId)).status).toBe("failed");
+  if(stale)ok(await app.dispatch({type:"story.archive",id:recordId,revision:2,archived:true}));
+  ok(await app.dispatch({type:"file.backup",projectId}));const importedId=ok(await app.dispatch({type:"file.importBackup"}));
+  const imported=app.snapshot().tasks.find(t=>t.projectId===importedId)!;
+  const before=calls,resumed=await app.dispatch({type:"task.resume",id:imported.id,mode:"continue"});
+  if(stale){expect(resumed.ok).toBe(false);expect(calls).toBe(before);}else{ok(resumed);expect((await finish(app,imported.id)).status).toBe("completed");expect(calls).toBeGreaterThan(before);}
+});

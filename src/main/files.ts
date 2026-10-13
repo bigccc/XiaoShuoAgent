@@ -1,5 +1,5 @@
 import { validateStoryRecord, validateStoryJob } from "../shared/story-state";
-import { chapterDigest } from "./story-context";
+import { chapterDigest,storyContext,storyStampCurrent } from "./story-context";
 import { randomUUID, createHash } from "node:crypto";
 import {
   readFile,
@@ -296,6 +296,12 @@ export class ProjectFiles {
   }
   private importPayload(s: Portable): string {
     const ids = new Map<string, string>();
+    // Preserve the source validity decision before identity remapping.
+    const sourceState={...s,schemaVersion:6,profiles:[]} as AppState;
+    const currentStoryTasks=new Set(s.tasks.filter(t=>{
+      const stamp=(t.requestSnapshot as any)?.context?.storyStamp;
+      return stamp&&storyStampCurrent(sourceState,t.projectId,stamp);
+    }).map(t=>t.id));
     for (const table of tables)
       for (const r of s[table]) ids.set(r.id, randomUUID());
     for (const w of s.readingWorkspaces) {
@@ -470,6 +476,17 @@ export class ProjectFiles {
       for(const r of s.storyRecords)this.store.put("storyRecords",nested(r));
       for(const j of s.storyJobs){const {profileId,...job}=j;this.store.put("storyJobs",{...nested(job),status:j.status==="running"?"interrupted":j.status});}
       for (const original of s.projects) this.reprojectImportedProject(remap(original.id), original.title);
+      // All records and evidence now have their final imported identities.
+      // Refresh only previously current stamps; stale tasks must remain blocked.
+      const importedState=this.store.snapshot();
+      for(const original of s.tasks){
+        if(!currentStoryTasks.has(original.id))continue;
+        const imported=this.store.get("tasks",remap(original.id))!;
+        const request=structuredClone(imported.requestSnapshot) as any;
+        const stamp=request.context.storyStamp;
+        request.context.storyStamp=storyContext(importedState,imported.projectId,stamp.beforeOrdinal,stamp.writingJobId).stamp;
+        this.store.put("tasks",{...imported,requestSnapshot:request});
+      }
       // A renamed imported copy may re-render synchronized planning documents.
       // Rebase only fingerprints that were current in the source package.
       for (const original of s.revisionJobs) {

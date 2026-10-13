@@ -48,3 +48,22 @@ it("does not accept an invented quote or turn invalid output into confirmed fact
 it("cancels a pending extraction and preserves cancellation after late network data",async()=>{
   let received=false;const f=await setup(proposal.quote,()=>{received=true;return true;});const jobId=await start(f.app,f.projectId,f.chapterId);await expect.poll(()=>received).toBe(true);id(await f.app.dispatch({type:"story.job.cancel",id:jobId}));const job=await done(f.app,jobId);expect(job.status).toBe("cancelled");expect(f.app.snapshot().storyRecords).toEqual([]);
 });
+
+
+it("continues imported checkpoints using the local connection only after an explicit resume",async()=>{
+  const {ProjectFiles}=await import("../src/main/files");const {Store}=await import("../src/main/store");
+  const f=await setup();
+  const secondId=id(await f.app.dispatch({type:"chapter.create",projectId:f.projectId,ordinal:9,title:"雨夜"}));
+  id(await f.app.dispatch({type:"chapter.save",id:secondId,revision:1,content:"风声。".repeat(7000)}));
+  const originalId=id(await f.app.dispatch({type:"story.job.start",projectId:f.projectId,chapterIds:[f.chapterId,secondId],tokenBudget:10000}));
+  const original=await done(f.app,originalId);expect(original.status).toBe("paused");expect(original.cursor).toBe(1);expect(original.candidateIds).toHaveLength(1);
+  const fileStore=new Store(join(f.dir,"works.sqlite")),files=new ProjectFiles(fileStore),path=join(f.dir,"import.novel");
+  let projectId:string;try{await files.backup(f.projectId,path);projectId=await files.importBackup(path);}finally{fileStore.close();}
+  const j=f.app.snapshot().storyJobs!.find(j=>j.projectId===projectId)!;
+  expect(j.profileId).toBeUndefined();expect(j.cursor).toBe(1);expect(j.budgetUsed).toBe(original.budgetUsed);expect(j.candidateIds).toHaveLength(1);
+  const before=f.calls.length;await new Promise(r=>setTimeout(r,25));expect(f.calls).toHaveLength(before);
+  id(await f.app.dispatch({type:"story.job.resume",id:j.id,tokenBudget:100000}));
+  const finished=await done(f.app,j.id);expect(finished.status).toBe("completed");expect(f.calls.length).toBeGreaterThan(before);
+  expect(finished.profileId).toBeTruthy();expect(finished.cursor).toBe(2);expect(finished.candidateIds).toHaveLength(1);
+  expect(f.calls.slice(before).every(input=>input.chapter.id!==f.chapterId)).toBe(true);
+});
