@@ -306,3 +306,7 @@ Apple Silicon arm64 DMG与ZIP已生成于`release/author-ui-20261013/`。DMG校�
 ## 安装包测试范围更正（2026-10-13）
 
 准备 GitHub 首个下载版时发现，`reader.spec.ts` 的四项长篇阅读/改稿测试未读取 `NOVEL_PACKAGED_EXECUTABLE`，历史“完整安装副本回归40项通过”中有四项实际启动开发版。设置不存在的安装可执行文件后，5000章阅读测试仍通过，复现了这个入口问题。现已将阅读测试入口与其他安装包测试统一；历史结果不能据此认定这四项已经验证安装副本，首个下载版另行记录实际安装回归。
+
+## 预览包签名修复（2026-10-13）
+
+首轮公开包构建后，`codesign --verify --deep --strict` 返回 `code has no resources but signature indicates they must be present`：重命名后的应用保留 Electron 的 linker 临时签名，但没有完整资源封装。使用当前 `@electron/osx-sign` 对整个 bundle 以 `-` 身份重新签名后，同一严格验证通过。Forge 现默认执行这个临时签名，并在使用真实 Developer ID 时保留原有 hardened runtime 配置。临时签名不证明开发者身份、没有 Apple 公证，首次下载仍需用户允许。发现问题的首轮安装包未发布；最终包需重新构建和验证。

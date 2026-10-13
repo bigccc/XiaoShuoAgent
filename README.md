@@ -6,9 +6,11 @@
 
 ## 使用与安装
 
+下载 [v0.1.0 预览版](https://github.com/bigccc/XiaoShuoAgent/releases/tag/v0.1.0)：[Apple Silicon DMG](https://github.com/bigccc/XiaoShuoAgent/releases/download/v0.1.0/XiaoShuoAgent-0.1.0-arm64.dmg) · [Intel DMG](https://github.com/bigccc/XiaoShuoAgent/releases/download/v0.1.0/XiaoShuoAgent-0.1.0-x64.dmg)。发布页另有 ZIP 与 SHA-256 校验文件，详见[首次安装指南](docs/installation.md)。
+
 要求 macOS 13.0 或更新版本（依据 Electron 44.5.1 的应用 Info.plist）。Apple Silicon 使用 arm64 包，Intel 使用 x64 包。将 DMG 中的 `XiaoShuoAgent.app` 拖到 Applications，或解压 ZIP 后复制应用。使用者无需安装 Node、Python或数据库。
 
-当前本机构建没有 Developer ID 签名或 Apple 公证，不能当作已经通过 Gatekeeper 的正式公开发行版。Intel 安装与真实设备启动尚未验证；详见 [验证记录](docs/verification.md)。
+当前预览版没有 Developer ID 签名或 Apple 公证，首次打开可能需要在系统设置中确认。Intel 包在 Apple Silicon 的 Rosetta 环境验证，原生 Intel 设备尚未验收；详见 [验证记录](docs/verification.md)。
 
 1. 在书架新建作品，书名可留空。作品内只显示「创作、看稿、故事资料」三项主菜单，设置位于底部，导出和待处理位于作品顶部。
 2. 在「设置 → AI 连接」选择服务商、粘贴密钥。DeepSeek 预设自动填写地址与创作模型；预设依据 [官方首次调用文档](https://api-docs.deepseek.com/zh-cn/)（2026-10-13 核对）。其他服务在高级设置中填写。原有连接继续保留，密钥留空保留已有保护；保存不调用模型，测试连接会产生少量实际用量。
@@ -90,7 +92,7 @@ E2E 仅在独立临时目录运行，HTTP 仅访问当前测试创建的 loopbac
 
 `scripts/verify-*-live.ts` 为手动真实模型验收工具，会读取当前 macOS 用户已保存的模型连接，并在隔离临时目录中调用付费服务；它们不属于 `npm test` 或 `npm run e2e`。`docs/` 中的历史验收证据与截图使用测试样本，记录中的本机路径仅用于追溯。
 
-打包结果在 `release/`；Forge 自定义 DMG maker 仅调用系统 `hdiutil`，没有额外安装工具。可选 `MAC_SIGN_IDENTITY` 启用签名，`APPLE_NOTARIZATION_PROFILE` 选择已有 notarytool keychain profile。签名／公证须由持证者配置，项目不含 Apple 或模型凭据；本次未使用这些变量。
+打包结果在 `release/`；Forge 自定义 DMG maker 仅调用系统 `hdiutil`，没有额外安装工具。默认以临时签名（ad hoc）重新密封整个应用包，避免重命名 Electron 后残留无效签名；临时签名不验证开发者身份，也不等于通过 Gatekeeper。可选 `MAC_SIGN_IDENTITY` 使用 Developer ID 证书，`APPLE_NOTARIZATION_PROFILE` 选择已有 notarytool keychain profile。开发者签名／公证须由持证者配置，项目不含 Apple 或模型凭据；本次未使用这些变量。
 
 对真实 arm64 包运行同一组验收：
 

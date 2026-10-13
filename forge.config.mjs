@@ -1,5 +1,7 @@
 import { MakerZIP } from "@electron-forge/maker-zip";
 import { NativeDmgMaker } from "./scripts/native-dmg-maker.mjs";
+const signingIdentity = process.env.MAC_SIGN_IDENTITY || "-";
+const adHocSigning = signingIdentity === "-";
 export default {
   outDir: "release",
   packagerConfig: {
@@ -23,14 +25,21 @@ export default {
       /^\/\.git($|\/)/,
       /^\/.*\.sqlite/,
     ],
-    ...(process.env.MAC_SIGN_IDENTITY
-      ? {
-          osxSign: {
-            identity: process.env.MAC_SIGN_IDENTITY,
-            hardenedRuntime: true,
-          },
-        }
-      : {}),
+    // Rebranding Electron invalidates its linker signature. Seal the complete
+    // preview bundle even without a Developer ID certificate; Gatekeeper still
+    // requires an explicit user exception until signed and notarized publicly.
+    osxSign: {
+      identity: signingIdentity,
+      identityValidation: !adHocSigning,
+      hardenedRuntime: !adHocSigning,
+      ...(adHocSigning
+        ? {
+            preAutoEntitlements: false,
+            preEmbedProvisioningProfile: false,
+            optionsForFile: () => ({ timestamp: "none" }),
+          }
+        : {}),
+    },
     ...(process.env.APPLE_NOTARIZATION_PROFILE
       ? {
           osxNotarize: {
