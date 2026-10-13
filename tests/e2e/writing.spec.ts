@@ -154,7 +154,8 @@ test("one request saves five chapters sequentially and keeps saved and checked p
     await expect(card).toContainText("已保存不代表检查全部通过");
     await expect.poll(() => !!releaseCheck).toBe(true);
     releaseCheck!();
-    await expect(card).toContainText("任务已完成");
+    // Completing five serial generation/check calls is slower under Rosetta.
+    await expect(card).toContainText("任务已完成", { timeout: 30000 });
     await expect(card).toContainText("已保存 5 / 5 章");
     await expect(card).toContainText("已检查 5 / 5 章");
     expect(generated).toEqual([1, 2, 3, 4, 5]);

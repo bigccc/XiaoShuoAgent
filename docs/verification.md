@@ -316,3 +316,5 @@ Apple Silicon arm64 DMG与ZIP已生成于`release/author-ui-20261013/`。DMG校�
 最终签名包首轮安装回归39项通过、1项开发专用测试跳过，连接表单的测试密钥保存停在系统钥匙串访问。临时签名变化后 macOS 可能重新要求权限，Electron官方也记录了未稳定签名时的重复授权和测试挂起：[safeStorage](https://www.electronjs.org/docs/latest/api/safe-storage)、[测试隔离说明](https://releases.electronjs.org/pr/53790)。`author-ui.spec.ts` 的假密钥表单测试现使用 `--use-mock-keychain`，避免访问作者真实 Safe Storage 项；这是UI及业务流程验证，不能作为真实系统钥匙串授权或凭据保护的验收。生产应用继续使用真实safeStorage，未加入模拟或明文密钥存储。
 
 Intel/Rosetta 验证进一步发现旧桌面回归也保存假密钥，仍访问真实钥匙串并等待系统授权。所有常规E2E启动入口现统一使用Chromium测试钥匙串；开发专用的“钥匙串不可用”bootstrap测试继续独立注入。整个安装回归不能作为真实系统钥匙串权限与加密保护的验收；生产启动参数未修改。
+
+Intel/Rosetta 五章写作场景在默认5秒断言窗口内持续从第1章推进到第3章，并非失败或暂停；测试提前超时会关闭fixture服务。仅把任务完成的等待窗口设为30秒，仍要求恰好按1–5顺序生成、全部五章保存和检查完成，以及数据库中每章正文完全匹配。该场景单独以最终DMG安装副本复验，验证范围与其余分段结果一起记录。
