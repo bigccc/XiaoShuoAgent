@@ -310,3 +310,5 @@ Apple Silicon arm64 DMG与ZIP已生成于`release/author-ui-20261013/`。DMG校�
 ## 预览包签名修复（2026-10-13）
 
 首轮公开包构建后，`codesign --verify --deep --strict` 返回 `code has no resources but signature indicates they must be present`：重命名后的应用保留 Electron 的 linker 临时签名，但没有完整资源封装。使用当前 `@electron/osx-sign` 对整个 bundle 以 `-` 身份重新签名后，同一严格验证通过。Forge 现默认执行这个临时签名，并在使用真实 Developer ID 时保留原有 hardened runtime 配置。临时签名不证明开发者身份、没有 Apple 公证，首次下载仍需用户允许。发现问题的首轮安装包未发布；最终包需重新构建和验证。
+
+随后启动回归发现当前 osx-sign 2.x 只从 `optionsForFile` 读取 runtime 参数；仅设置顶层参数会继续启用 hardened runtime，使临时签名主程序与 Framework 因 Team ID 校验冲突而无法加载。逐文件显式设置 `hardenedRuntime: false` 后，签名 flags 为 adhoc，严格签名校验和新作品桌面流程通过。最终公开包使用此配置重新构建，真实 Developer ID 路径仍使用 hardened runtime。

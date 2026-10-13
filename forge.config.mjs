@@ -36,7 +36,8 @@ export default {
         ? {
             preAutoEntitlements: false,
             preEmbedProvisioningProfile: false,
-            optionsForFile: () => ({ timestamp: "none" }),
+            // osx-sign 2.x reads runtime options per file, not at the top level.
+            optionsForFile: () => ({ timestamp: "none", hardenedRuntime: false }),
           }
         : {}),
     },
