@@ -31,14 +31,16 @@ export function currentStory(views:StoryRecordView[],before=Infinity){
 export interface StoryStamp {beforeOrdinal:number;writingJobId?:string;digest:string}
 function selected(state:AppState,beforeOrdinal:number,writingJobId?:string){
   const views=storyViews(state.storyRecords??[],state.chapters,state.notes);
-  const stable=currentStory(storyViews(acceptedStory(state.storyRecords??[],beforeOrdinal),state.chapters,state.notes),beforeOrdinal).current;
+  const accepted=storyViews(acceptedStory(state.storyRecords??[],beforeOrdinal),state.chapters,state.notes);
+  const stable=currentStory(accepted,beforeOrdinal).current;
+  const foreshadowing=[...new Map(accepted.filter(r=>r.kind==="foreshadowing"&&r.stable&&r.evidence.length&&r.evidence.every(e=>e.ordinal<beforeOrdinal)).sort((a,b)=>a.updatedAt.localeCompare(b.updatedAt)).map(r=>[key(r),r])).values()];
   const temporary=writingJobId?views.filter(r=>r.status==="candidate"&&!r.archived&&!r.needsReview&&r.statement==="fact"&&r.origin.kind==="writing"&&r.origin.id===writingJobId&&r.evidence.every(e=>e.ordinal<beforeOrdinal)):[];
-  return [...stable,...temporary].sort((a,b)=>position(b)-position(a)||a.id.localeCompare(b.id)).slice(0,20);
+  return [...stable,...foreshadowing,...temporary].sort((a,b)=>position(b)-position(a)||a.id.localeCompare(b.id)).slice(0,20);
 }
 export function storyContext(state:AppState,projectId:string,beforeOrdinal:number,writingJobId?:string):{documents:ContextDocument[];stamp:StoryStamp}{
   const scoped={...state,storyRecords:(state.storyRecords??[]).filter(r=>r.projectId===projectId)};
   const records=selected(scoped,beforeOrdinal,writingJobId);
-  const documents=records.flatMap(r=>r.evidence.map(e=>({source:{kind:"chapter" as const,id:e.chapterId,revision:e.revision},text:e.quote,label:`第${e.ordinal}章 · ${r.origin.kind==="writing"&&r.status==="candidate"?"本批临时状态，未采纳":"作者确认状态"}：${r.subject}/${r.attribute}=${r.value}（元信息，非原文）`})));
+  const documents=records.flatMap(r=>r.evidence.map(e=>({storyRecordId:r.id,source:{kind:"chapter" as const,id:e.chapterId,revision:e.revision},text:e.quote,label:`第${e.ordinal}章 · ${r.origin.kind==="writing"&&r.status==="candidate"?"本批临时状态，未采纳":"作者确认状态"}：${r.subject}/${r.attribute}=${r.value}${r.foreshadowingStage?`；伏笔${r.foreshadowingStage}`:""}（元信息，非原文）`})));
   const digest=createHash("sha256").update(JSON.stringify(records.map(r=>[r.id,r.revision,r.status,r.evidence]))).digest("hex");
   return {documents,stamp:{beforeOrdinal,...(writingJobId?{writingJobId}:{}),digest}};
 }

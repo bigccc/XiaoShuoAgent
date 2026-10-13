@@ -177,6 +177,16 @@ it("recall: explicit later-chapter scope takes precedence over the editor's sele
   expect(prompt).toContain("铜钥匙由老周保管。");
   expect(turn.contextReferences?.[0].source.id).toBe("remote8");
 });
+it("story-state: an author correction to accepted state rejects a late manuscript reply",async()=>{
+  let release:(()=>void)|undefined;
+  const {app,projectId,dir}=await setup((_body,res)=>{release=()=>reply(res,{message:"已续写",chapters:[{id:"r120",title:"当前章",content:"模型旧回复",stage:"complete"}]});});
+  const seed=new Store(join(dir,"works.sqlite"));seed.put("chapters",chapter("old8",8,"铜钥匙在老周手中。",{projectId}));for(const n of [117,118,119,120])seed.put("chapters",chapter(`r${n}`,n,"雨落。",{projectId}));seed.close();
+  const entry={kind:"item" as const,subject:"铜钥匙",attribute:"持有人",value:"老周",statement:"fact" as const,storyTime:""},evidence=[{chapterId:"old8",revision:1,start:0,end:9}];
+  const recordId=id(await app.dispatch({type:"story.save",projectId,entry,evidence}));id(await app.dispatch({type:"story.confirm",id:recordId,revision:1}));
+  const turnId=await send(app,projectId,"继续完成这一章，寻找铜钥匙",{chapterId:"r120"});await expect.poll(()=>!!release).toBe(true);
+  id(await app.dispatch({type:"story.save",projectId,id:recordId,revision:2,entry:{...entry,value:"阿宁"},evidence}));id(await app.dispatch({type:"story.confirm",id:recordId,revision:3}));release!();
+  const turn=await done(app,turnId);expect(turn.status).toBe("failed");expect(turn.error).toContain("故事状态");expect(app.snapshot().chapters.find(c=>c.id==="r120")!.content).toBe("雨落。");
+});
 
 it("recovery: retries an empty response once and accounts for both requests", async () => {
   let calls = 0;

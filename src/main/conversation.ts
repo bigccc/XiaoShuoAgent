@@ -1,3 +1,4 @@
+import {storyContext,storyStampCurrent,type StoryStamp} from "./story-context";
 import { createHash, randomUUID } from "node:crypto";
 import { recallPassages } from "./recall";
 import type { RecallReference } from "../shared/recall";
@@ -448,6 +449,8 @@ export class ConversationRunner {
       referenceBudget -= size;
       references.push(reference);
     }
+    const story=storyContext(state,p.id,beforeOrdinal);
+    for(const doc of story.documents)add(`[chapter:${doc.source.id}@${doc.source.revision}] ${doc.label}`,doc.text);
     const workflow = readAuthoring(state, p);
     for (const stage of planningStages) {
       const doc = workflow.documents[stage];
@@ -514,7 +517,7 @@ export class ConversationRunner {
       role: "user",
       content: `当前选中章节：${turn.chapterId ?? "尚无章节"}。本轮允许直接修改的已有章节id：${JSON.stringify([...authorized.ids])}。本轮最多新增${authorized.count}章。${warnings.length ? `覆盖提醒：${warnings.join("；")}` : ""}\n作者说：${turn.text}`,
     });
-    return { messages, full, fullNotes, fullProject, fullArtifacts, warnings, references };
+    return { messages, full, fullNotes, fullProject, fullArtifacts, warnings, references, storyStamp:story.stamp };
   }
   private async run(
     turn: ConversationTurn,
@@ -717,7 +720,7 @@ export class ConversationRunner {
       full: Set<string>;
       fullNotes: Set<string>;
       fullProject: boolean;
-      fullArtifacts: Set<string>;
+      fullArtifacts: Set<string>; storyStamp?:StoryStamp;
     },
     prepared?: Awaited<ReturnType<StageSyncService["prepareGenerated"]>>,
   ) {
@@ -832,6 +835,7 @@ export class ConversationRunner {
         );
     this.store.transaction(() => {
       const current = this.store.snapshot();
+      if(coverage.storyStamp && !storyStampCurrent(current,turn.projectId,coverage.storyStamp))throw new DomainError("CONFLICT","故事状态已改变，旧回复未写入，请重新发送");
       for (const table of ["projects", "notes", "chapters"] as const) {
         const relevant = (s: AppState) =>
           s[table]

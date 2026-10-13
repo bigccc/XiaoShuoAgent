@@ -7,6 +7,7 @@ import type {
 import { DomainError } from "../shared/validation";
 import type { RecallOptions, RecallReference } from "../shared/recall";
 import { recallPassages } from "./recall";
+import {storyContext,type StoryStamp} from "./story-context";
 export interface ContextDocument {
   source: SourceRevision;
   text: string;
@@ -14,6 +15,7 @@ export interface ContextDocument {
   candidateId?: string;
   reference?: RecallReference;
   required?: boolean;
+  storyRecordId?:string;
 }
 export interface BatchContext {
   chapterId: string;
@@ -26,6 +28,7 @@ export interface BuiltContext {
   documents: ContextDocument[];
   disclosures: string[];
   materials: { id: string; snapshot: MaterialSnapshot }[];
+  storyStamp?:StoryStamp;
 }
 export function sourceCurrent(state: AppState, ref: SourceRevision): boolean {
   return (
@@ -141,6 +144,8 @@ export function buildContext(
   if (recall) for (const reference of recallPassages(state, projectId, { ...recall, excludeChapterIds: [...seen, ...(recall.excludeChapterIds ?? [])] })) {
     documents.push({ source: reference.source, text: reference.excerpt, label: `第${reference.ordinal}章 ${reference.title}（相关旧章片段，非全文）`, reference });
   }
+  const story=storyContext(state,projectId,Number.isFinite(maxOrdinal)?maxOrdinal:Math.max(0,...chapters.map(c=>c.ordinal))+1);
+  documents.push(...story.documents);
   const materials: BuiltContext["materials"] = [];
   if (
     options.materialIds?.some(
@@ -173,6 +178,7 @@ export function buildContext(
       sources: documents.map((d) => d.source),
       disclosures,
       materials,
+      storyStamp:story.stamp,
     },
     [],
     maxChars,

@@ -1,3 +1,4 @@
+import {storyStampCurrent} from "./story-context";
 import { randomUUID } from "node:crypto";
 import type {
   AiBase,
@@ -258,6 +259,16 @@ export class TaskRunner {
             this.maxContextChars,
             true,
           );
+    // The legacy task format allows one original document per source. State
+    // excerpts share the same chapter, so retain its original full snapshot.
+    const unique=new Map<string,ContextDocument>();
+    for(const doc of context.documents){
+      const key=`${doc.source.kind}:${doc.source.id}`;
+      if(unique.has(key))continue;
+      if(doc.storyRecordId){const ch=state.chapters.find(c=>c.id===doc.source.id);if(ch)unique.set(key,{source:doc.source,text:ch.content,label:doc.label});}
+      else unique.set(key,doc);
+    }
+    context.documents=[...unique.values()];context.sources=context.documents.map(d=>d.source);
     const snapshot: RequestSnapshot = {
       command: JSON.parse(JSON.stringify(command)),
       profile,
@@ -327,6 +338,7 @@ export class TaskRunner {
         "来源已修改，请使用当前依据新建任务；旧结果仍保留",
       );
     const snapshot = t.requestSnapshot as unknown as RequestSnapshot;
+    if(snapshot.context.storyStamp && !storyStampCurrent(this.store.snapshot(),t.projectId,snapshot.context.storyStamp))throw new DomainError("CONFLICT","故事状态已改变，请按当前依据新建任务");
     this.key(snapshot.profile);
     this.key(snapshot.checkingProfile);
     const result = t.result as unknown as ResultData;
@@ -427,7 +439,7 @@ export class TaskRunner {
       keys = [key ?? "", checkKey ?? ""];
     const saveResult = () => this.update(id, { result: asJson(result) });
     const stale = () =>
-      initial.sourceRevisions.some(
+      !!snapshot.context.storyStamp && !storyStampCurrent(this.store.snapshot(),initial.projectId,snapshot.context.storyStamp) || initial.sourceRevisions.some(
         (ref) => !sourceCurrent(this.domain.snapshot(), ref),
       );
     const call = async (

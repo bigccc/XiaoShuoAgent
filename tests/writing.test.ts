@@ -85,6 +85,24 @@ it("recall: budget refusal leaves no audit reference for a request that was neve
   expect(calls[0].phase).toContain("连续写作·规划");
   expect(job.contextReferences ?? []).toEqual([]);
 });
+it("story-state: captures optional changes without extra calls and uses candidates only inside the same batch",async()=>{
+  const prose="铜钥匙在老周手中。"+"雨落。".repeat(36);
+  const states=[{kind:"item",subject:"铜钥匙",attribute:"持有人",value:"老周",statement:"fact",storyTime:"",quote:"铜钥匙在老周手中。"}];
+  const {app,projectId,calls}=await setup((phase,input,res)=>{
+    if(phase.includes("连续写作·生成")){reply(res,{title:`第${input.ordinal}章`,content:prose,majorChange:false,reason:"",states:input.ordinal===1?states:[]});return true;}
+  });
+  const job=await done(app,await start(app,projectId,"写完前二章"));
+  expect(job.status,job.reply).toBe("completed");expect(calls).toHaveLength(6);
+  expect(app.snapshot().storyRecords).toHaveLength(1);expect(app.snapshot().storyRecords![0].status).toBe("candidate");
+  expect(calls.find(c=>c.phase.includes("连续写作·生成")&&c.input.ordinal===2)!.input.context).toContain("本批临时状态");
+  expect(app.storyWorkspace({projectId}).current).toEqual([]);
+});
+it("story-state: invalid optional evidence warns but keeps valid generated prose",async()=>{
+  const {app,projectId}=await setup((phase,input,res)=>{
+    if(phase.includes("连续写作·生成")){reply(res,{title:`第${input.ordinal}章`,content:"雨落在窗前。".repeat(20),majorChange:false,reason:"",states:[{kind:"item",subject:"铜钥匙",attribute:"持有人",value:"老周",statement:"fact",storyTime:"",quote:"不存在的原文。"}]});return true;}
+  });
+  const job=await done(app,await start(app,projectId,"写完前一章"));expect(job.status,job.reply).toBe("completed");expect(app.snapshot().chapters[0].content.length).toBe(120);expect(app.snapshot().storyRecords).toEqual([]);expect(job.warnings.length).toBeGreaterThan(0);
+});
 it("fulfils a five-chapter goal with separate writes, chapter checks and a final review", async () => {
   const { app, projectId, calls } = await setup();
   const job = await done(app, await start(app, projectId));

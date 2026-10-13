@@ -535,8 +535,9 @@ function validateTaskPayload(task: Record<string, any>): void {
     "sources",
     "documents",
     "disclosures",
-    "materials",
+    "materials", "storyStamp",
   ]);
+  if(context.storyStamp!==undefined){const stamp=taskObject(context.storyStamp);taskFields(stamp,["beforeOrdinal","digest","writingJobId"]);if(!Number.isSafeInteger(stamp.beforeOrdinal)||stamp.beforeOrdinal<1||typeof stamp.digest!=="string"||!/^[a-f0-9]{64}$/.test(stamp.digest))invalid("任务状态依据格式不正确");if(stamp.writingJobId!==undefined)text(stamp.writingJobId,true);}
   text(context.text);
   validateSources(context.sources);
   taskStrings(context.disclosures, 1000000);

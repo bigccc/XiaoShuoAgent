@@ -2,8 +2,21 @@ import { describe, expect, it } from "vitest";
 import { boundContext, buildContext, type BuiltContext } from "../src/main/context";
 import { checkWindows } from "../src/main/check-context";
 import { chapter, state } from "./fixtures/recall-cases";
+import {Store} from "../src/main/store";
+import {StoryStateService} from "../src/main/story-state";
 
 describe("context capacity", () => {
+  it("includes approved state evidence at the requested position and detects a later author correction",()=>{
+    const store=new Store(":memory:");try{
+      const s=state([chapter("c8",8,"铜钥匙在老周手中。"),chapter("c119",119,"雨落。"),chapter("c120",120,"她进门。")]);
+      store.put("projects",s.projects[0]);s.chapters.forEach(c=>store.put("chapters",c));const story=new StoryStateService(store);
+      const r=story.command({type:"story.save",projectId:"p",entry:{kind:"item",subject:"铜钥匙",attribute:"持有人",value:"老周",statement:"fact",storyTime:""},evidence:[{chapterId:"c8",revision:1,start:0,end:9}]});expect(r.ok).toBe(true);if(!r.ok)throw Error();
+      expect(story.command({type:"story.confirm",id:r.entityId,revision:1}).ok).toBe(true);
+      const built=buildContext(store.snapshot(),"p",{},["c120"]);
+      expect(built.text).toContain("作者确认状态");expect(built.storyStamp).toBeDefined();
+      const early=buildContext(store.snapshot(),"p",{},["c8"]);expect(early.text).not.toContain("作者确认状态");
+    }finally{store.close();}
+  });
   it("includes versioned remote evidence without replacing the full current chapter", () => {
     const s = state([chapter("c8", 8, "铜钥匙交给老周。"), ...[117,118,119,120].map(i => chapter(`c${i}`, i, "雨落。"))]);
     const built = buildContext(s, "p", {}, ["c120"], [], 24000, false, { query: "铜钥匙", beforeOrdinal: 120 });

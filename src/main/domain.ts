@@ -1,3 +1,4 @@
+import {storyStampCurrent} from "./story-context";
 import { randomUUID } from "node:crypto";
 import type {
   AppState,
@@ -50,6 +51,8 @@ export class DomainService {
       return this.store.transaction(() => {
         const chapter = this.read("chapters", input.chapterId);
         this.checkSources(input.sourceRevisions);
+        const task=this.store.get("tasks",input.taskId),stamp=(task?.requestSnapshot as any)?.context?.storyStamp;
+        if(stamp&&!storyStampCurrent(this.store.snapshot(),chapter.projectId,stamp))throw new DomainError("CONFLICT","故事状态已改变，旧候选未写入");
         if (
           !input.sourceRevisions.some(
             (s) =>

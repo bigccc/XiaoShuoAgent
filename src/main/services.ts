@@ -1,3 +1,5 @@
+import { StoryExtractionRunner } from "./story-extraction";
+import type {StoryJobCommand} from "../shared/story-state";
 import { StoryStateService } from "./story-state";
 import type { StoryCommand, StoryQuery } from "../shared/story-state";
 import { createHash, randomUUID } from "node:crypto";
@@ -57,6 +59,7 @@ export class AppServices {
   private revisions: RevisionRunner;
   private writing: WritingRunner;
   private story:StoryStateService;
+  private storyExtraction:StoryExtractionRunner;
   private timer: ReturnType<typeof setInterval>;
   private recovering: Promise<void> | null = null;
   private lastDigest = "";
@@ -78,6 +81,7 @@ export class AppServices {
     });
     this.files = new ProjectFiles(this.store);
     this.story=new StoryStateService(this.store);
+    this.storyExtraction=new StoryExtractionRunner(this.store,this.story,new ChatProvider({...options.provider,fetch:options.fetch}),options.credentials);
     this.tasks = new TaskRunner(
       this.store,
       this.domain,
@@ -96,6 +100,7 @@ export class AppServices {
           .list("conversations")
           .some((t) => t.projectId === id && t.status === "running") ||
         this.store.selectByProject("writingJobs", id).some(j => j.status === "running") ||
+        this.store.selectByProject("storyJobs",id).some(j=>j.status==="running") ||
         this.store
           .list("tasks")
           .some(
@@ -167,6 +172,7 @@ export class AppServices {
         typeof command.type !== "string"
       )
         throw new DomainError("VALIDATION", "请求格式不正确");
+      if(command.type.startsWith("story.job.")){const c=command as StoryJobCommand;return{ok:true,entityId:c.type==="story.job.start"?this.storyExtraction.start(c):this.storyExtraction.command(c)};}
       if (command.type.startsWith("story.") && !command.type.startsWith("story.job."))return this.story.command(command as StoryCommand);
       if (command.type.startsWith("writing.")) {
         const c = command as WritingCommand;
@@ -184,6 +190,7 @@ export class AppServices {
         : undefined;
       const busyProject = "projectId" in command ? command.projectId : resumeProject;
       const writesWithAI = command.type === "conversation.send" || command.type === "revision.start" || command.type.startsWith("ai.") || command.type === "authoring.sync" || !!resumeProject;
+      if(writesWithAI && busyProject && this.store.selectByProject("storyJobs",busyProject).some(j=>j.status==="running"))throw new DomainError("CONFLICT","故事状态提取正在运行，请先暂停再创作");
       if (writesWithAI && busyProject && this.store.selectByProject("writingJobs", busyProject).some(j => j.status === "running"))
         throw new DomainError("CONFLICT", "连续写作任务正在执行，请先暂停后再发起其他 AI 任务");
       if (command.type.startsWith("reading.")) return this.reading.dispatch(command as ReaderCommand);
@@ -490,6 +497,7 @@ export class AppServices {
     this.disposed = true;
     clearInterval(this.timer);
     this.disposePromise = (async () => {
+      await this.storyExtraction.dispose();
       await this.writing.dispose();
       await this.revisions.dispose();
       await this.tasks.dispose();
