@@ -1,0 +1,317 @@
+{
+  "date": "2026-10-13",
+  "sourceCommit": "551756edfb2f8973bdc2265eddb09e6d78717735",
+  "testHarnessCommit": "a6fa5d8c2d82714206f9391ca56872db37bf63da",
+  "keychainScope": "All normal Electron UI fixtures use Chromium mock keychain; real OS Keychain permission and credential protection not accepted by this suite",
+  "hostArch": "arm64",
+  "developerIDSigned": false,
+  "adHocSigned": true,
+  "notarized": false,
+  "artifacts": {
+    "arm64": {
+      "strictCodesignVerified": true,
+      "signatureType": "adhoc",
+      "executableArchitecture": "Mach-O 64-bit executable arm64",
+      "minimumOS": "13.0",
+      "frameworkLinks": [
+        {
+          "path": "Contents/Frameworks/Electron Framework.framework/Electron Framework",
+          "target": "Versions/Current/Electron Framework"
+        },
+        {
+          "path": "Contents/Frameworks/Electron Framework.framework/Resources",
+          "target": "Versions/Current/Resources"
+        },
+        {
+          "path": "Contents/Frameworks/Electron Framework.framework/Libraries",
+          "target": "Versions/Current/Libraries"
+        },
+        {
+          "path": "Contents/Frameworks/Electron Framework.framework/Helpers",
+          "target": "Versions/Current/Helpers"
+        },
+        {
+          "path": "Contents/Frameworks/Electron Framework.framework/Versions/Current",
+          "target": "A"
+        },
+        {
+          "path": "Contents/Frameworks/ReactiveObjC.framework/Resources",
+          "target": "Versions/Current/Resources"
+        },
+        {
+          "path": "Contents/Frameworks/ReactiveObjC.framework/ReactiveObjC",
+          "target": "Versions/Current/ReactiveObjC"
+        },
+        {
+          "path": "Contents/Frameworks/ReactiveObjC.framework/Versions/Current",
+          "target": "A"
+        },
+        {
+          "path": "Contents/Frameworks/Squirrel.framework/Resources",
+          "target": "Versions/Current/Resources"
+        },
+        {
+          "path": "Contents/Frameworks/Squirrel.framework/Squirrel",
+          "target": "Versions/Current/Squirrel"
+        },
+        {
+          "path": "Contents/Frameworks/Squirrel.framework/Versions/Current",
+          "target": "A"
+        },
+        {
+          "path": "Contents/Frameworks/Mantle.framework/Mantle",
+          "target": "Versions/Current/Mantle"
+        },
+        {
+          "path": "Contents/Frameworks/Mantle.framework/Resources",
+          "target": "Versions/Current/Resources"
+        },
+        {
+          "path": "Contents/Frameworks/Mantle.framework/Versions/Current",
+          "target": "A"
+        }
+      ],
+      "package": {
+        "license": "MIT",
+        "buildFiles": [
+          {
+            "file": "out/main/index.js",
+            "sha256": "2233e73d3e9dcc4fc222ed80bb80d483e14a02d5a5f4cf55e398cf4ff410b6f0"
+          },
+          {
+            "file": "out/preload/index.cjs",
+            "sha256": "17609757ec4b7e710ba9ac19ecad4b00bd8848ace13795691d6db4cbc41dec58"
+          },
+          {
+            "file": "out/renderer/index.html",
+            "sha256": "436d9c0c12df9c87f660c561e50a4c0c92ba0257f5266c2c348c933c200e3790"
+          },
+          {
+            "file": "out/renderer/assets/index---G2ua2v.css",
+            "sha256": "b762ee14db6c404e47ee7a2176c2b8b7d40c7f71fa1ff098acb346a974217a95"
+          },
+          {
+            "file": "out/renderer/assets/index-D2Yrj1HA.js",
+            "sha256": "0ab742cca7e1779583ee4876a12be33a672b7c4bf8c15c0705348ee1b11435a7"
+          }
+        ]
+      },
+      "asarSha256": "2c8d0a951391fbfba7aaed7310299c2cf99172b6f048c1c4338b7450536d29e0",
+      "files": [
+        {
+          "name": "XiaoShuoAgent-0.1.0-arm64.dmg",
+          "bytes": 162486238,
+          "sha256": "c3e40d96ada7a332ed2b919d733a890bcb376e8d2fcc58db8678b7fc40e106a1"
+        },
+        {
+          "name": "XiaoShuoAgent-0.1.0-arm64.zip",
+          "bytes": 144874335,
+          "sha256": "da24eb6f30466a75131e206d8bb25fc09ff9ec7d87031cd64ddaa8cdfab8c413"
+        }
+      ]
+    },
+    "x64": {
+      "strictCodesignVerified": true,
+      "signatureType": "adhoc",
+      "executableArchitecture": "Mach-O 64-bit executable x86_64",
+      "minimumOS": "13.0",
+      "frameworkLinks": [
+        {
+          "path": "Contents/Frameworks/Electron Framework.framework/Electron Framework",
+          "target": "Versions/Current/Electron Framework"
+        },
+        {
+          "path": "Contents/Frameworks/Electron Framework.framework/Resources",
+          "target": "Versions/Current/Resources"
+        },
+        {
+          "path": "Contents/Frameworks/Electron Framework.framework/Libraries",
+          "target": "Versions/Current/Libraries"
+        },
+        {
+          "path": "Contents/Frameworks/Electron Framework.framework/Helpers",
+          "target": "Versions/Current/Helpers"
+        },
+        {
+          "path": "Contents/Frameworks/Electron Framework.framework/Versions/Current",
+          "target": "A"
+        },
+        {
+          "path": "Contents/Frameworks/ReactiveObjC.framework/Resources",
+          "target": "Versions/Current/Resources"
+        },
+        {
+          "path": "Contents/Frameworks/ReactiveObjC.framework/ReactiveObjC",
+          "target": "Versions/Current/ReactiveObjC"
+        },
+        {
+          "path": "Contents/Frameworks/ReactiveObjC.framework/Versions/Current",
+          "target": "A"
+        },
+        {
+          "path": "Contents/Frameworks/Squirrel.framework/Resources",
+          "target": "Versions/Current/Resources"
+        },
+        {
+          "path": "Contents/Frameworks/Squirrel.framework/Squirrel",
+          "target": "Versions/Current/Squirrel"
+        },
+        {
+          "path": "Contents/Frameworks/Squirrel.framework/Versions/Current",
+          "target": "A"
+        },
+        {
+          "path": "Contents/Frameworks/Mantle.framework/Mantle",
+          "target": "Versions/Current/Mantle"
+        },
+        {
+          "path": "Contents/Frameworks/Mantle.framework/Resources",
+          "target": "Versions/Current/Resources"
+        },
+        {
+          "path": "Contents/Frameworks/Mantle.framework/Versions/Current",
+          "target": "A"
+        }
+      ],
+      "package": {
+        "license": "MIT",
+        "buildFiles": [
+          {
+            "file": "out/main/index.js",
+            "sha256": "2233e73d3e9dcc4fc222ed80bb80d483e14a02d5a5f4cf55e398cf4ff410b6f0"
+          },
+          {
+            "file": "out/preload/index.cjs",
+            "sha256": "17609757ec4b7e710ba9ac19ecad4b00bd8848ace13795691d6db4cbc41dec58"
+          },
+          {
+            "file": "out/renderer/index.html",
+            "sha256": "436d9c0c12df9c87f660c561e50a4c0c92ba0257f5266c2c348c933c200e3790"
+          },
+          {
+            "file": "out/renderer/assets/index---G2ua2v.css",
+            "sha256": "b762ee14db6c404e47ee7a2176c2b8b7d40c7f71fa1ff098acb346a974217a95"
+          },
+          {
+            "file": "out/renderer/assets/index-D2Yrj1HA.js",
+            "sha256": "0ab742cca7e1779583ee4876a12be33a672b7c4bf8c15c0705348ee1b11435a7"
+          }
+        ]
+      },
+      "asarSha256": "2c8d0a951391fbfba7aaed7310299c2cf99172b6f048c1c4338b7450536d29e0",
+      "files": [
+        {
+          "name": "XiaoShuoAgent-0.1.0-x64.dmg",
+          "bytes": 170732556,
+          "sha256": "0807f80c1b787af7815b8156575c8abde44c99533009d92c19c551a330fbcf5f"
+        },
+        {
+          "name": "XiaoShuoAgent-0.1.0-x64.zip",
+          "bytes": 151906422,
+          "sha256": "e37e39d4e04bbb7c6910e5ad684a088a840afd69871cabd326b70ec230c70fd0"
+        }
+      ]
+    }
+  },
+  "tests": {
+    "arm64": {
+      "passed": 40,
+      "skipped": 1,
+      "completeSuite": true,
+      "evidence": "Completed full DMG-installed run observed earlier in this session; identical artifact hashes carried forward after test-only isolation edits",
+      "exitCode": 0,
+      "testHarnessCommit": "14ed2a663381e7912df3646cfa21cc93920585c8",
+      "scope": "Complete suite against identical DMG copy after unmount with development out and packaged source apps unavailable",
+      "platform": "native Apple Silicon"
+    },
+    "x64": {
+      "exitCode": 0,
+      "passed": 40,
+      "skipped": 1,
+      "segments": [
+        {
+          "passed": 15,
+          "testHarnessCommit": "14ed2a663381e7912df3646cfa21cc93920585c8",
+          "cases": [
+            {
+              "index": 1,
+              "title": "author can start with an idea and edit a story through three work areas without technical settings"
+            },
+            {
+              "index": 2,
+              "title": "AI connection presets need no manual model fields and custom settings keep navigation protection"
+            },
+            {
+              "index": 3,
+              "title": "a new author confirms direction and preparation, then gets a saved first chapter and a usable narrow pane switch"
+            },
+            {
+              "index": 4,
+              "title": "visible stage progression, editable upstream artifacts and restart retain real confirmations"
+            },
+            {
+              "index": 5,
+              "title": "conversation recovery shows progress, saves once and loads the original replies on demand"
+            },
+            {
+              "index": 6,
+              "title": "title-optional conversation creates, edits, continues and restores a manuscript across restart"
+            },
+            {
+              "index": 7,
+              "title": "existing works open directly into conversation with readable current drafts and auxiliary tools"
+            },
+            {
+              "index": 8,
+              "title": "rewrite approval, setting history and cancellation stay inside the conversation workspace"
+            },
+            {
+              "index": 9,
+              "title": "segmented check shows incomplete coverage and resumes to the chapter ending"
+            },
+            {
+              "index": 10,
+              "title": "author edits persist across navigation, confirmation, history and restart"
+            },
+            {
+              "index": 12,
+              "title": "planning controls separate suggestion limits from chapter targets and send the configured cap"
+            },
+            {
+              "index": 13,
+              "title": "bounded length correction retains versions and shows the final candidate count"
+            },
+            {
+              "index": 14,
+              "title": "reviewed passed findings do not appear as author conflicts"
+            },
+            {
+              "index": 15,
+              "title": "planning, materials, source evidence, export and backup work through visible controls"
+            },
+            {
+              "index": 16,
+              "title": "dirty edits survive polling, pending close and a real revision conflict"
+            }
+          ]
+        },
+        {
+          "passed": 24,
+          "skipped": 1,
+          "testHarnessCommit": "e126b0f",
+          "mockKeychain": true,
+          "initialFiveChapterResult": "5-second assertion timed out while progressing through chapter 3; retried separately"
+        },
+        {
+          "passed": 1,
+          "testHarnessCommit": "a6fa5d8c2d82714206f9391ca56872db37bf63da",
+          "mockKeychain": true,
+          "case": "five serial chapters saved and checked; ordered content assertions retained; bounded completion wait 30 seconds"
+        }
+      ],
+      "scope": "All 41 cases accounted for across installed-copy segments; OS permission and asynchronous-wait failures documented and rerun without changing production behavior or result assertions; development out and packaged source apps unavailable",
+      "platform": "x64 under Rosetta on Apple Silicon; native Intel device not tested"
+    }
+  },
+  "temporaryInstallationRemoved": true
+}
