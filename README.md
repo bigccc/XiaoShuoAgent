@@ -88,7 +88,7 @@ npm run make:x64
 
 开发主进程和界面职责分离；只经 `window.novel.invoke(command)` 与 `snapshot()` 调用受控 AppServices。主进程验证发送者主框架及 URL，禁用 Node 集成、启用隔离与沙箱；无任意路径或凭据读取接口。SQLite 使用 Electron 内置 `node:sqlite`，不需要原生数据库重建。
 
-E2E 仅在独立临时目录运行，HTTP 仅访问当前测试创建的 loopback fixture，不调用外部付费模型。`NOVEL_TEST=1` 配合绝对 `NOVEL_DATA_DIR` 可显式选择测试数据目录；正常打包应用忽略该覆盖，测试不替换真实作品。测试通过主进程对原生文件选择框的边界注入所选临时文件，所有后续解析／持久化／导出仍走真实 AppServices。
+E2E 仅在独立临时目录运行，使用 Chromium 测试钥匙串隔离假密钥，HTTP 仅访问当前测试创建的 loopback fixture，不调用外部付费模型。测试不代表真实系统钥匙串授权或凭据保护已经验收。`NOVEL_TEST=1` 配合绝对 `NOVEL_DATA_DIR` 可显式选择测试数据目录；正常打包应用忽略该覆盖，测试不替换真实作品。测试通过主进程对原生文件选择框的边界注入所选临时文件，所有后续解析／持久化／导出仍走真实 AppServices。
 
 `scripts/verify-*-live.ts` 为手动真实模型验收工具，会读取当前 macOS 用户已保存的模型连接，并在隔离临时目录中调用付费服务；它们不属于 `npm test` 或 `npm run e2e`。`docs/` 中的历史验收证据与截图使用测试样本，记录中的本机路径仅用于追溯。
 

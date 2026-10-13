@@ -9,7 +9,7 @@ let app: ElectronApplication, page: Page, dir: string, server: Server;
 let turns = 0;
 let normalizeMode: "normal" | "invalid" | "hold" = "normal";
 async function launch() {
-  app = await electron.launch({ args: process.env.NOVEL_PACKAGED_EXECUTABLE ? [] : ["out/main/index.js"], executablePath: process.env.NOVEL_PACKAGED_EXECUTABLE, env: { ...process.env, NOVEL_TEST: "1", NOVEL_DATA_DIR: dir } });
+  app = await electron.launch({ args: [...(process.env.NOVEL_PACKAGED_EXECUTABLE ? [] : ["out/main/index.js"]), "--use-mock-keychain"], executablePath: process.env.NOVEL_PACKAGED_EXECUTABLE, env: { ...process.env, NOVEL_TEST: "1", NOVEL_DATA_DIR: dir } });
   page = await app.firstWindow();
   await page.waitForLoadState();
 }

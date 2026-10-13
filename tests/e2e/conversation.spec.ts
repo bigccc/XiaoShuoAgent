@@ -14,7 +14,7 @@ import { normalizationReply } from "./support/sync-fixture";
 let app: ElectronApplication, page: Page, dir: string;
 async function launch() {
   app = await electron.launch({
-    args: process.env.NOVEL_PACKAGED_EXECUTABLE ? [] : ["out/main/index.js"],
+    args: [...(process.env.NOVEL_PACKAGED_EXECUTABLE ? [] : ["out/main/index.js"]), "--use-mock-keychain"],
     executablePath: process.env.NOVEL_PACKAGED_EXECUTABLE,
     env: { ...process.env, NOVEL_TEST: "1", NOVEL_DATA_DIR: dir },
   });
