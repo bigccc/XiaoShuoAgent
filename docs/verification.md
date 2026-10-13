@@ -318,3 +318,13 @@ Apple Silicon arm64 DMG与ZIP已生成于`release/author-ui-20261013/`。DMG校�
 Intel/Rosetta 验证进一步发现旧桌面回归也保存假密钥，仍访问真实钥匙串并等待系统授权。所有常规E2E启动入口现统一使用Chromium测试钥匙串；开发专用的“钥匙串不可用”bootstrap测试继续独立注入。整个安装回归不能作为真实系统钥匙串权限与加密保护的验收；生产启动参数未修改。
 
 Intel/Rosetta 五章写作场景在默认5秒断言窗口内持续从第1章推进到第3章，并非失败或暂停；测试提前超时会关闭fixture服务。仅把任务完成的等待窗口设为30秒，仍要求恰好按1–5顺序生成、全部五章保存和检查完成，以及数据库中每章正文完全匹配。该场景单独以最终DMG安装副本复验，验证范围与其余分段结果一起记录。
+
+## GitHub v0.1.0 下载版（2026-10-13）
+
+安装包从源码提交 `551756edfb2f8973bdc2265eddb09e6d78717735` 构建，之后只改进测试隔离、异步等待和文档，包内程序未改变。[发布页](https://github.com/bigccc/XiaoShuoAgent/releases/tag/v0.1.0)提供macOS13+的Apple Silicon和Intel DMG/ZIP、SHA-256清单和JSON证据；安装见[指南](installation.md)。
+
+- 两种DMG和ZIP完整性检查通过；从DMG复制并卸载镜像后的Framework链接内部有效且保持相对路径。5个构建文件与最终out逐字节一致，包含MIT许可证。严格签名校验通过，类型为ad hoc，没有Developer ID或Apple公证。
+- Apple Silicon完整安装回归40项通过，1项开发专用bootstrap测试跳过。包体未变，保留该完整回归结果。
+- Intel/Rosetta分段合计40项通过，1项开发专用测试跳过：首段15项、剩余段24项、五章写作复验1项。真实钥匙串等待与5秒断言超时及处理原因分别保留；没有把仍在推进的任务视为完成。
+- 回归使用本机模型fixture，当前测试入口隔离系统钥匙串；不能认定真实用户钥匙串授权/保护、本轮付费模型或原生Intel设备已验收。正常产品继续使用真实safeStorage。
+- [构建与分段验证证据](releases/v0.1.0-verification.json)保留包体SHA-256、构建来源及测试提交。GitHub上传安装文件的SHA-256已与本地一致。
