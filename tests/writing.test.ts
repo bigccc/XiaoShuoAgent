@@ -1,3 +1,4 @@
+import { Store } from "../src/main/store";
 import { afterEach, expect, it } from "vitest";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -5,6 +6,7 @@ import { join } from "node:path";
 import { createServer, type ServerResponse } from "node:http";
 import { AppServices } from "../src/main/services";
 import type { Command, CommandResult } from "../src/shared/types";
+import { chapter } from "./fixtures/recall-cases";
 
 const cleanups: (() => Promise<void>)[] = [];
 afterEach(async () => { for (const fn of cleanups.splice(0).reverse()) await fn(); });
@@ -41,6 +43,19 @@ async function done(app: AppServices, taskId: string) {
   await expect.poll(() => app.snapshot().writingJobs?.find(j => j.id === taskId)?.status, { timeout: 5000 }).not.toBe("running");
   return app.snapshot().writingJobs!.find(j => j.id === taskId)!;
 }
+it("recall: continuous generation and chapter checks see distant evidence and retain its original revision", async () => {
+  const {app,projectId,calls,dir}=await setup();
+  const seed = new Store(join(dir,"works.sqlite"));
+  seed.put("chapters",chapter("remote8",8,"铜钥匙由老周保管。",{projectId}));
+  for (const n of [117,118,119]) seed.put("chapters",chapter(`r${n}`,n,"雨落。",{projectId}));
+  seed.put("chapters",chapter("r120",120,"阿宁再次寻找铜钥匙。",{projectId}));
+  seed.close();
+  const job=await done(app,await start(app,projectId,"接着写一章"));
+  expect(job.status,job.reply).toBe("completed");
+  expect(calls.find(c=>c.phase.includes("连续写作·生成"))!.input.context).toContain("铜钥匙由老周保管。");
+  expect(calls.filter(c=>c.phase.includes("连续写作·检查")).some(c=>c.input.context.includes("铜钥匙由老周保管。"))).toBe(true);
+  expect(job.contextReferences?.[0]).toMatchObject({source:{id:"remote8",revision:1},excerpt:"铜钥匙由老周保管。"});
+});
 it("fulfils a five-chapter goal with separate writes, chapter checks and a final review", async () => {
   const { app, projectId, calls } = await setup();
   const job = await done(app, await start(app, projectId));

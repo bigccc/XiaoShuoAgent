@@ -1,3 +1,4 @@
+import { validateRecallReferences } from "./recall";
 import type { ConversationResponse, ConversationTurn } from "./types";
 import { DomainError, validatePublicJson } from "./validation";
 import { authoringStages, planningStages } from "./authoring";
@@ -168,6 +169,7 @@ export function validateConversationTurn(
     "chapterIds",
     "memory",
     "contextWarnings",
+    "contextReferences",
     "usage",
     "profileId",
     "chapterId",
@@ -240,6 +242,7 @@ export function validateConversationTurn(
   }
   string(value.reply, 16000, true);
   string(value.memory, 8000, true);
+  if (value.contextReferences !== undefined) validateRecallReferences(value.contextReferences);
   if (
     ![
       "running",

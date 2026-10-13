@@ -1,5 +1,6 @@
 import type { ID, RecordMeta, SourceRevision, TaskUsage } from "./types";
 import { DomainError, validatePublicJson, validateSources } from "./validation";
+import { validateRecallReferences, type RecallReference } from "./recall";
 
 export const DEFAULT_WRITING_TOKEN_BUDGET = 100000;
 export const MAX_WRITING_TOKEN_BUDGET = 1_000_000_000;
@@ -49,6 +50,7 @@ export interface WritingJob extends RecordMeta {
   issues: WritingIssue[];
   revisionJobIds: ID[];
   warnings: string[];
+  contextReferences?: RecallReference[];
   tokenBudget: number;
   budgetUsed: number;
   usage: TaskUsage | null;
@@ -133,7 +135,7 @@ function array(value: unknown, max: number): asserts value is any[] {
 }
 
 export function validateWritingJob(value: unknown): asserts value is WritingJob {
-  object(value, ["id", "revision", "createdAt", "updatedAt", "projectId", "profileId", "checkingProfileId", "text", "goal", "status", "phase", "chapters", "cursor", "plan", "planningDone", "reviewCursor", "reviewRounds", "reviewSourceDigest", "checkCursor", "checkSourceDigest", "checkIssues", "issues", "revisionJobIds", "warnings", "tokenBudget", "budgetUsed", "usage", "calls", "reply", "error"]);
+  object(value, ["id", "revision", "createdAt", "updatedAt", "projectId", "profileId", "checkingProfileId", "text", "goal", "status", "phase", "chapters", "cursor", "plan", "planningDone", "reviewCursor", "reviewRounds", "reviewSourceDigest", "checkCursor", "checkSourceDigest", "checkIssues", "issues", "revisionJobIds", "warnings", "contextReferences", "tokenBudget", "budgetUsed", "usage", "calls", "reply", "error"]);
   for (const key of ["id", "projectId"]) string(value[key], 200);
   for (const key of ["profileId", "checkingProfileId"]) if (value[key] !== undefined) string(value[key], 200);
   integer(value.revision, 1);
@@ -171,6 +173,7 @@ export function validateWritingJob(value: unknown): asserts value is WritingJob 
     if (value[field] !== undefined && (typeof value[field] !== "string" || !/^[a-f0-9]{64}$/i.test(value[field]))) fail();
   if (typeof value.planningDone !== "boolean") fail();
   if (value.status === "completed" && (value.phase !== "done" || !value.planningDone || value.cursor !== length || value.chapters.some(chapter => chapter.status !== "checked"))) fail();
+  if (value.contextReferences !== undefined) validateRecallReferences(value.contextReferences);
   array(value.issues, 1000);
   if (value.checkIssues !== undefined) array(value.checkIssues, 1000);
   if (value.status === "completed" && value.issues.length) fail();

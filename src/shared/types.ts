@@ -1,6 +1,7 @@
 import type { ReaderCommand, ReadingWorkspace, TextSelection } from "./reader";
 import type { RevisionCommand, RevisionJob } from "./revision";
 import type { WritingCommand, WritingJob } from "./writing";
+import type { RecallReference } from "./recall";
 export type ID = string;
 export type JsonValue =
   | null
@@ -275,6 +276,7 @@ export interface ConversationTurn extends RecordMeta {
   chapterIds: ID[];
   memory: string;
   contextWarnings: string[];
+  contextReferences?: RecallReference[];
   usage: TaskUsage | null;
   profileId?: ID;
   chapterId?: ID;

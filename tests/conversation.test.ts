@@ -10,6 +10,7 @@ import { DomainService } from "../src/main/domain";
 import { ChatProvider } from "../src/main/provider";
 import { ProjectFiles } from "../src/main/files";
 import type { Command, CommandResult } from "../src/shared/types";
+import { chapter } from "./fixtures/recall-cases";
 
 const apps: AppServices[] = [],
   dirs: string[] = [],
@@ -120,6 +121,48 @@ function legacySend(dir: string, projectId: string, text: string) {
   legacyRunners.push({ runner, store });
   return runner.start({ type: "conversation.send", projectId, text });
 }
+
+it("recall: sends remote original evidence, persists the actual excerpt and excludes later chapters for early edits", async () => {
+  let prompt = "";
+  const { app, projectId, dir } = await setup((body, res) => { prompt = JSON.stringify(body.messages); reply(res, { message: "已参考旧章讨论铜钥匙。" }); });
+  const seed = new Store(join(dir,"works.sqlite"));
+  for (const [n, text] of [[8,"铜钥匙由老周保管。"], [117,"雨停了。"], [118,"她进门。"], [119,"灯亮了。"], [120,"阿宁回来。"], [121,"未来暗号已经揭晓。"]] as const)
+    seed.put("chapters", chapter(`recall-${n}`, n, text, { projectId }));
+  seed.close();
+  const turn = await done(app, await send(app, projectId, "讨论铜钥匙的去向", {chapterId:"recall-120"}));
+  expect(turn.status).toBe("completed");
+  expect(prompt).toContain("铜钥匙由老周保管。");
+  expect(prompt).not.toContain("未来暗号已经揭晓。");
+  expect(turn.contextReferences).toHaveLength(1);
+  expect(turn.contextReferences[0]).toMatchObject({source:{id:"recall-8",revision:1},excerpt:"铜钥匙由老周保管。"});
+});
+it("recall: a partial old-chapter reference does not authorize overwriting that chapter", async () => {
+  const { app, projectId, dir } = await setup((_body, res) => reply(res, { message:"提议改旧章", chapters:[{id:"remote8",title:"覆盖",content:"错误覆盖",stage:"complete"}] }));
+  const seed = new Store(join(dir,"works.sqlite"));
+  seed.put("chapters", chapter("remote8",8,"铜钥匙交给老周。"+"甲".repeat(1200),{projectId}));
+  for (const n of [117,118,119,120]) seed.put("chapters",chapter(`r${n}`,n,"雨落。",{projectId}));
+  seed.close();
+  const turn = await done(app, await send(app, projectId, "继续讨论铜钥匙", {chapterId:"r120"}));
+  expect(turn.contextReferences?.[0].source.id).toBe("remote8");
+  expect(turn.status).toBe("awaiting-author");
+  expect(app.snapshot().chapters.find(c=>c.id==="remote8")!.content).toContain("铜钥匙交给老周。");
+});
+it("recall: changing a remote source while the model is answering rejects the late write", async () => {
+  let respond: (()=>void) | undefined;
+  const { app, projectId, dir } = await setup((_body, res) => { respond=()=>reply(res,{message:"已续写",chapters:[{id:"r120",title:"当前章",content:"模型旧回复",stage:"complete"}]}); });
+  const seed = new Store(join(dir,"works.sqlite"));
+  seed.put("chapters", chapter("remote8",8,"铜钥匙交给老周。",{projectId}));
+  for (const n of [117,118,119,120]) seed.put("chapters",chapter(`r${n}`,n,"雨落。",{projectId}));
+  seed.close();
+  const turnId = await send(app,projectId,"继续完成这一章，铜钥匙交给谁",{chapterId:"r120"});
+  await expect.poll(()=>!!respond).toBe(true);
+  const old=app.snapshot().chapters.find(c=>c.id==="remote8")!;
+  id(await app.dispatch({type:"chapter.save",id:old.id,revision:old.revision,content:"铜钥匙已经归还阿宁。"}));
+  respond!();
+  const turn=await done(app,turnId);
+  expect(turn.status).toBe("failed");
+  expect(app.snapshot().chapters.find(c=>c.id==="r120")!.content).toBe("雨落。");
+});
 
 it("recovery: retries an empty response once and accounts for both requests", async () => {
   let calls = 0;

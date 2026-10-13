@@ -167,11 +167,16 @@ export class WritingRunner {
     const selected = full ? all.filter(c => c.ordinal >= j.goal.startOrdinal && c.ordinal <= j.goal.endOrdinal)
       : ordinal ? all.filter(c => c.ordinal <= ordinal).slice(-4) : all.slice(-3);
     const built = buildContext(state, j.projectId, { includeDraftIds: selected.map(c => c.id) }, selected.map(c => c.id), [], this.maxChars, true);
+    if (ordinal && !full) {
+      const query = [j.text, j.plan, ...all.filter(c => c.ordinal <= ordinal).slice(-2).map(c => c.content.slice(0,1200))].join("\n");
+      const recalled = buildContext(state, j.projectId, { includeDraftIds: selected.map(c=>c.id) }, selected.map(c=>c.id), [], this.maxChars, true, { query, beforeOrdinal:ordinal });
+      built.documents = recalled.documents;
+    }
     for (const doc of built.documents) if (doc.source.kind === "chapter") {
       const chapter = all.find(c => c.id === doc.source.id)!;
       // Display metadata is not manuscript evidence. Avoid duplicating an ordinal
       // already included in a model-generated title inside the review prompt.
-      doc.label = `第${chapter.ordinal}章（索引标记，非正文）`;
+      doc.label = `第${chapter.ordinal}章（索引标记，非正文${doc.reference ? "；相关旧章片段，非全文" : ""}）`;
     }
     const workflow = readAuthoring(state, this.project(j.projectId));
     const p = this.project(j.projectId);
@@ -183,13 +188,14 @@ export class WritingRunner {
   }
   private bounded(j: WritingJob, context: BuiltContext, mustInclude?: string) {
     // Required current source is first in generation; no partial overwrite is allowed.
-    if (mustInclude) context.documents.sort((a, b) => Number(b.source.id === mustInclude) - Number(a.source.id === mustInclude));
+    if (mustInclude) context.documents = context.documents.map(d => ({ ...d, required: d.source.id === mustInclude && !d.reference }));
     const result = boundContext(context, [], this.maxChars);
     if (mustInclude) {
       const full = context.documents.find(d => d.source.id === mustInclude), kept = result.documents.find(d => d.source.id === mustInclude);
       if (!full || kept?.text !== full.text) throw new WritingPause("本章全文超过本次上下文限制，已暂停，不能用截断原文改稿");
     }
     if (result.disclosures.length) this.update(j.id, { warnings: [...new Set([...this.job(j.id).warnings, ...result.disclosures])].slice(-100) });
+    if (context.documents.some(d=>d.reference)) this.update(j.id, { contextReferences:result.documents.flatMap(d=>d.reference ? [d.reference] : []) });
     return result;
   }
   private async call(id: string, phase: string, input: unknown, instruction: string, maxTokens: number, signal: AbortSignal, check = false) {
@@ -335,6 +341,7 @@ export class WritingRunner {
     const progress = j.chapters[j.cursor];
     if (!progress?.chapterId) throw new DomainError("CONFLICT", "章节尚未保存，无法检查");
     const source = this.context(j, progress.ordinal), windows = checkWindows(source, Math.min(this.maxChars, 24000));
+    this.update(id,{contextReferences:source.documents.flatMap(d=>d.reference ? [d.reference] : [])});
     const digest = hash([progress.ordinal, source.sources]);
     if (j.checkSourceDigest !== digest) j = this.update(id, { checkSourceDigest: digest, checkCursor: 0, checkIssues: [] });
     const windowIndex = j.checkCursor ?? 0;

@@ -5,7 +5,7 @@ export function chapter(id: string, ordinal: number, content: string, extra: Par
   return { ...meta, id, projectId: "p", ordinal, title: id, content, status: "confirmed", needsReview: false, style: "", pace: "", ...extra };
 }
 export function state(chapters: Chapter[], notes: Note[] = []): AppState {
-  return { schemaVersion: 5, projects: [{ ...meta, id: "p", title: "旧城", background: "", genre: "", style: "", pace: "", targetWords: 100000, chapterWords: 3000, archived: false }], chapters, notes, versions: [], conversations: [], materials: [], profiles: [], tasks: [], issues: [] };
+  return { schemaVersion: 5, projects: [{ ...meta, id: "p", title: "旧城", background: "", genre: "", style: "", pace: "", targetWords: 100000, chapterWords: 3000, archived: false }], chapters, notes, versions: [], conversations: [], materials: [], profiles: [], tasks: [], issues: [], syncJobs: [], syncBatches: [] };
 }
 
 

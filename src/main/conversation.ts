@@ -1,4 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
+import { recallPassages } from "./recall";
+import type { RecallReference } from "../shared/recall";
 import type {
   AppState,
   AuthoringIntent,
@@ -416,9 +418,12 @@ export class ConversationRunner {
     const { authoring: _authoring, ...projectFields } = p;
     const fullProject = add("作品", JSON.stringify(projectFields));
     add("创作共识（正文与最新作者指示优先）", memory);
-    const targets = [
-      ...new Set([...authorized.ids, ...chapters.slice(-3).map((c) => c.id)]),
-    ];
+    const scopedChapters = chapters.filter(c => authorized.ids.has(c.id) || c.id === turn.chapterId);
+    const beforeOrdinal = scopedChapters.length ? Math.min(...scopedChapters.map(c => c.ordinal)) : (chapters.at(-1)?.ordinal ?? 0) + 1;
+    const targets = [...new Set([
+      ...authorized.ids,
+      ...chapters.filter(c => c.ordinal < beforeOrdinal).slice(-3).map(c => c.id),
+    ])];
     // Full targeted text takes priority over optional past dialogue and notes.
     for (const id of targets) {
       const ch = chapters.find((c) => c.id === id);
@@ -430,6 +435,17 @@ export class ConversationRunner {
         )
       )
         full.add(id);
+    }
+    const references: RecallReference[] = [];
+    const query = [turn.text, ...scopedChapters.map(c => c.content.slice(0, 1200))].join("\n");
+    let referenceBudget = Math.min(Math.floor(this.maxChars / 5), remaining);
+    for (const reference of recallPassages(state, p.id, { query, beforeOrdinal, excludeChapterIds: targets })) {
+      const label = `相关旧章片段：第${reference.ordinal}章 ${reference.title}（${reference.source.id}@${reference.source.revision}，非全文）`;
+      const size = label.length + reference.excerpt.length + 4;
+      if (size > referenceBudget) continue;
+      add(label, reference.excerpt);
+      referenceBudget -= size;
+      references.push(reference);
     }
     const workflow = readAuthoring(state, p);
     for (const stage of planningStages) {
@@ -492,7 +508,7 @@ export class ConversationRunner {
       role: "user",
       content: `当前选中章节：${turn.chapterId ?? "尚无章节"}。本轮允许直接修改的已有章节id：${JSON.stringify([...authorized.ids])}。本轮最多新增${authorized.count}章。${warnings.length ? `覆盖提醒：${warnings.join("；")}` : ""}\n作者说：${turn.text}`,
     });
-    return { messages, full, fullNotes, fullProject, fullArtifacts, warnings };
+    return { messages, full, fullNotes, fullProject, fullArtifacts, warnings, references };
   }
   private async run(
     turn: ConversationTurn,
@@ -520,7 +536,7 @@ export class ConversationRunner {
         }
       }
       const context = this.context(turn, state, authorized);
-      this.update(turn.id, { contextWarnings: context.warnings });
+      this.update(turn.id, { contextWarnings: context.warnings, contextReferences: context.references });
       let response = await completeConversation(this.provider, {
         baseUrl: profile.baseUrl,
         model: profile.model,
