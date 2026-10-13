@@ -1,3 +1,5 @@
+import { validateStoryRecord, validateStoryJob } from "../shared/story-state";
+import { chapterDigest } from "./story-context";
 import { randomUUID, createHash } from "node:crypto";
 import {
   readFile,
@@ -152,7 +154,7 @@ const tables = [
   "syncBatches",
   "readingWorkspaces",
   "revisionJobs",
-  "writingJobs",
+  "writingJobs", "storyRecords", "storyJobs",
 ] as const;
 type Portable = Required<Pick<AppState, (typeof tables)[number]>>;
 export class ProjectFiles {
@@ -216,6 +218,8 @@ export class ProjectFiles {
       readingWorkspaces: (s.readingWorkspaces ?? []).filter(w => w.projectId === id),
       revisionJobs: (s.revisionJobs ?? []).filter(j => j.projectId === id).map(({ profileId, ...job }) => job),
       writingJobs: (s.writingJobs ?? []).filter(j => j.projectId === id).map(({ profileId, checkingProfileId, ...job }) => job),
+      storyRecords: (s.storyRecords ?? []).filter(r=>r.projectId===id),
+      storyJobs: (s.storyJobs ?? []).filter(j=>j.projectId===id).map(({profileId,...j})=>j),
       materials: s.materials
         .filter((m) => m.projectReferences.some((r) => r.projectId === id))
         .map((m) => {
@@ -233,7 +237,7 @@ export class ProjectFiles {
       path,
       JSON.stringify({
         format: "xiaoshuo-project",
-        version: 5,
+        version: 6,
         sha256: digest(payload),
         payload,
       }),
@@ -252,11 +256,12 @@ export class ProjectFiles {
     if (
       !pack ||
       !["xiaoshuo-project", "xiaoshuo-recovery"].includes(pack.format) ||
-      ![1, 2, 3, 4, 5].includes(pack.version) ||
+      ![1, 2, 3, 4, 5, 6].includes(pack.version) ||
       !pack.payload ||
       pack.sha256 !== digest(pack.payload)
     )
       fail("作品包版本或完整性校验失败");
+    if(pack.format === "xiaoshuo-recovery" && pack.payload.schemaVersion !== pack.version) fail("恢复包版本与数据不一致");
     // Verify the original digest first, then normalize legacy packages.
     if (pack.version < 3) {
       if (pack.version === 1 && pack.payload.conversations === undefined) pack.payload.conversations = [];
@@ -284,6 +289,7 @@ export class ProjectFiles {
       if (pack.format === "xiaoshuo-recovery") pack.payload.schemaVersion = 5;
     }
     const s = pack.payload as Portable;
+    if(pack.version<6){pack.payload.storyRecords=[];pack.payload.storyJobs=[];if(pack.format==="xiaoshuo-recovery")pack.payload.schemaVersion=6;}
     if (pack.format === "xiaoshuo-recovery") validateRecovery(s);
     else validatePortable(s);
     return this.importPayload(s);
@@ -307,6 +313,11 @@ export class ProjectFiles {
     // Deleted historical sources also receive fresh identities in the imported copy.
     for (const record of [...s.conversations, ...s.writingJobs]) for (const ref of record.contextReferences ?? [])
       if (!ids.has(ref.source.id)) ids.set(ref.source.id, randomUUID());
+    for(const r of s.storyRecords) for(const frame of [r,r.accepted,...r.history,...r.history.map(h=>h.accepted)].filter(Boolean)) {
+      for(const e of frame!.evidence)if(!ids.has(e.chapterId))ids.set(e.chapterId,randomUUID());
+      if(frame!.entityNoteId&&!ids.has(frame!.entityNoteId))ids.set(frame!.entityNoteId,randomUUID());
+      if(frame!.origin.id&&!ids.has(frame!.origin.id))ids.set(frame!.origin.id,randomUUID());
+    }
     const remap = (id: string) => {
       if (!ids.has(id)) ids.set(id, randomUUID());
       return ids.get(id)!;
@@ -456,6 +467,8 @@ export class ProjectFiles {
         const { profileId, checkingProfileId, reviewSourceDigest, checkCursor, checkSourceDigest, checkIssues, ...job } = j;
         this.store.put("writingJobs", { ...nested(job), status: j.status === "running" ? "interrupted" : j.status });
       }
+      for(const r of s.storyRecords)this.store.put("storyRecords",nested(r));
+      for(const j of s.storyJobs){const {profileId,...job}=j;this.store.put("storyJobs",{...nested(job),status:j.status==="running"?"interrupted":j.status});}
       for (const original of s.projects) this.reprojectImportedProject(remap(original.id), original.title);
       // A renamed imported copy may re-render synchronized planning documents.
       // Rebase only fingerprints that were current in the source package.
@@ -622,6 +635,7 @@ function validatePortable(s: any): asserts s is Portable {
     validateConversationTurn(t);
     if ([...t.chapterIds, ...(t.chapterId ? [t.chapterId] : []), ...(t.proposal?.chapterIds ?? []), ...(t.response?.proposal?.chapterIds ?? []), ...(t.response?.chapters ?? []).flatMap((c: any) => c.id ? [c.id] : [])].some(id => !chapters.has(id)) || (t.proposalTurnId && !turns.has(t.proposalTurnId))) fail("作品包对话引用不正确");
   }
+  validateStoryOwnership(s);
   validateReadingPayload(s);
   validateWritingPayload(s);
 }
@@ -630,7 +644,7 @@ function validateRecovery(s: any): void {
   validatePublicJson(s);
   if (
     !s ||
-    s.schemaVersion !== 5 ||
+    s.schemaVersion !== 6 ||
     Object.keys(s).sort().join(",") !==
       ["schemaVersion", ...tables].sort().join(",")
   )
@@ -664,6 +678,7 @@ function validateRecovery(s: any): void {
     validateTaskReferences(task, s);
   }
   validateRecallOwnership(s);
+  validateStoryOwnership(s);
   for (const project of s.projects) {
     const pid = project.id;
     validatePortable({
@@ -679,6 +694,8 @@ function validateRecovery(s: any): void {
       readingWorkspaces: s.readingWorkspaces.filter((r: any) => r.projectId === pid),
       revisionJobs: s.revisionJobs.filter((r: any) => r.projectId === pid),
       writingJobs: s.writingJobs.filter((r: any) => r.projectId === pid),
+      storyRecords:s.storyRecords.filter((r:any)=>r.projectId===pid),
+      storyJobs:s.storyJobs.filter((r:any)=>r.projectId===pid),
       materials: s.materials
         .filter(
           (m: any) =>
@@ -1029,5 +1046,26 @@ function validateSyncOwnership(s: Portable): void {
   }
   for (const b of s.syncBatches) for (const snap of [b.before, b.after]) for (const n of snap.notes) {
     note(n.id, b.projectId); sources(n.sources, b.projectId);
+  }
+}
+
+function validateStoryOwnership(s:Portable):void {
+  const chapters=new Map(s.chapters.map(c=>[c.id,c])),notes=new Map(s.notes.map(n=>[n.id,n]));
+  const records=new Map(s.storyRecords.map(r=>[r.id,r])),jobs=new Map([...s.storyJobs,...s.writingJobs].map(j=>[j.id,j]));
+  for(const r of s.storyRecords){validateStoryRecord(r);
+    for(const frame of [r,r.accepted,...r.history,...r.history.map(h=>h.accepted)].filter(Boolean)){
+      if(frame!.projectId!==r.projectId||frame!.id!==r.id)fail("故事状态历史归属不正确");
+      const n=frame!.entityNoteId?notes.get(frame!.entityNoteId):undefined;
+      if(n&&n.projectId!==r.projectId)fail("故事状态人物跨作品引用");
+      const origin=frame!.origin.id?jobs.get(frame!.origin.id):undefined;
+      if(origin&&origin.projectId!==r.projectId)fail("故事状态任务跨作品引用");
+      for(const e of frame!.evidence){const c=chapters.get(e.chapterId);if(c&&(c.projectId!==r.projectId||e.revision>c.revision))fail("故事状态原文来源跨作品或版本不正确");
+        if(c&&c.revision===e.revision&&(chapterDigest(c)!==e.contentHash||c.ordinal!==e.ordinal||c.content.slice(e.start,e.end)!==e.quote))fail("故事状态引用与当前原文不一致");
+      }
+    }
+  }
+  for(const j of s.storyJobs){validateStoryJob(j);
+    for(const e of j.sources){const c=chapters.get(e.chapterId);if(c&&(c.projectId!==j.projectId||e.revision>c.revision))fail("状态提取任务来源跨作品或版本不正确");if(c&&c.revision===e.revision&&(chapterDigest(c)!==e.contentHash||c.content.length!==e.length))fail("状态提取任务来源与原文不一致");}
+    for(const id of j.candidateIds){const r=records.get(id);if(r&&r.projectId!==j.projectId)fail("状态提取候选跨作品引用");}
   }
 }

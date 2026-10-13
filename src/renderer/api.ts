@@ -1,3 +1,4 @@
+import type {StoryRecord,StoryQuery,StoryWorkspace} from "../shared/story-state";
 import type { AppState, Command, CommandResult, Chapter, ChapterVersion, ConversationTurn } from "../shared/types";
 import type { SearchResult } from "../shared/reader";
 import type { RevisionJob } from "../shared/revision";
@@ -12,6 +13,8 @@ declare global {
       conversation(id: string): Promise<ConversationTurn>;
       search(projectId: string, query: string, offset?: number): Promise<SearchResult>;
       revisionJob(id: string, offset?: number, limit?: number): Promise<RevisionJob>;
+      storyWorkspace(query:StoryQuery):Promise<StoryWorkspace>;
+      storyRecord(id:string):Promise<StoryRecord>;
       onBeforeClose(handler: () => void): () => void;
       closeReady(ready: boolean): Promise<void>;
     };

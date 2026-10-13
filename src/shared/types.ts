@@ -2,6 +2,7 @@ import type { ReaderCommand, ReadingWorkspace, TextSelection } from "./reader";
 import type { RevisionCommand, RevisionJob } from "./revision";
 import type { WritingCommand, WritingJob } from "./writing";
 import type { RecallReference } from "./recall";
+import type {StoryRecord,StoryExtractionJob,StoryCommand,StoryJobCommand} from "./story-state";
 export type ID = string;
 export type JsonValue =
   | null
@@ -379,6 +380,8 @@ export interface AppState {
   readingWorkspaces?: ReadingWorkspace[];
   revisionJobs?: RevisionJob[];
   writingJobs?: WritingJob[];
+  storyRecords?: StoryRecord[];
+  storyJobs?: StoryExtractionJob[];
 }
 type Existing = { id: ID; revision: number };
 type Saving = { id?: ID; revision?: number };
@@ -519,7 +522,7 @@ export type AsyncCommand =
     }
   | { type: "file.backup"; projectId: ID }
   | { type: "file.importBackup" };
-export type Command = DomainCommand | AsyncCommand | ReaderCommand | RevisionCommand | WritingCommand;
+export type Command = DomainCommand | AsyncCommand | ReaderCommand | RevisionCommand | WritingCommand | StoryCommand | StoryJobCommand;
 export type ErrorCode =
   | "VALIDATION"
   | "NOT_FOUND"

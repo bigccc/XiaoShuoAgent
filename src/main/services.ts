@@ -1,3 +1,5 @@
+import { StoryStateService } from "./story-state";
+import type { StoryCommand, StoryQuery } from "../shared/story-state";
 import { createHash, randomUUID } from "node:crypto";
 import { mkdirSync } from "node:fs";
 import { readdir, unlink } from "node:fs/promises";
@@ -54,6 +56,7 @@ export class AppServices {
   private reading: ReadingService;
   private revisions: RevisionRunner;
   private writing: WritingRunner;
+  private story:StoryStateService;
   private timer: ReturnType<typeof setInterval>;
   private recovering: Promise<void> | null = null;
   private lastDigest = "";
@@ -74,6 +77,7 @@ export class AppServices {
         this.sync?.onContentChange(command, before),
     });
     this.files = new ProjectFiles(this.store);
+    this.story=new StoryStateService(this.store);
     this.tasks = new TaskRunner(
       this.store,
       this.domain,
@@ -151,6 +155,8 @@ export class AppServices {
     if (!Number.isSafeInteger(offset) || offset < 0 || !Number.isSafeInteger(limit) || limit < 1 || limit > 40) throw new DomainError("VALIDATION", "待审稿分页参数不正确");
     return this.store.revisionDetails(id, offset, limit);
   }
+  storyWorkspace(query:StoryQuery){return this.story.workspace(query);}
+  storyRecord(id:string){if(typeof id!=="string"||!id)throw new DomainError("VALIDATION","状态编号不正确");return this.story.record(id);}
   async dispatch(command: Command): Promise<CommandResult> {
     try {
       if (this.disposed) throw new DomainError("STORAGE", "应用正在关闭");
@@ -161,6 +167,7 @@ export class AppServices {
         typeof command.type !== "string"
       )
         throw new DomainError("VALIDATION", "请求格式不正确");
+      if (command.type.startsWith("story.") && !command.type.startsWith("story.job."))return this.story.command(command as StoryCommand);
       if (command.type.startsWith("writing.")) {
         const c = command as WritingCommand;
         if (c.type === "writing.start") {
@@ -444,6 +451,7 @@ export class AppServices {
         readingWorkspaces: state.readingWorkspaces ?? [],
         revisionJobs: (state.revisionJobs ?? []).map(({ profileId, ...job }) => job),
         writingJobs: (state.writingJobs ?? []).map(({ profileId, checkingProfileId, ...job }) => job),
+        storyRecords:state.storyRecords??[],storyJobs:(state.storyJobs??[]).map(({profileId,...j})=>j),
       };
       validatePublicJson(payload);
       const sha256 = createHash("sha256")
@@ -460,7 +468,7 @@ export class AppServices {
         file,
         JSON.stringify({
           format: "xiaoshuo-recovery",
-          version: 5,
+          version: 6,
           sha256,
           payload,
         }),
