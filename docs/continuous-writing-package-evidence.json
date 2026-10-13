@@ -1,0 +1,22 @@
+{
+  "dmg": "/Users/dave/Dev/XiaoShuoAgent/release/continuous-writing-20261012/XiaoShuoAgent-0.1.0-arm64.dmg",
+  "sha256": "d158697eff9c7ad2cb57b0b35a0b82283b9bc1f6d8250256066b243c7e14bee0",
+  "installedApp": "/var/folders/sj/z93s092n0j77xhmksrx9hfmh0000gn/T/novel-writing-installed-cx92pa2i/XiaoShuoAgent.app",
+  "frameworkLinks": 14,
+  "allLinksInternal": true,
+  "dmgVerified": true,
+  "bundledFilesMatch": [
+    "out/main/index.js",
+    "out/preload/index.cjs",
+    "out/renderer/index.html",
+    "out/renderer/assets/index-7n7Ub_8h.css",
+    "out/renderer/assets/index-CZYLOfcq.js"
+  ],
+  "temporaryFilesExcluded": true,
+  "installedTests": {
+    "command": "NOVEL_PACKAGED_EXECUTABLE=<DMG安装副本> playwright test tests/e2e/writing.spec.ts",
+    "passed": 5,
+    "failed": 0
+  },
+  "installedCopyCleaned": true
+}

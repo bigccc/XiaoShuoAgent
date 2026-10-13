@@ -25,11 +25,20 @@ import {
 import {
   buildContext,
   boundContext,
+  applyBatch,
   sourceCurrent,
   type BuiltContext,
   type ContextDocument,
   type BatchContext,
 } from "./context";
+import { checkWindows } from "./check-context";
+import {
+  canonicalQuote,
+  checkJsonContent,
+  consistencyInstruction,
+  reviewInstruction,
+} from "./quality";
+import { countProse, proseRange } from "../shared/prose";
 export interface CredentialCodec {
   encrypt: (plaintext: string) => Uint8Array;
   decrypt: (ciphertext: Uint8Array) => string;
@@ -59,6 +68,7 @@ interface CandidateResult {
   needsReview: boolean;
   checked: boolean;
   check?: ParsedCheck;
+  lengthAttempts?: number;
 }
 interface ResultData {
   candidates?: CandidateResult[];
@@ -72,6 +82,12 @@ interface ResultData {
   connection?: boolean;
   pauseReason?: string;
   phase?: string;
+  checkProgress?: {
+    chapterId?: string;
+    completed: number;
+    total: number;
+    checked: ParsedCheck;
+  };
 }
 interface ParsedCheck {
   issues: {
@@ -240,6 +256,7 @@ export class TaskRunner {
             targets,
             [],
             this.maxContextChars,
+            true,
           );
     const snapshot: RequestSnapshot = {
       command: JSON.parse(JSON.stringify(command)),
@@ -381,13 +398,30 @@ export class TaskRunner {
     // references instead of reusing cached text or replacing IDs in author prose.
     const snapshot: RequestSnapshot = {
       ...persisted,
-      context: boundContext(persisted.context, [], this.maxContextChars),
+      context: {
+        ...boundContext(persisted.context, [], this.maxContextChars),
+        // Keep the immutable full documents for checks and later batch passes.
+        documents: persisted.context.documents,
+        disclosures: persisted.context.disclosures,
+      },
     };
     const c = snapshot.command;
     let result = initial.result as unknown as ResultData;
     let resumePartial =
       mode === "continue" && result.phase !== "checking" ? initial.partial : "";
     let activePrefix = "";
+    const planningMaxWords =
+      // Older snapshots had no planning ceiling; don't retroactively apply
+      // the new UI's smaller default to their accumulated suggestions.
+      c.type === "ai.plan" ? (c.planningMaxWords ?? 300000) : Infinity;
+    const boundPlanning = (text: string, limit: number) => {
+      let count = 0, end = 0;
+      for (const char of text) {
+        if (/\S/u.test(char) && ++count > limit) break;
+        end += char.length;
+      }
+      return { text: text.slice(0, end), count: Math.min(count, limit), limited: count >= limit };
+    };
     const key = this.key(snapshot.profile),
       checkKey = this.key(snapshot.checkingProfile),
       keys = [key ?? "", checkKey ?? ""];
@@ -407,6 +441,8 @@ export class TaskRunner {
         const allowance = Math.max(0, promptRemaining);
         promptRemaining -= Math.min(message.content.length, allowance);
         if (message.content.length <= allowance) return message;
+        if (forCheck)
+          throw new DomainError("VALIDATION", "检查要求过长，无法完整发送本段原文；请缩短要求后新建任务");
         result.disclosures ??= [];
         result.disclosures.push(
           `请求上下文已截断：保留 ${allowance}/${message.content.length} 字符；完整片段仍保留在本地`,
@@ -426,6 +462,15 @@ export class TaskRunner {
       const consumed = current.usage?.totalTokens ?? 0;
       const inputEstimate = estimate(messages);
       const remaining = budget - consumed - inputEstimate;
+      const thinkingCheck =
+        forCheck &&
+        profile.model === "deepseek-v4-pro" &&
+        new URL(profile.baseUrl).hostname === "api.deepseek.com";
+      if (thinkingCheck && remaining < 4000)
+        throw new DomainError(
+          "BUDGET",
+          "剩余预算不足以完成检查推理，已暂停；可新建更高预算任务",
+        );
       if (remaining < 32)
         throw new DomainError(
           "BUDGET",
@@ -434,23 +479,45 @@ export class TaskRunner {
       const cap = Math.min(
         32000,
         forCheck
-          ? 1500
+          ? thinkingCheck
+            ? 8000
+            : 1500
           : c.type === "ai.chapter"
             ? Math.max(
                 256,
-                this.store.get("projects", c.projectId)!.chapterWords * 2,
+                (c.chapterWords ??
+                  this.store.get("projects", c.projectId)!.chapterWords) * 2,
               )
-            : 2000,
+            : c.type === "ai.plan"
+              ? (c.maxOutputTokens ?? 8000)
+              : 2000,
         remaining,
       );
       let full = "";
+      let planningCount = Array.from(activePrefix.replace(/\s/g, "")).length;
       const reservation = inputEstimate + cap;
+      const settleUsage = (usage: TaskUsage) => {
+        const old = this.store.get("tasks", id)!.usage!;
+        const sum = (a: number | null, b: number | null, reserved: number) =>
+          a === null || b === null ? null : a - reserved + b;
+        const retried = this.store.get("tasks", id)!.calls - current.calls > 1;
+        this.update(id, {
+          usage: {
+            inputTokens: sum(old.inputTokens, usage.inputTokens, inputEstimate),
+            outputTokens: sum(old.outputTokens, usage.outputTokens, cap),
+            totalTokens: sum(old.totalTokens, usage.totalTokens, reservation),
+            estimated: (current.usage?.estimated ?? false) || retried || usage.estimated,
+          },
+        });
+      };
       const response = await this.provider.complete({
         baseUrl: profile.baseUrl,
         model: profile.model,
         key: forCheck ? checkKey : key,
         messages,
         maxTokens: cap,
+        jsonResponse: forCheck || c.type === "ai.extract",
+        ...(thinkingCheck ? { thinkingMode: "enabled" as const } : {}),
         signal,
         onAttempt: () => {
           const now = this.store.get("tasks", id)!;
@@ -469,11 +536,22 @@ export class TaskRunner {
           });
         },
         onChunk: (chunk) => {
-          full += chunk;
+          const bounded = c.type === "ai.plan"
+            ? boundPlanning(chunk, Math.max(0, planningMaxWords - planningCount))
+            : { text: chunk, count: 0, limited: false };
+          planningCount += bounded.count;
+          full += bounded.text;
           this.update(id, {
             partial: this.redact(activePrefix + full, keys, true),
           });
+          if (c.type === "ai.plan" && bounded.limited)
+            throw new ProviderError("WORD_LIMIT", `规划建议达到字数上限（${planningMaxWords} 字，含标点、不含空白），已停止；当前片段可能尚未完整，请审阅或调整上限后新建任务。`, activePrefix + full);
         },
+      }).catch((error) => {
+        // A length finish still has billed usage in the final SSE usage frame.
+        if (error instanceof ProviderError && error.usage && error.usage.totalTokens !== null)
+          settleUsage(error.usage);
+        throw error;
       });
       const estimated = response.usage.totalTokens === null;
       const usage: TaskUsage = estimated
@@ -485,19 +563,7 @@ export class TaskRunner {
             estimated: true,
           }
         : response.usage;
-      const old = this.store.get("tasks", id)!.usage!;
-      const sum = (a: number | null, b: number | null, reserved: number) =>
-        a === null || b === null ? null : a - reserved + b;
-      const priorEstimated = current.usage?.estimated ?? false;
-      const retried = this.store.get("tasks", id)!.calls - current.calls > 1;
-      this.update(id, {
-        usage: {
-          inputTokens: sum(old.inputTokens, usage.inputTokens, inputEstimate),
-          outputTokens: sum(old.outputTokens, usage.outputTokens, cap),
-          totalTokens: sum(old.totalTokens, usage.totalTokens, reservation),
-          estimated: priorEstimated || retried || usage.estimated,
-        },
-      });
+      settleUsage(usage);
       return this.redact(response.text, keys);
     };
     const system = (text: string): ChatMessage => ({
@@ -508,8 +574,126 @@ export class TaskRunner {
       role: "user",
       content: text,
     });
-    const checkInstruction =
-      '只返回 JSON：{"issues":[{"type":"character|timeline|location|world|knowledge|foreshadowing","reason":"原因","evidence":[{"quote":"逐字原文","source":{"kind":"project|note|chapter","id":"来源ID","revision":1}}]}],"majorChange":false,"reason":"可选暂停原因"}。检查六类一致性。没有证据不得编造。重大剧情或设定变化时 majorChange=true。';
+    const checkWindow = async (
+      context: BuiltContext,
+      profile = snapshot.profile,
+      instruction = "",
+    ): Promise<ParsedCheck> => {
+      const text =
+        context.text + (instruction ? `\n作者要求：${instruction}` : "");
+      const structured = async (messages: ChatMessage[]) => {
+        const raw = await call(messages, profile, true);
+        try {
+          return parseCheck(raw, context.documents);
+        } catch (error) {
+          if (!(error instanceof ProviderError) || error.code !== "FORMAT")
+            throw error;
+          // Only relax the empty-result guard when the original response already
+          // contained a valid, empty check surrounded by non-JSON presentation.
+          // Invalid evidence must never be repaired by silently deleting issues.
+          let emptySyntaxOnly = false;
+          try {
+            const original = parseCheck(
+              checkJsonContent(raw),
+              context.documents,
+            );
+            emptySyntaxOnly = !original.issues.length && !original.majorChange;
+          } catch { /* The original result was not a verifiable empty check. */ }
+          result.disclosures ??= [];
+          result.disclosures.push(
+            `检查输出格式修正一次：${error.message}；仍保留严格来源校验。`,
+          );
+          saveResult();
+          const repaired = parseCheck(
+            await call(
+              [
+                ...messages,
+                { role: "assistant", content: raw },
+                user(
+                  `上次输出被拒绝：${error.message}。只修正JSON格式和证据引用，保留已发现的真实疑点。quote必须从所给原文逐字复制（含换行、标点）；source必须复制对应方括号内的kind、id和@后的revision。不得改写原文、用省略号拼接句子或用版本1替代实际版本。只返回完整JSON，不能在JSON之后追加说明，也不能靠清空issues掩盖无效证据。`,
+                ),
+              ],
+              profile,
+              true,
+            ),
+            context.documents,
+          );
+          if (!repaired.issues.length && !repaired.majorChange && !emptySyntaxOnly)
+            throw new ProviderError(
+              "FORMAT",
+              "格式修正未提供可核实的疑点，不能将无效检查视为通过",
+            );
+          return repaired;
+        }
+      };
+      const initial = await structured([
+        system(consistencyInstruction),
+        user(text),
+      ]);
+      result.disclosures ??= [];
+      if (!initial.issues.length)
+        result.disclosures.push("初检未报告确定冲突，仍进行独立复核。");
+      for (const issue of initial.issues) {
+        const evidence = issue.evidence
+          .map((e) => {
+            const source = context.documents.find(
+              (d) =>
+                d.source.kind === e.source.kind &&
+                d.source.id === e.source.id &&
+                d.source.revision === e.source.revision,
+            );
+            return `${source?.label ?? "原文"}（版本${e.source.revision}）「${e.quote}」`;
+          })
+          .join("；");
+        result.disclosures.push(
+          `初检待复核：${issue.reason}；依据：${evidence}`,
+        );
+      }
+      if (initial.majorChange && initial.reason)
+        result.disclosures.push(`初检变更提示（待复核）：${initial.reason}`);
+      saveResult();
+      const reviewed = await structured([
+        system(reviewInstruction),
+        user(text),
+      ]);
+      result.disclosures.push(
+        `一致性复核：初检 ${initial.issues.length} 项，复核保留 ${reviewed.issues.length} 项；复核独立阅读原文，初检依据已保留。`,
+      );
+      saveResult();
+      return reviewed;
+    };
+    const check = async (
+      context: BuiltContext,
+      profile = snapshot.profile,
+      instruction = "",
+      chapterId?: string,
+    ): Promise<ParsedCheck> => {
+      const windows = checkWindows(context, this.maxContextChars);
+      let progress = result.checkProgress;
+      if (!progress || progress.chapterId !== chapterId) {
+        progress = { ...(chapterId ? { chapterId } : {}), completed: 0, total: windows.length, checked: { issues: [], majorChange: false } };
+        result.checkProgress = progress;
+        result.disclosures ??= [];
+        result.disclosures.push(`检查覆盖所选来源快照：共 ${windows.length} 段，每段初检及独立复核；相邻段保留重叠。分段覆盖不保证发现未同窗出现的远距离矛盾。`);
+        saveResult();
+      }
+      if (progress.total !== windows.length || progress.completed > windows.length)
+        throw new DomainError("CONFLICT", "检查分段与已保存进度不一致，请使用当前来源新建任务");
+      for (let index = progress.completed; index < windows.length; index++) {
+        const reviewed = await checkWindow(windows[index], profile, instruction);
+        const seen = new Set(progress.checked.issues.map(issue => JSON.stringify([issue.type, issue.evidence])));
+        for (const issue of reviewed.issues) {
+          const key = JSON.stringify([issue.type, issue.evidence]);
+          if (!seen.has(key)) { progress.checked.issues.push(issue); seen.add(key); }
+        }
+        progress.checked.majorChange ||= reviewed.majorChange;
+        if (reviewed.majorChange && reviewed.reason) progress.checked.reason = reviewed.reason;
+        progress.completed = index + 1;
+        saveResult();
+        this.update(id, { partial: "" });
+      }
+      return progress.checked;
+    };
     try {
       this.update(id, { status: "running", error: "" });
       if (c.type === "ai.chapter") {
@@ -537,12 +721,22 @@ export class TaskRunner {
               batch,
               this.maxContextChars,
             );
-            result.disclosures = bounded.disclosures;
+            result.disclosures = [
+              ...new Set([
+                ...(result.disclosures ?? []),
+                ...bounded.disclosures,
+              ]),
+            ];
             const contextText = bounded.text;
             const prefix = resumePartial;
             activePrefix = prefix;
             const text = await call([
-              system("按章纲生成完整正文候选稿，保留人物说话习惯和叙述风格。"),
+              system(
+                "按章纲生成完整正文候选稿，保留人物说话习惯和叙述风格。请尽量接近目标字数，不要只凑最低界限。" +
+                  (c.chapterWords
+                    ? `本次正文目标${c.chapterWords}字，允许${proseRange(c.chapterWords).join("—")}字，不含标题和空白；按此范围控制长度，只输出正文。`
+                    : ""),
+              ),
               user(
                 `${contextText}\n当前目标：第${chapter.ordinal}章 ${chapter.title}\n本章文风：${chapter.style || this.store.get("projects", c.projectId)!.style}\n节奏：${chapter.pace || this.store.get("projects", c.projectId)!.pace}\n作者要求：${c.instruction ?? ""}${prefix ? `\n已生成片段：${prefix}\n只续写片段之后的正文，不重复开头。` : ""}`,
               ),
@@ -576,28 +770,98 @@ export class TaskRunner {
             });
             if (candidate.needsReview) return;
           }
+          if (c.chapterWords && !candidate.checked) {
+            const [min, max] = proseRange(c.chapterWords);
+            const outside = () =>
+              countProse(candidate!.text) < min ||
+              countProse(candidate!.text) > max;
+            while (
+              result.phase === "length" ||
+              (outside() && (candidate.lengthAttempts ?? 0) < 2)
+            ) {
+              const pending = result.phase === "length";
+              if (!pending)
+                candidate.lengthAttempts = (candidate.lengthAttempts ?? 0) + 1;
+              result.phase = "length";
+              saveResult();
+              const prefix =
+                pending && mode === "continue" ? resumePartial : "";
+              activePrefix = prefix;
+              const revisionContext = boundContext(
+                snapshot.context,
+                result.candidates.filter((item) => item.chapterId !== chapterId).map((item) => ({
+                  chapterId: item.chapterId,
+                  text: item.text,
+                  versionId: item.versionId,
+                })),
+                this.maxContextChars,
+              );
+              result.disclosures = [...new Set([...(result.disclosures ?? []), ...revisionContext.disclosures])];
+              saveResult();
+              const revised =
+                prefix +
+                (await call([
+                  system(
+                    `只修订本章正文长度，保留既定人物、事实、情节结果和叙述风格。完整正文目标${c.chapterWords}字，必须在${min}—${max}字以内（不含标题和空白）。当前全文${countProse(candidate.text)}字。过长则删减重复描写，过短则扩展当前场景，不推进下一章。只输出修订正文，不解释。`,
+                  ),
+                  user(
+                    `${revisionContext.text}\n作者要求：${c.instruction ?? ""}\n本章候选：\n${candidate.text}${prefix ? `\n已经修订的开头：\n${prefix}\n仅续写这个开头之后的内容，不重复开头；控制完整修订稿总字数。` : ""}`,
+                  ),
+                ]));
+              activePrefix = "";
+              resumePartial = "";
+              const saved = this.domain.saveCandidate({
+                chapterId,
+                content: revised,
+                taskId: id,
+                sourceRevisions: initial.sourceRevisions,
+              });
+              if (!saved.ok)
+                throw new DomainError("CONFLICT", saved.error.message);
+              candidate.text = revised;
+              candidate.versionId = saved.entityId;
+              result.phase = "generation";
+              result.disclosures ??= [];
+              result.disclosures.push(
+                `第${this.store.get("chapters", chapterId)!.ordinal}章字数修订第${candidate.lengthAttempts}次：正文${countProse(revised)}字，目标${c.chapterWords}字，允许${min}—${max}字；原候选版本已保留。`,
+              );
+              saveResult();
+              this.update(id, { partial: "" });
+              if (outside() && candidate.lengthAttempts === 2) {
+                candidate.needsReview = true;
+                result.pauseReason = `修订后正文仍超出字数范围（${countProse(revised)}／${min}—${max}字），已保留候选，请作者复核后继续检查。`;
+                saveResult();
+                this.update(id, { status: "awaiting-author" });
+                return;
+              }
+            }
+          }
           if (!candidate.checked) {
             result.phase = "checking";
             saveResult();
             const source = initial.sourceRevisions.find(
               (ref) => ref.kind === "chapter" && ref.id === chapterId,
             )!;
-            const checkContext = boundContext(
+            const checkContext = applyBatch(
               snapshot.context,
               result.candidates.map((item) => ({
                 chapterId: item.chapterId,
                 text: item.text,
                 versionId: item.versionId,
               })),
-              this.maxContextChars,
             );
-            result.disclosures = checkContext.disclosures;
-            const raw = await call(
-              [system(checkInstruction), user(checkContext.text)],
+            result.disclosures = [
+              ...new Set([
+                ...(result.disclosures ?? []),
+                ...checkContext.disclosures,
+              ]),
+            ];
+            candidate.check = await check(
+              checkContext,
               snapshot.checkingProfile,
-              true,
+              "",
+              chapterId,
             );
-            candidate.check = parseCheck(raw, checkContext.documents);
             candidate.checked = true;
             result.phase = "generation";
             saveResult();
@@ -623,12 +887,12 @@ export class TaskRunner {
         return;
       }
       if (c.type === "ai.check") {
-        const raw = await call([
-          system(checkInstruction),
-          user(snapshot.context.text + `\n作者要求：${c.instruction ?? ""}`),
-        ]);
-        const check = parseCheck(raw, snapshot.context.documents);
-        result.check = check;
+        const checked = await check(
+          snapshot.context,
+          snapshot.profile,
+          c.instruction,
+        );
+        result.check = checked;
         result.sources = initial.sourceRevisions;
         if (stale()) {
           result.pauseReason = "检查依据已修改，结果需要作者复核";
@@ -638,7 +902,7 @@ export class TaskRunner {
         }
         result.issueIds = [];
         this.store.transaction(() => {
-          for (const issue of check.issues) {
+          for (const issue of checked.issues) {
             const saved = this.store.saveIssue({
               ...meta(),
               ...issue,
@@ -658,7 +922,7 @@ export class TaskRunner {
         });
         this.update(id, {
           status:
-            check.issues.length || check.majorChange
+            checked.issues.length || checked.majorChange
               ? "awaiting-author"
               : "completed",
           partial: "",
@@ -717,13 +981,17 @@ export class TaskRunner {
           ? [system("请回复连接成功。"), user("测试兼容聊天接口")]
           : [
               system(
-                `提出${c.step}步骤的建议，摘要、时间线、知情范围和伏笔记录必须引用输入的来源 ID 与版本。返回建议文本供作者审阅。`,
+                `提出${c.step}步骤的建议，摘要、时间线、知情范围和伏笔记录必须引用输入的来源 ID 与版本。返回建议文本供作者审阅。本次规划建议累计最多 ${planningMaxWords} 字（含标点、不含空白），这是上限而不是目标，不要凑满；完成作者要求后结束。作品 targetWords 是整部小说规模，chapterWords 是正文每章目标，均不是本次规划输出字数。`,
               ),
               user(
                 snapshot.context.text +
                   `\n作者要求：${c.instruction ?? ""}${resumePartial ? `\n先前片段：${resumePartial}\n续写建议，不重复片段。` : ""}`,
               ),
             ];
+      if (c.type === "ai.plan") {
+        result.disclosures = [...new Set([...(result.disclosures ?? []), ...boundContext(snapshot.context, [], this.maxContextChars).disclosures])];
+        saveResult();
+      }
       activePrefix = c.type === "ai.plan" ? resumePartial : "";
       const text = await call(prompt);
       result =
@@ -742,9 +1010,20 @@ export class TaskRunner {
         partial: "",
       });
     } catch (error) {
+      if (c.type === "ai.plan" && error instanceof ProviderError && error.code === "WORD_LIMIT") {
+        result.suggestion = this.redact(error.partial, keys, true);
+        result.step = c.step;
+        result.sources = initial.sourceRevisions;
+        result.pauseReason = error.message;
+        saveResult();
+        this.update(id, { status: "awaiting-author", partial: "", error: "" });
+        return;
+      }
       const run = this.active.get(id);
       const status = run?.closing
         ? "interrupted"
+        : error instanceof ProviderError && error.code === "OUTPUT_LIMIT"
+          ? "interrupted"
         : error instanceof ProviderError && error.code === "CANCELLED"
           ? "cancelled"
           : error instanceof DomainError && error.code === "BUDGET"
@@ -811,29 +1090,27 @@ export function parseCheck(
       throw new ProviderError("FORMAT", "一致性检查缺少类型、原因或原文依据");
     const evidence: CheckIssue["evidence"] = [];
     for (const e of i.evidence) {
+      const document =
+        e && typeof e.quote === "string" && e.source
+          ? documents.find(
+              (d) =>
+                d.source.kind === e.source.kind &&
+                d.source.id === e.source.id &&
+                d.source.revision === e.source.revision &&
+                canonicalQuote(d.text, e.quote) !== undefined,
+            )
+          : undefined;
       if (
         !e ||
         typeof e.quote !== "string" ||
         !e.quote.trim() ||
         !e.source ||
-        !documents.some(
-          (d) =>
-            d.source.kind === e.source.kind &&
-            d.source.id === e.source.id &&
-            d.source.revision === e.source.revision &&
-            d.text.includes(e.quote),
-        )
+        !document
       )
         throw new ProviderError("FORMAT", "检查依据无法对应输入原文及来源版本");
-      const candidate = documents.find(
-        (d) =>
-          d.source.kind === e.source.kind &&
-          d.source.id === e.source.id &&
-          d.source.revision === e.source.revision &&
-          d.text.includes(e.quote),
-      )?.candidateId;
+      const candidate = document.candidateId;
       evidence.push({
-        quote: e.quote,
+        quote: canonicalQuote(document.text, e.quote)!,
         source: {
           kind: e.source.kind,
           id: e.source.id,

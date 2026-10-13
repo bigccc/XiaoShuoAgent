@@ -46,7 +46,7 @@ export function ProjectSettings({
   return (
     <section className="page">
       <div className="eyebrow">01 / 故事的起点</div>
-      <h1>创意与风格</h1>
+      <h1>作品信息</h1>
       <p>先抓住你最想写的那一点，再决定故事的声音。</p>
       <SaveStatus editor={editor} />
       <div className="form-grid">

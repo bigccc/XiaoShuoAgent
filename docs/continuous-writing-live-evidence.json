@@ -1,0 +1,72 @@
+{
+  "date": "2026-10-12T10:38:57.754Z",
+  "isolated": true,
+  "productionModified": false,
+  "requestLimit": 28,
+  "outputCap": 4000,
+  "tokenBudget": 100000,
+  "model": "deepseek-flash",
+  "checkingModel": "deepseek-v4-pro",
+  "result": {
+    "status": "awaiting-author",
+    "phase": "done",
+    "reply": "第1—5章已保存，逐章检查和跨章复核已完成。仍有2项问题需要处理，尚未全部通过。",
+    "calls": 20,
+    "usage": {
+      "inputTokens": 31749,
+      "outputTokens": 3080,
+      "totalTokens": 34829,
+      "estimated": false
+    },
+    "budgetUsed": 34829,
+    "chapters": [
+      {
+        "ordinal": 1,
+        "status": "needs-review",
+        "revisionRounds": 2,
+        "words": 292
+      },
+      {
+        "ordinal": 2,
+        "status": "needs-review",
+        "revisionRounds": 2,
+        "words": 292
+      },
+      {
+        "ordinal": 3,
+        "status": "checked",
+        "revisionRounds": 0,
+        "words": 205
+      },
+      {
+        "ordinal": 4,
+        "status": "checked",
+        "revisionRounds": 0,
+        "words": 190
+      },
+      {
+        "ordinal": 5,
+        "status": "checked",
+        "revisionRounds": 0,
+        "words": 226
+      }
+    ],
+    "issues": [
+      {
+        "category": "length",
+        "impact": "local",
+        "reason": "第1章为292字，目标200字（允许±20%）"
+      },
+      {
+        "category": "length",
+        "impact": "local",
+        "reason": "第2章为292字，目标200字（允许±20%）"
+      }
+    ],
+    "warnings": []
+  },
+  "passed": false,
+  "liveCalls": 20,
+  "workflowCompleted": true,
+  "qualityPassed": false
+}

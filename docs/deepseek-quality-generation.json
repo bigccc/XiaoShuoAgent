@@ -1,0 +1,183 @@
+{
+  "id": "c42058c2-17c2-4d65-af6b-70a95b6f116e",
+  "revision": 578,
+  "createdAt": "2026-10-07T07:07:14.294Z",
+  "updatedAt": "2026-10-07T07:07:24.837Z",
+  "projectId": "9ea41de5-5147-4f42-ae81-dbc59f6c24b3",
+  "kind": "generation",
+  "status": "awaiting-author",
+  "requestSnapshot": {
+    "command": {
+      "type": "ai.chapter",
+      "chapterIds": [
+        "27a77058-3ce4-468a-8f59-e5a3b39a4597",
+        "61872284-bc08-4cd8-aa3c-523fb5bc5cbc",
+        "e0a55248-4828-441b-8247-f5340e589c61"
+      ],
+      "authorizeBatch": true,
+      "chapterWords": 250,
+      "checkingProfileId": "e16160dc-4345-4b3a-aea9-cae54b44af92",
+      "projectId": "9ea41de5-5147-4f42-ae81-dbc59f6c24b3",
+      "profileId": "4df031c7-c12a-4725-9af1-372b1e7fd06d",
+      "tokenBudget": 30000,
+      "instruction": "写简洁的中文日常正文，保留人物关系和时间顺序。只写当前章活动，不提前写下一章，不需要解释、结语或列大纲。按本次章节字数控制长度。",
+      "includeDraftIds": [],
+      "materialIds": [],
+      "allowAutoMaterials": false
+    },
+    "profile": {
+      "id": "4df031c7-c12a-4725-9af1-372b1e7fd06d",
+      "name": "DeepSeek · 正文",
+      "baseUrl": "https://api.deepseek.com",
+      "model": "deepseek-flash",
+      "purpose": "writing"
+    },
+    "checkingProfile": {
+      "id": "e16160dc-4345-4b3a-aea9-cae54b44af92",
+      "name": "DeepSeek · 检查",
+      "baseUrl": "https://api.deepseek.com",
+      "model": "deepseek-flash",
+      "purpose": "checking"
+    },
+    "context": {
+      "text": "[project:9ea41de5-5147-4f42-ae81-dbc59f6c24b3@2] 作品设定\n{\"title\":\"质量复验·250字连续三章\",\"background\":\"现实日常故事。小镇书店店主许宁与邻居周岚一起准备周末读书会。主要场景在书店。第一章周五上午打扫，第二章周五下午摆书，第三章周六上午读书会开始。每章只推进本阶段，不提前推进。\",\"genre\":\"\",\"style\":\"\",\"pace\":\"\",\"chapterWords\":250}\n\n[chapter:27a77058-3ce4-468a-8f59-e5a3b39a4597@2] 第1章 打扫书店（目标章节；正文未授权）\n\n\n[chapter:61872284-bc08-4cd8-aa3c-523fb5bc5cbc@2] 第2章 摆好书桌（目标章节；正文未授权）\n\n\n[chapter:e0a55248-4828-441b-8247-f5340e589c61@2] 第3章 读书会开始（目标章节；正文未授权）\n",
+      "documents": [
+        {
+          "source": {
+            "kind": "project",
+            "id": "9ea41de5-5147-4f42-ae81-dbc59f6c24b3",
+            "revision": 2
+          },
+          "text": "{\"title\":\"质量复验·250字连续三章\",\"background\":\"现实日常故事。小镇书店店主许宁与邻居周岚一起准备周末读书会。主要场景在书店。第一章周五上午打扫，第二章周五下午摆书，第三章周六上午读书会开始。每章只推进本阶段，不提前推进。\",\"genre\":\"\",\"style\":\"\",\"pace\":\"\",\"chapterWords\":250}",
+          "label": "作品设定"
+        },
+        {
+          "source": {
+            "kind": "chapter",
+            "id": "27a77058-3ce4-468a-8f59-e5a3b39a4597",
+            "revision": 2
+          },
+          "label": "第1章 打扫书店（目标章节；正文未授权）",
+          "text": ""
+        },
+        {
+          "source": {
+            "kind": "chapter",
+            "id": "61872284-bc08-4cd8-aa3c-523fb5bc5cbc",
+            "revision": 2
+          },
+          "label": "第2章 摆好书桌（目标章节；正文未授权）",
+          "text": ""
+        },
+        {
+          "source": {
+            "kind": "chapter",
+            "id": "e0a55248-4828-441b-8247-f5340e589c61",
+            "revision": 2
+          },
+          "label": "第3章 读书会开始（目标章节；正文未授权）",
+          "text": ""
+        }
+      ],
+      "sources": [
+        {
+          "kind": "project",
+          "id": "9ea41de5-5147-4f42-ae81-dbc59f6c24b3",
+          "revision": 2
+        },
+        {
+          "kind": "chapter",
+          "id": "27a77058-3ce4-468a-8f59-e5a3b39a4597",
+          "revision": 2
+        },
+        {
+          "kind": "chapter",
+          "id": "61872284-bc08-4cd8-aa3c-523fb5bc5cbc",
+          "revision": 2
+        },
+        {
+          "kind": "chapter",
+          "id": "e0a55248-4828-441b-8247-f5340e589c61",
+          "revision": 2
+        }
+      ],
+      "disclosures": [],
+      "materials": []
+    }
+  },
+  "result": {
+    "disclosures": [
+      "初检疑点（尚未复核）：{\"issues\":[],\"majorChange\":false}",
+      "一致性复核：初检 0 项，复核保留 0 项；只将复核后的确定冲突作为问题，初检依据已保留。",
+      "初检疑点（尚未复核）：{\"issues\":[],\"majorChange\":false}",
+      "一致性复核：初检 0 项，复核保留 0 项；只将复核后的确定冲突作为问题，初检依据已保留。"
+    ],
+    "candidates": [
+      {
+        "chapterId": "27a77058-3ce4-468a-8f59-e5a3b39a4597",
+        "text": "周五早上七点，许宁把书店的旧木门推开，门轴吱呀了一声。她先把窗台上那盆薄荷搬到门外，又回头看了一眼周岚，后者正把袖子往上撸，露出半截结实的小臂。“别看我，我搬完书就帮你。”周岚说完，真的抱起一摞靠墙的旧杂志往角落去。许宁弯腰扫起地板上的碎纸片，阳光斜斜照进来，灰尘在光里浮着。她扫到柜台边时，手机响了，是读书会群里的消息，她没点开，只把音量调成静音。周岚从角落探出头：“扫完这遍，拖地归我。”许宁笑了笑，拧干抹布，先擦起门后的镜子。",
+        "needsReview": false,
+        "checked": true,
+        "versionId": "524b876a-cc0c-4a03-add1-5d9e400b887e",
+        "check": {
+          "issues": [],
+          "majorChange": false
+        }
+      },
+      {
+        "chapterId": "61872284-bc08-4cd8-aa3c-523fb5bc5cbc",
+        "text": "周五下午两点，许宁把一摞新到的散文集放在桌上，按编号一本本摊开。周岚端着两杯凉白开过来，一杯搁她手边，一杯自己握着，低头翻目录：“这本放前面吧，上次有人问。”许宁接过书，插进靠门那排，又退后半步比了比高低。周岚看出她犹豫，伸手把那本抽出来，换到第三格：“顺手。”两人把椅子围成半圈，桌角压上小楷写的名牌。窗外自行车铃响了两声，许宁直起身，扫了一眼摆好的书桌，没说话，只把最中间那把椅子又往光亮处挪了挪。",
+        "needsReview": false,
+        "checked": true,
+        "versionId": "1b223cd4-5104-4868-b36d-47b64aee17b1",
+        "check": {
+          "issues": [],
+          "majorChange": false
+        }
+      },
+      {
+        "chapterId": "e0a55248-4828-441b-8247-f5340e589c61",
+        "text": "周六上午九点，书店的门半开着。许宁把“读书会”的小黑板摆到门口，粉笔灰蹭在指尖。周岚已经坐在半圈椅子里，见她进来，抬了抬下巴：“水烧上了。”许宁点点头，把昨天摆好的散文集挪到中间那沓。第一个来的是住在街尾的退休老师，进来先看了看书，又看了看座位，挑了个靠墙的。许宁给她递水，回身时，周岚正把一本多余的椅子往旁边撤。人陆陆续续到齐，许宁坐到最中间那把椅子上，清了清嗓子：“那咱们开始吧。”周岚靠在门边，没坐，只把翻开的书轻轻拍了一下掌心。",
+        "needsReview": false,
+        "checked": true,
+        "versionId": "5d33cdb6-4ff5-413d-a609-5334d0234a95",
+        "check": {
+          "issues": [],
+          "majorChange": false
+        }
+      }
+    ],
+    "phase": "generation"
+  },
+  "partial": "",
+  "usage": {
+    "inputTokens": 8001,
+    "outputTokens": 532,
+    "totalTokens": 8533,
+    "estimated": false
+  },
+  "calls": 9,
+  "sourceRevisions": [
+    {
+      "kind": "project",
+      "id": "9ea41de5-5147-4f42-ae81-dbc59f6c24b3",
+      "revision": 2
+    },
+    {
+      "kind": "chapter",
+      "id": "27a77058-3ce4-468a-8f59-e5a3b39a4597",
+      "revision": 2
+    },
+    {
+      "kind": "chapter",
+      "id": "61872284-bc08-4cd8-aa3c-523fb5bc5cbc",
+      "revision": 2
+    },
+    {
+      "kind": "chapter",
+      "id": "e0a55248-4828-441b-8247-f5340e589c61",
+      "revision": 2
+    }
+  ],
+  "error": ""
+}

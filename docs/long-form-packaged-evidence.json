@@ -1,0 +1,12 @@
+{
+  "architecture": "arm64",
+  "artifact": "/Users/dave/Dev/XiaoShuoAgent/release/long-form-20261011/make/dmg/arm64/XiaoShuoAgent-0.1.0-arm64.dmg",
+  "dmgVerified": true,
+  "mountedAndCopied": true,
+  "unmountedBeforeLaunch": true,
+  "buildSourceUnavailableDuringTests": true,
+  "brokenSymlinks": [],
+  "readerTests": 4,
+  "exitCode": 0,
+  "productionApplicationReplaced": false
+}

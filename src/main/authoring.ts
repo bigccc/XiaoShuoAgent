@@ -280,10 +280,15 @@ export function applyAuthoring(
   const changed: PlanningStage[] = [];
   for (const stage of planningStages) {
     const artifact = artifacts.find((a) => a.stage === stage);
+    // Preflight also receives structured blocks before StageSync materializes
+    // their headings and bindings. Their source text must form temporary
+    // documents so delegated review groups can be validated. Only the later
+    // normalized, version-checked result is committed to the work.
+    const content = artifact?.content ?? artifact?.blocks?.map(b => b.text ?? "").join("\n\n");
     if (
       artifact &&
-      artifact.content !== undefined &&
-      writeDocument(next, stage, artifact.content)
+      content !== undefined &&
+      writeDocument(next, stage, content)
     )
       changed.push(stage);
   }
@@ -369,7 +374,7 @@ export function authoringInstruction(
   return `本轮流程由应用决定：当前任务为${stageNames[intent.targetStage]}；允许返回的阶段成果：${intent.outputStages.map((s) => stageNames[s]).join("、") || "无"}；${intent.allowWriting ? (intent.preview ? "作者明确要求提前试写，可以写正文，但保留原规划阶段，不要声称规划已完成。" : "可以创作正文。旧作品缺失的规划可根据已有正文补齐，不要求重走流程。") : "不得返回chapters。"}
 ${intent.delegated ? "作者已委托连续完成这些规划阶段，请全部准备好后集中展示。" : "默认每阶段一次整体确认，提出推荐，不要逐项询问常规字段。"}
 ${intent.reconciliation ? "这是上游调整，请同步受影响的设定和未写大纲，一次返回完整相关成果并在message解释影响；已有正文保持原样，除非作者明确要求回改。" : ""}
-阶段成果必须通过artifacts结构化块一次返回，例如[{"stage":"settings","blocks":[{"kind":"field","field":"style","text":"文风"},{"kind":"note","noteId":"已有角色的id，新增则省略","noteType":"character","title":"名字","text":"完整人物设定"}]}]。overview字段title/genre/background；settings字段style/pace与character/world/location；outline记录storyline/outline/chapterOutline。其他内容用supplement完整保留。每个块包含完整正文；改名用原noteId。明确删除当前关联记录时用removeNoteIds，删除字段用removeFields。不得仅返回一整段content或另外一套可选notes来代替结构化成果，确认状态由应用维护。
+${intent.outputStages.length ? '阶段成果必须通过artifacts结构化块一次返回，例如[{"stage":"settings","blocks":[{"kind":"field","field":"style","text":"文风"},{"kind":"note","noteId":"已有角色的id，新增则省略","noteType":"character","title":"名字","text":"完整人物设定"}]}]。overview字段title/genre/background；settings字段style/pace与character/world/location；outline记录storyline/outline/chapterOutline。其他内容用supplement完整保留。每个块包含完整正文；改名用原noteId。明确删除当前关联记录时用removeNoteIds，删除字段用removeFields。不得仅返回一整段content或另外一套可选notes来代替结构化成果，确认状态由应用维护。' : ''}
 最新阶段成果中的作者修改优先于旧的推导笔记；遇到与已写正文冲突，说明影响，不自行回改。更新阶段成果时也同步相关的已有设定记录，避免两套资料互相矛盾。
 概要应包含冲突、成长、关键转折和结局方向，可以剧透；设定应包含必要人物关系、世界规则、背景与基调；大纲应包含全书主线、重要转折和近期3—5章章纲。首次规划请主动给完整推荐方案，避免仅提出大量问题。确认状态由作者和应用维护，不得自行返回approved。${state.reviewGroup?.length ? "待作者集中确认的成果：" + state.reviewGroup.map((s) => stageNames[s]).join("、") : ""}
 ${contract}`;

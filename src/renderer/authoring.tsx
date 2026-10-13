@@ -96,7 +96,7 @@ export function StageEditor({
         />
       </Field>
       <p className="stage-editor-hint">
-        确认方向后，在左侧回复「继续」。编辑会自动保存，停笔 5 秒后同步到辅助工具。
+        看好方向后，在左侧回复「按推荐」。编辑自动保存，停笔后会整理到故事资料。
       </p>
       {previous && (
         <details className="stage-history">
@@ -143,7 +143,7 @@ function StageSyncPanel({ project, state, stage, document, profileId, run, flush
   const [links, setLinks] = useState<Record<string, string | null>>({});
   const [busy, setBusy] = useState(false);
   const conflict = status === "conflict";
-  const labels = { synced: "已同步到辅助工具", pending: "等待同步", running: "正在同步", failed: "同步未完成", conflict: "需要选择保留内容" };
+  const labels = { synced: "已整理到故事资料", pending: "等待同步", running: "正在同步", failed: "同步未完成", conflict: "需要选择保留内容" };
   const conflicts = job?.conflicts ?? [];
   const ambiguous = conflicts.filter(c => c.noteIds.length > 1 && job?.proposal?.blocks.some((b, i) => (b.id ?? `block-${i}`) === c.blockId && b.kind === "note"));
   const records = state.notes.filter(n => n.projectId === project.id && (conflicts.some(c => c.noteIds.includes(n.id)) || sync?.bindings.some(b => b.noteId === n.id)));

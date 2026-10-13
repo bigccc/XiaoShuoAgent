@@ -39,6 +39,7 @@ export function buildContext(
   targets: string[] = [],
   batch: BatchContext[] = [],
   maxChars = 24000,
+  retainFullText = false,
 ): BuiltContext {
   const p = state.projects.find((p) => p.id === projectId);
   if (!p) throw new DomainError("NOT_FOUND", "作品不存在");
@@ -51,6 +52,7 @@ export function buildContext(
         genre: p.genre,
         style: p.style,
         pace: p.pace,
+        targetWords: p.targetWords,
         chapterWords: p.chapterWords,
       }),
       label: "作品设定",
@@ -152,7 +154,7 @@ export function buildContext(
     };
     materials.push({ id: m.id, snapshot });
   }
-  return boundContext(
+  const bounded = boundContext(
     {
       text: "",
       documents,
@@ -163,38 +165,42 @@ export function buildContext(
     [],
     maxChars,
   );
+  return retainFullText ? { ...bounded, documents, disclosures } : bounded;
+}
+export function applyBatch(base: BuiltContext, batch: BatchContext[]): BuiltContext {
+  return { ...base, documents: base.documents.map((doc) => {
+    const candidate = batch.find((c) => c.chapterId === doc.source.id && doc.source.kind === "chapter");
+    return candidate ? { ...doc, text: candidate.text, label: doc.label + "（本批次候选稿）", ...(candidate.versionId ? { candidateId: candidate.versionId } : {}) } : doc;
+  }) };
+}
+export function contextHeader(doc: ContextDocument): string {
+  return `[${doc.source.kind}:${doc.source.id}@${doc.source.revision}${doc.candidateId ? `;candidate:${doc.candidateId}` : ""}] ${doc.label.slice(0, 100)}\n`;
 }
 export function boundContext(
   base: BuiltContext,
   batch: BatchContext[],
   maxChars: number,
 ): BuiltContext {
-  const documents = base.documents.map((doc) => {
-    const candidate = batch.find(
-      (c) => c.chapterId === doc.source.id && doc.source.kind === "chapter",
-    );
-    return candidate
-      ? {
-          ...doc,
-          text: candidate.text,
-          label: doc.label + "（本批次候选稿）",
-          ...(candidate.versionId ? { candidateId: candidate.versionId } : {}),
-        }
-      : doc;
-  });
+  const documents = applyBatch(base, batch).documents;
   let remaining = maxChars;
   const pieces: string[] = [],
     bounded: ContextDocument[] = [];
   const disclosures = [...base.disclosures];
-  const allowance = Math.max(
-    0,
-    Math.floor(maxChars / Math.max(1, documents.length)),
-  );
+  // Water-fill text allowances: short records do not strand their unused share.
+  let available = Math.max(0, maxChars - documents.reduce((sum, doc) => sum + contextHeader(doc).length + 2, 0));
+  let left = documents.length;
+  let allowance = 0;
+  for (const size of documents.map((doc) => doc.text.length).sort((a, b) => a - b)) {
+    allowance = Math.floor(available / left);
+    if (size > allowance) break;
+    available -= size;
+    left--;
+  }
   for (const doc of documents) {
-    const header = `[${doc.source.kind}:${doc.source.id}@${doc.source.revision}${doc.candidateId ? `;candidate:${doc.candidateId}` : ""}] ${doc.label.slice(0, 100)}\n`;
+    const header = contextHeader(doc);
     const maxText = Math.max(
       0,
-      Math.min(remaining - header.length - 2, allowance - header.length - 2),
+      Math.min(remaining - header.length - 2, allowance),
     );
     const text = doc.text.slice(0, maxText);
     if (text.length < doc.text.length)

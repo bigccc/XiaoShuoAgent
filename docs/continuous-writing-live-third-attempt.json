@@ -1,0 +1,74 @@
+{
+  "date": "2026-10-12T10:25:19.284Z",
+  "isolated": true,
+  "productionModified": false,
+  "requestLimit": 28,
+  "outputCap": 1500,
+  "tokenBudget": 100000,
+  "model": "deepseek-flash",
+  "result": {
+    "status": "failed",
+    "phase": "checking",
+    "reply": "模型达到单次输出上限（本次请求 3000 Token，也可能受模型上下文限制），不代表任务总预算耗尽。已保留片段，可继续任务，或调整单次输出上限后新建任务。",
+    "calls": 13,
+    "usage": {
+      "inputTokens": 16505,
+      "outputTokens": 4421,
+      "totalTokens": 20926,
+      "estimated": false
+    },
+    "budgetUsed": 20926,
+    "chapters": [
+      {
+        "ordinal": 1,
+        "status": "checked",
+        "revisionRounds": 1,
+        "words": 224
+      },
+      {
+        "ordinal": 2,
+        "status": "needs-review",
+        "revisionRounds": 2,
+        "words": 344
+      },
+      {
+        "ordinal": 3,
+        "status": "written",
+        "revisionRounds": 0,
+        "words": 388
+      },
+      {
+        "ordinal": 4,
+        "status": "pending",
+        "revisionRounds": 0,
+        "words": 0
+      },
+      {
+        "ordinal": 5,
+        "status": "pending",
+        "revisionRounds": 0,
+        "words": 0
+      }
+    ],
+    "issues": [
+      {
+        "category": "length",
+        "impact": "local",
+        "reason": "第1章正文为201个中文字符，第2章正文为311个中文字符，均接近或超过项目设定的单章目标200字；其中第1章超出1字，第2章超出111字，存在轻微超出目标篇幅的局部风险。"
+      },
+      {
+        "category": "style",
+        "impact": "local",
+        "reason": "两章均以短句罗列动作、对白简洁、几乎不使用比喻或环境铺陈，整体贴近“温暖日常”的设定，但叙述密度偏低，可能与后续需要拉长到五章、十万字目标时的节奏扩展不匹配，属局部文风与篇幅适配的待审建议。"
+      },
+      {
+        "category": "length",
+        "impact": "local",
+        "reason": "第2章为344字，目标200字（允许±20%）"
+      }
+    ],
+    "warnings": []
+  },
+  "passed": false,
+  "liveCalls": 13
+}

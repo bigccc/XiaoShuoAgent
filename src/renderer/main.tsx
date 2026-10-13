@@ -9,10 +9,15 @@ import { Chapters } from "./chapters";
 import { Materials } from "./materials";
 import { Profiles } from "./profiles";
 import { AiPanel, Tasks, Issues } from "./tasks";
+import { Reader, type RevisionRequest } from "./reader";
 import { Conversation } from "./conversation";
+import { Revisions } from "./revisions";
+import { authorError } from "./author-experience";
+import { WritingProgress } from "./writing-progress";
 import "./style.css";
 type View =
   | "bookcase"
+  | "reader"
   | "conversation"
   | "project"
   | "notes"
@@ -45,7 +50,8 @@ function App() {
     [view, setView] = useState<View>("bookcase"),
     [error, setError] = useState(""),
     [notice, setNotice] = useState("");
-  const [toolsOpen, setToolsOpen] = useState(false);
+  const [revisionRequest, setRevisionRequest] = useState<RevisionRequest>();
+  const snapshotGeneration = useRef<number | undefined>(undefined);
   const flushers = useRef(new Set<Flush>()),
     pendingFlush = useRef<Promise<boolean> | null>(null),
     refreshId = useRef(0);
@@ -73,12 +79,21 @@ function App() {
   }, []);
   const refresh = useCallback(async () => {
     const id = ++refreshId.current;
-    const result = await window.novel.snapshot();
+    const result = await window.novel.workspaceSnapshot(
+      projectId || undefined,
+      snapshotGeneration.current,
+    );
     if (id === refreshId.current) {
-      setState(result);
+      snapshotGeneration.current = result.revision;
+      if (result.state)
+        setState((previous) =>
+          result.chaptersUnchanged
+            ? { ...result.state!, chapters: previous.chapters }
+            : result.state!,
+        );
       setReady(true);
     }
-  }, []);
+  }, [projectId]);
   const run: Run = useCallback(
     async (command: Command) => {
       let handled = false;
@@ -104,6 +119,7 @@ function App() {
     [refresh],
   );
   useEffect(() => {
+    snapshotGeneration.current = undefined;
     void refresh().catch(() =>
       setError("无法读取本机数据，请重启应用并检查磁盘空间。"),
     );
@@ -133,25 +149,28 @@ function App() {
     setProjectId(id);
     setChapterId("");
     setView("conversation");
-    setToolsOpen(false);
   }
-  const project = state.projects.find((p) => p.id === projectId),
-    nav: Array<[View, string]> = [
-      ["project", "创意与风格"],
-      ["notes", "人物与世界"],
-      ["planning", "故事规划"],
-      ["chapters", "正文与版本"],
-      ["issues", "一致性检查"],
-      ["materials", "素材库"],
-      ["tasks", "任务与审阅"],
-      ["files", "导出与备份"],
-    ];
+  const project = state.projects.find((p) => p.id === projectId);
+  const storyViews: Array<[View, string]> = [["project", "作品信息"], ["notes", "人物与世界"], ["planning", "故事规划"], ["materials", "素材库"]];
+  const readerViews: Array<[View, string]> = [["reader", "阅读正文"], ["chapters", "正文与版本"], ["issues", "检查问题"], ["tasks", "待审稿与记录"]];
+  const storyView = storyViews.some(([id]) => id === view);
+  const readerView = readerViews.some(([id]) => id === view);
+  const settingsView = view === "profiles" || view === "files";
+  const tabs = settingsView
+    ? ([["profiles", "AI 连接"], ...(project ? [["files", "备份与恢复"]] : [["materials", "素材库"], ["tasks", "任务记录"]])] as Array<[View, string]>)
+    : project && storyView ? storyViews : project && readerView ? readerViews : [];
+  const writingJobs = (state.writingJobs ?? []).filter(j => j.projectId === projectId);
+  const pendingCount = state.tasks.filter(t => t.projectId === projectId && ["running", "awaiting-author", "interrupted", "failed"].includes(t.status)).length +
+    (state.revisionJobs ?? []).filter(j => j.projectId === projectId && j.status !== "cancelled" && (j.status !== "completed" || (j.candidatePendingCount ?? j.candidates.filter(c => c.status === "pending").length) > 0)).length +
+    writingJobs.filter(j => !["completed", "cancelled"].includes(j.status)).length;
   const selectedChapter =
     state.chapters.find((c) => c.id === chapterId) ??
     state.chapters
       .filter((c) => c.projectId === projectId)
       .sort((a, b) => a.ordinal - b.ordinal)[0];
-  const workView = project && !["profiles", "bookcase", "files", "conversation"].includes(view);
+  const workView =
+    project &&
+    ["project", "notes", "planning", "chapters", "issues", "materials", "tasks"].includes(view);
   return (
     <>
       <header className="window-header">
@@ -174,36 +193,33 @@ function App() {
           {project && (
             <>
               <div className="nav-section">{project.title}</div>
-              <button className={view === "conversation" ? "active" : ""} onClick={() => void navigate("conversation")}>创作对话</button>
-              <button aria-expanded={toolsOpen} onClick={() => setToolsOpen(!toolsOpen)}>辅助工具</button>
-              {toolsOpen && nav.map(([id, label]) => (
-                <button
-                  className={view === id ? "active" : ""}
-                  key={id}
-                  onClick={() => void navigate(id)}
-                >
-                  {label}
-                </button>
-              ))}
+              <button
+                className={view === "conversation" ? "active" : ""}
+                onClick={() => void navigate("conversation")}
+              >
+                创作
+              </button>
+              <button
+                className={readerView ? "active" : ""}
+                onClick={() => void navigate("reader")}
+              >
+                看稿
+              </button>
+              <button
+                className={storyView ? "active" : ""}
+                onClick={() => void navigate("project")}
+              >
+                故事资料
+              </button>
             </>
           )}
           <div className="nav-bottom">
             <button
-              className={view === "profiles" ? "active" : ""}
+              className={settingsView ? "active" : ""}
               onClick={() => void navigate("profiles")}
             >
-              模型设置
+              设置
             </button>
-            {!project && (
-              <>
-                <button onClick={() => void navigate("materials")}>
-                  素材库
-                </button>
-                <button onClick={() => void navigate("tasks")}>
-                  任务与审阅
-                </button>
-              </>
-            )}
             <div className="local-state">
               ● 本机保存
               <br />
@@ -219,9 +235,18 @@ function App() {
           </div>
         </nav>
         <div className="workspace">
+          {project && view !== "bookcase" && <div className="work-actions">
+            <span>{project.title}</span>
+            <button onClick={() => void navigate("tasks")}>待处理{pendingCount ? ` · ${pendingCount}` : ""}</button>
+            <button onClick={() => void navigate("files")}>导出</button>
+          </div>}
+          {tabs.length > 0 && <nav className="context-tabs" aria-label={settingsView ? "设置分类" : storyView ? "故事资料分类" : "看稿分类"}>
+            {tabs.map(([id, label]) => <button key={id} className={view === id ? "active" : ""} aria-current={view === id ? "page" : undefined} onClick={() => void navigate(id)}>{label}</button>)}
+          </nav>}
+          {!project && ["materials", "tasks"].includes(view) && <button className="back-to-settings" onClick={() => void navigate("profiles")}>返回设置</button>}
           {error && (
             <div className="error global-error" role="alert">
-              <span>{error}</span>
+              <span>{authorError(error)}{authorError(error) !== error && <details><summary>技术详情</summary><p>{error}</p></details>}</span>
               <button aria-label="关闭错误提示" onClick={() => setError("")}>
                 ×
               </button>
@@ -248,7 +273,31 @@ function App() {
                   open={(id) => void open(id)}
                 />
               ) : project && view === "conversation" ? (
-                <Conversation key={project.id} state={state} projectId={project.id} run={run} register={register} flush={flush} showProfiles={() => void navigate("profiles")} showNotes={() => { setToolsOpen(true); void navigate("notes"); }} />
+                <Conversation
+                  revisionRequest={revisionRequest}
+                  clearRevisionRequest={() => setRevisionRequest(undefined)}
+                  key={project.id}
+                  state={state}
+                  projectId={project.id}
+                  run={run}
+                  register={register}
+                  flush={flush}
+                  showProfiles={() => void navigate("profiles")}
+                  showNotes={() => void navigate("notes")}
+                />
+              ) : project && view === "reader" ? (
+                <Reader
+                  key={project.id}
+                  state={state}
+                  projectId={project.id}
+                  run={run}
+                  flush={flush}
+                  register={register}
+                  onRevisionRequest={(request) => {
+                    setRevisionRequest(request);
+                    void navigate("conversation");
+                  }}
+                />
               ) : view === "profiles" ? (
                 <Profiles
                   state={state}
@@ -265,13 +314,17 @@ function App() {
                   flush={flush}
                 />
               ) : view === "tasks" ? (
-                <Tasks
+                <>
+                {!!writingJobs.length && <div className="work-progress-list">{[...writingJobs].reverse().map(job => <WritingProgress key={job.id} job={job} state={state} run={run} flush={flush}
+                  otherBusy={writingJobs.some(j => j.id !== job.id && j.status === "running") || state.conversations.some(t => t.projectId === projectId && t.status === "running")}
+                  openChapter={id => { void flush().then(ok => { if (ok) { setChapterId(id); void navigate("chapters"); } }); }} />)}</div>}
+                <Revisions state={state} projectId={project?.id ?? ""} run={run} /><Tasks
                   register={register}
                   state={state}
                   projectId={project?.id}
                   run={run}
                   flush={flush}
-                />
+                /></>
               ) : project && view === "project" ? (
                 <ProjectSettings
                   key={project.id}
@@ -311,18 +364,20 @@ function App() {
                 />
               ) : null}
             </main>
-            {workView && (
+            {workView && (<details className="workspace-tools" key={view + project.id}>
+              <summary>更多创作操作</summary>
               <AiPanel
                 key={project.id}
                 state={state}
                 projectId={project.id}
                 chapterId={selectedChapter?.id}
+                writingView={view === "chapters"}
                 run={run}
                 flush={flush}
                 showTasks={() => void navigate("tasks")}
                 showProfiles={() => void navigate("profiles")}
               />
-            )}
+            </details>)}
           </div>
         </div>
       </div>
@@ -342,7 +397,9 @@ function Files({
   flush: Flush;
   notify: (text: string) => void;
 }) {
-  const [drafts, setDrafts] = useState(() => state.conversations.some(t => t.projectId === projectId)),
+  const [drafts, setDrafts] = useState(() =>
+      state.conversations.some((t) => t.projectId === projectId),
+    ),
     chapters = state.chapters
       .filter((c) => c.projectId === projectId)
       .sort((a, b) => a.ordinal - b.ordinal);

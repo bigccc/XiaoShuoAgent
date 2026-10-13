@@ -1,5 +1,5 @@
-import { useState } from "react";
-import type { AppState, Chapter } from "../shared/types";
+import { useEffect, useState } from "react";
+import type { AppState, Chapter, ChapterVersion } from "../shared/types";
 import type { Run } from "./api";
 import { useEditor, type Register, type Flush } from "./editing";
 import { Empty, Field, SaveStatus, Sources } from "./ui";
@@ -53,7 +53,8 @@ export function Chapters({
             onClick={() => void flush().then((ok) => ok && setSelected(c.id))}
           >
             <small>
-              第 {c.ordinal} 章 · {c.content.replace(/\s/g, "").length} 字
+              第 {c.ordinal} 章 ·{" "}
+              {c.wordCount ?? c.content.replace(/\s/g, "").length} 字
             </small>
             <strong>{c.title}</strong>
             <span className="badge">
@@ -79,7 +80,43 @@ export function Chapters({
     </div>
   );
 }
-export function ChapterEditor({
+export function ChapterEditor(props: {
+  chapter: Chapter;
+  state: AppState;
+  run: Run;
+  register: Register;
+  conversational?: boolean;
+}) {
+  const [chapter, setChapter] = useState<Chapter | undefined>(() =>
+    props.chapter.contentLoaded === false ? undefined : props.chapter,
+  );
+  const [error, setError] = useState("");
+  useEffect(() => {
+    let current = true;
+    if (props.chapter.contentLoaded !== false) setChapter(props.chapter);
+    else
+      void window.novel
+        .chapter(props.chapter.id)
+        .then((c) => {
+          if (current) setChapter(c);
+        })
+        .catch(() => {
+          if (current)
+            setError("正文读取失败，请重新打开。编辑器尚未载入正文。");
+        });
+    return () => {
+      current = false;
+    };
+  }, [props.chapter.id, props.chapter.revision]);
+  if (!chapter)
+    return (
+      <div className="page" role="status">
+        {error || "正在读取正文…"}
+      </div>
+    );
+  return <HydratedChapterEditor {...props} chapter={chapter} />;
+}
+function HydratedChapterEditor({
   chapter,
   state,
   run,
@@ -92,6 +129,7 @@ export function ChapterEditor({
   register: Register;
   conversational?: boolean;
 }) {
+  const [loadedVersions, setLoadedVersions] = useState<ChapterVersion[]>([]);
   const [history, setHistory] = useState(false),
     [chosen, setChosen] = useState("");
   const editor = useEditor(
@@ -112,18 +150,33 @@ export function ChapterEditor({
       register,
     ),
     v = editor.value;
-  const versions = state.versions
+  useEffect(() => {
+    let current = true;
+    if (history)
+      void window.novel.chapterVersions(chapter.id).then((v) => {
+        if (current) setLoadedVersions(v);
+      });
+    return () => {
+      current = false;
+    };
+  }, [history, chapter.id, chapter.revision]);
+  const versions = [
+    ...state.versions,
+    ...loadedVersions.filter((v) => !state.versions.some((x) => x.id === v.id)),
+  ]
     .filter((x) => x.chapterId === chapter.id)
-    .sort((a, b) => b.chapterRevision - a.chapterRevision || b.createdAt.localeCompare(a.createdAt));
+    .sort(
+      (a, b) =>
+        b.chapterRevision - a.chapterRevision ||
+        b.createdAt.localeCompare(a.createdAt),
+    );
   const compare =
     versions.find((x) => x.id === chosen) ??
     versions.find((x) => x.content !== v.content) ??
     versions[0];
   async function confirm() {
     if (!(await editor.flush())) return;
-    const current = (await window.novel.snapshot()).chapters.find(
-      (x) => x.id === chapter.id,
-    )!;
+    const current = await window.novel.chapter(chapter.id);
     await run({
       type: "chapter.confirm",
       id: chapter.id,
@@ -132,9 +185,7 @@ export function ChapterEditor({
   }
   async function restore() {
     if (!compare || !(await editor.flush())) return;
-    const current = (await window.novel.snapshot()).chapters.find(
-      (x) => x.id === chapter.id,
-    )!;
+    const current = await window.novel.chapter(chapter.id);
     await run({
       type: "chapter.restore",
       id: chapter.id,
@@ -147,20 +198,30 @@ export function ChapterEditor({
       <div className="chapter-toolbar">
         <span className="eyebrow">第 {chapter.ordinal} 章</span>
         <span className="badge">
-          {conversational ? chapter.writingStage === "opening" ? "试写开篇" : "当前正文" : chapter.status === "confirmed" ? "已确认" : "草稿"}
+          {conversational
+            ? chapter.writingStage === "opening"
+              ? "试写开篇"
+              : "当前正文"
+            : chapter.status === "confirmed"
+              ? "已确认"
+              : "草稿"}
         </span>
         <span>{v.content.replace(/\s/g, "").length.toLocaleString()} 字</span>
         <button onClick={() => setHistory(!history)}>历史版本</button>
-        {!conversational && <button
-          className="primary"
-          onClick={() => void confirm().catch(() => {})}
-        >
-          确认正文
-        </button>}
+        {!conversational && (
+          <button
+            className="primary"
+            onClick={() => void confirm().catch(() => {})}
+          >
+            确认正文
+          </button>
+        )}
       </div>
       <SaveStatus editor={editor} />
       {chapter.needsReview && (
-          <div className="hint warn">本章有待复核的改动，可以在对话中要求 AI 检查相关情节。</div>
+        <div className="hint warn">
+          本章有待复核的改动，可以在对话中要求 AI 检查相关情节。
+        </div>
       )}
       <Field label="章节标题">
         <input
@@ -169,22 +230,24 @@ export function ChapterEditor({
           onChange={(e) => editor.edit({ ...v, title: e.target.value })}
         />
       </Field>
-      {!conversational && <div className="form-grid compact">
-        <Field label="本章文风">
-          <input
-            value={v.style}
-            onChange={(e) => editor.edit({ ...v, style: e.target.value })}
-            placeholder="空白时使用作品文风"
-          />
-        </Field>
-        <Field label="本章节奏">
-          <input
-            value={v.pace}
-            onChange={(e) => editor.edit({ ...v, pace: e.target.value })}
-            placeholder="空白时使用作品节奏"
-          />
-        </Field>
-      </div>}
+      {!conversational && (
+        <div className="form-grid compact">
+          <Field label="本章文风">
+            <input
+              value={v.style}
+              onChange={(e) => editor.edit({ ...v, style: e.target.value })}
+              placeholder="空白时使用作品文风"
+            />
+          </Field>
+          <Field label="本章节奏">
+            <input
+              value={v.pace}
+              onChange={(e) => editor.edit({ ...v, pace: e.target.value })}
+              placeholder="空白时使用作品节奏"
+            />
+          </Field>
+        </div>
+      )}
       <Field label="章节正文">
         <textarea
           className="prose"

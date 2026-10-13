@@ -1,3 +1,4 @@
+import { navigateAuthor, customConnection, viewAuthorStage } from "./support/author-navigation";
 import {
   _electron as electron,
   expect,
@@ -27,6 +28,56 @@ test.beforeEach(async () => {
 test.afterEach(async () => {
   await app?.close();
   await rm(dir, { recursive: true, force: true });
+});
+
+test("conversation recovery shows progress, saves once and loads the original replies on demand", async () => {
+  let calls = 0;
+  let releaseMalformed: (() => void) | undefined, releaseRepair: (() => void) | undefined;
+  const result = { message: "开篇已保存", chapters: [{ title: "雨夜", content: "雨落在旧书店的玻璃上。门铃响了。", stage: "opening" }], memory: "保留雨夜书店的共识" };
+  const malformed = JSON.stringify({ message: result.message, chapters: result.chapters }) + ',"memory":"保留雨夜书店的共识"}';
+  const server = createServer(async (req, res) => {
+    for await (const _ of req) { /* Drain the request. */ }
+    calls++;
+    const respond = (content: string) => {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ choices: [{ message: { content }, finish_reason: "stop" }], usage: { prompt_tokens: 100, completion_tokens: 200, total_tokens: 300 } }));
+    };
+    if (calls === 1) respond("");
+    else if (calls === 2) releaseMalformed = () => respond(malformed);
+    else releaseRepair = () => respond(JSON.stringify(result));
+  });
+  await new Promise<void>(resolve => server.listen(0, "127.0.0.1", resolve));
+  try {
+    await page.getByRole("button", { name: "新建作品", exact: true }).click();
+    await page.getByRole("button", { name: "创建作品", exact: true }).click();
+    await page.evaluate(async baseUrl => {
+      await window.novel.invoke({ type: "profile.save", name: "恢复验收", baseUrl, model: "fixture", purpose: "writing" });
+    }, `http://127.0.0.1:${(server.address() as { port: number }).port}/v1`);
+    await page.getByLabel("创作消息").fill("先试写一段雨夜书店的开篇");
+    await page.getByRole("button", { name: "发送", exact: true }).click();
+    await expect.poll(() => calls).toBe(2);
+    await expect(page.getByRole("status").filter({ hasText: "正在重新获取回复" })).toBeVisible();
+    releaseMalformed!();
+    await expect.poll(() => calls).toBe(3);
+    await expect(page.getByRole("status").filter({ hasText: "正在整理回复格式" })).toBeVisible();
+    releaseRepair!();
+    await expect(page.getByLabel("章节正文", { exact: true })).toHaveValue(result.chapters[0].content);
+    await page.getByText("本轮用量", { exact: true }).click();
+    await expect(page.getByText("900 Token", { exact: true })).toBeVisible();
+    await expect(page.getByText("本轮共 3 次请求，包含自动恢复。", { exact: true })).toBeVisible();
+    await page.getByText("查看本轮回复与恢复记录", { exact: true }).click();
+    await expect(page.getByText("第 3 次 · 整理回复格式", { exact: true })).toBeVisible();
+    await page.getByText("查看原始回复", { exact: true }).first().click();
+    await expect(page.locator(".conversation-recovery pre").filter({ hasText: malformed })).toBeVisible();
+    const snapshot = await page.evaluate(() => window.novel.snapshot());
+    expect(snapshot.chapters).toHaveLength(1);
+    expect(snapshot.conversations[0].attempts).toHaveLength(3);
+    expect(calls).toBe(3);
+    await page.screenshot({ path: "docs/screenshots/conversation-recovery-20261012.png", fullPage: true });
+  } finally {
+    server.closeAllConnections();
+    await new Promise<void>(resolve => server.close(() => resolve()));
+  }
 });
 
 test("title-optional conversation creates, edits, continues and restores a manuscript across restart", async () => {
@@ -96,7 +147,7 @@ test("title-optional conversation creates, edits, continues and restores a manus
       page.getByRole("heading", { name: "和 AI 一起写故事" }),
     ).toBeVisible();
     await expect(
-      page.getByRole("button", { name: "去配置模型" }),
+      page.getByRole("button", { name: "连接 AI" }),
     ).toBeVisible();
     await page.evaluate(
       async (baseUrl) => {
@@ -192,10 +243,10 @@ test("existing works open directly into conversation with readable current draft
   await expect(page.getByLabel("章节正文", { exact: true })).toHaveValue(
     "没有确认过的现有草稿",
   );
-  await page.getByRole("button", { name: "辅助工具", exact: true }).click();
-  await page.getByRole("button", { name: "创意与风格", exact: true }).click();
+  await navigateAuthor(page, "辅助工具");
+  await navigateAuthor(page, "创意与风格");
   await expect(page.getByLabel("简介与背景", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "创作对话", exact: true }).click();
+  await navigateAuthor(page, "创作对话");
   await expect(page.getByLabel("章节正文", { exact: true })).toHaveValue(
     "没有确认过的现有草稿",
   );
@@ -320,7 +371,7 @@ test("rewrite approval, setting history and cancellation stay inside the convers
     await expect(page.locator(".conversation-notes > .card > pre")).toHaveText(
       "遗物整理师，怕黑",
     );
-    await page.getByRole("button", { name: "正文", exact: true }).click();
+    await viewAuthorStage(page, "正文");
     await page.getByLabel("创作消息").fill("继续下一章");
     await page.getByRole("button", { name: "发送", exact: true }).click();
     await expect.poll(() => calls).toBe(3);

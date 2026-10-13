@@ -1,0 +1,23 @@
+{
+  "dmgVerified": true,
+  "zipVerified": true,
+  "frameworkLinks": 14,
+  "dmgSha256": "e5126c3506d3512b4653b65d68232e51ef81714d69a7b11d715806197e5c9f00",
+  "zipSha256": "da2c6a68a2acd8861595d7eb13418e6de89c56e1586a4bfa13aa4cf2ae2c4f54",
+  "packagedRegressionExitCode": 0,
+  "date": "2026-10-12",
+  "architecture": "arm64",
+  "packagedTestsPassed": 5,
+  "copiedFromReadonlyDmg": true,
+  "testedAfterUnmount": true,
+  "bundleMatches": [
+    "out/main/index.js",
+    "out/preload/index.cjs",
+    "out/renderer/index.html",
+    "out/renderer/assets/index-TKb-JPv3.js",
+    "out/renderer/assets/index-CFwuKQTW.css"
+  ],
+  "productionModified": false,
+  "installedProductionAppReplaced": false,
+  "temporaryInstallRemoved": true
+}

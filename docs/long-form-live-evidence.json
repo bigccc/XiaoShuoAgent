@@ -1,0 +1,32 @@
+{
+  "date": "2026-10-11T10:53:58.820Z",
+  "isolated": true,
+  "productionModified": false,
+  "model": "deepseek-flash",
+  "selection": {
+    "exactSecondQuote": true,
+    "untouchedOutsideSelection": true,
+    "status": "completed",
+    "calls": 1,
+    "usage": {
+      "inputTokens": 591,
+      "outputTokens": 24,
+      "totalTokens": 615,
+      "estimated": false
+    }
+  },
+  "result": "passed",
+  "batch": {
+    "generatedCandidates": 2,
+    "coverage": "2/2",
+    "originalRetainedUntilAdoption": true,
+    "adopted": true,
+    "calls": 2,
+    "usage": {
+      "inputTokens": 1349,
+      "outputTokens": 238,
+      "totalTokens": 1587,
+      "estimated": false
+    }
+  }
+}

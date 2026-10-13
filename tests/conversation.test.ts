@@ -1,17 +1,23 @@
-import { afterEach, expect, it } from "vitest";
+import { afterEach, expect, it, vi } from "vitest";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createServer, type Server, type ServerResponse } from "node:http";
 import { AppServices } from "../src/main/services";
 import { Store } from "../src/main/store";
+import { ConversationRunner } from "../src/main/conversation";
+import { DomainService } from "../src/main/domain";
+import { ChatProvider } from "../src/main/provider";
 import { ProjectFiles } from "../src/main/files";
 import type { Command, CommandResult } from "../src/shared/types";
 
 const apps: AppServices[] = [],
   dirs: string[] = [],
   servers: Server[] = [];
+const legacyRunners: { runner: ConversationRunner; store: Store }[] = [];
 afterEach(async () => {
+  vi.restoreAllMocks();
+  for (const { runner, store } of legacyRunners.splice(0)) { await runner.dispose(); store.close(); }
   await Promise.all(apps.splice(0).map((a) => a.dispose()));
   await Promise.all(
     servers.splice(0).map(
@@ -98,12 +104,228 @@ async function done(app: AppServices, turnId: string) {
       () =>
         (app.snapshot() as any).conversations.find((t: any) => t.id === turnId)
           ?.status,
+      { timeout: 5000 },
     )
     .not.toBe("running");
   return (app.snapshot() as any).conversations.find(
     (t: any) => t.id === turnId,
   );
 }
+
+// Keep the legacy response-contract tests at that runner boundary. Public batch
+// requests now route to WritingRunner and have their own end-to-end tests.
+function legacySend(dir: string, projectId: string, text: string) {
+  const store = new Store(join(dir, "works.sqlite"));
+  const runner = new ConversationRunner(store, new DomainService(store), new ChatProvider({ retryDelayMs: 1 }));
+  legacyRunners.push({ runner, store });
+  return runner.start({ type: "conversation.send", projectId, text });
+}
+
+it("recovery: retries an empty response once and accounts for both requests", async () => {
+  let calls = 0;
+  const { app, projectId } = await setup((_body, res) => {
+    reply(res, ++calls === 1 ? "" : { message: "开篇完成", chapters: [{ title: "开篇", content: "完整开篇。", stage: "opening" }] });
+  });
+  const turn = await done(app, await send(app, projectId, "先试写一段"));
+  expect(turn.status).toBe("completed");
+  expect(calls).toBe(2);
+  expect(turn.usage.totalTokens).toBe(600);
+  expect(turn.attempts).toHaveLength(2);
+  expect(turn.attempts[0]).toMatchObject({ code: "EMPTY", usage: { totalTokens: 300 }, diagnostics: { receivedChars: 0 } });
+  expect(app.snapshot().chapters.map(c => c.content)).toEqual(["完整开篇。"]);
+});
+
+it("recovery: stops after two empty responses with their reported usage intact", async () => {
+  let calls = 0;
+  const { app, projectId } = await setup((_body, res) => { calls++; reply(res, ""); });
+  const turn = await done(app, await send(app, projectId, "先试写一段"));
+  expect(calls).toBe(2);
+  expect(turn.status).toBe("failed");
+  expect(turn.usage.totalTokens).toBe(600);
+  expect(turn.attempts).toHaveLength(2);
+  expect(app.snapshot().chapters).toHaveLength(0);
+});
+
+it("recovery: repairs the entire malformed response without losing its trailing material", async () => {
+  const first = { message: "开篇完成", chapters: [{ title: "开篇", content: "需要保留的开篇。", stage: "opening" }] };
+  const raw = JSON.stringify(first) + ',"memory":"尾部共识也要保留"}';
+  let calls = 0, repairInput = "";
+  const { app, projectId, dir } = await setup((body, res) => {
+    calls++;
+    if (calls === 1) return reply(res, raw);
+    repairInput = JSON.stringify(body.messages);
+    reply(res, { ...first, memory: "尾部共识也要保留" });
+  });
+  const turnId = await send(app, projectId, "先试写一段");
+  const turn = await done(app, turnId);
+  expect(turn.status).toBe("completed");
+  expect(calls).toBe(2);
+  expect(repairInput).toContain(JSON.stringify(raw).slice(1, -1));
+  expect(turn.memory).toBe("尾部共识也要保留");
+  expect(turn.usage.totalTokens).toBe(600);
+  expect(turn.attempts[0].rawResponse).toBe(raw);
+  expect(app.snapshot().chapters[0].content).toBe("需要保留的开篇。");
+  const workspace = app.workspaceSnapshot(projectId).state!;
+  expect(JSON.stringify(workspace.conversations)).not.toContain("需要保留的开篇");
+  const store = new Store(join(dir, "works.sqlite"));
+  expect(store.get("conversations", turnId)!.attempts![0].rawResponse).toBe(raw);
+  const files = new ProjectFiles(store), archive = join(dir, "recovery.novel");
+  await files.backup(projectId, archive);
+  const importedId = await files.importBackup(archive);
+  const restored = store.list("conversations").find(t => t.projectId === importedId)!;
+  expect(restored.attempts![0].rawResponse).toBe(raw);
+  expect(restored.usage?.totalTokens).toBe(600);
+  store.close();
+});
+
+it("recovery: cannot turn a malformed draft into a successful empty or rewritten reply", async () => {
+  let calls = 0;
+  const raw = '{"message":"开篇完成","chapters":[{"title":"开篇","content":"原始候选正文。","stage":"opening"}],}';
+  const { app, projectId } = await setup((_body, res) => reply(res, ++calls === 1 ? raw : { message: "开篇完成", chapters: [] }));
+  const turn = await done(app, await send(app, projectId, "先试写一段"));
+  expect(calls).toBe(2);
+  expect(turn.status).toBe("failed");
+  expect(turn.attempts[0].rawResponse).toBe(raw);
+  expect(app.snapshot().chapters).toHaveLength(0);
+});
+
+it("recovery: shares a three request ceiling across empty, format and network failures", async () => {
+  let calls = 0;
+  const { app, projectId } = await setup((_body, res) => {
+    calls++;
+    if (calls === 1) return reply(res, "");
+    if (calls === 2) return reply(res, '{"message":"回复",}');
+    res.writeHead(503); res.end("private upstream error");
+  });
+  const turn = await done(app, await send(app, projectId, "先试写一段"));
+  expect(calls).toBe(3);
+  expect(turn.status).toBe("failed");
+  expect(turn.usage).toMatchObject({ totalTokens: 600, estimated: true });
+  expect(turn.attempts).toHaveLength(3);
+  expect(JSON.stringify(turn)).not.toContain("private upstream error");
+});
+
+it("recovery: cancellation while repairing prevents all chapter writes", async () => {
+  let calls = 0, release: (() => void) | undefined;
+  const { app, projectId } = await setup((_body, res) => {
+    if (++calls === 1) return reply(res, '{"message":"开篇完成",}');
+    release = () => reply(res, { message: "开篇完成", chapters: [{ title: "迟到", content: "不能落库", stage: "opening" }] });
+  });
+  const turnId = await send(app, projectId, "先试写一段");
+  await expect.poll(() => calls).toBe(2);
+  expect(app.snapshot().conversations.find(t => t.id === turnId)?.recoveryPhase).toBe("repairing");
+  await app.dispatch({ type: "conversation.cancel", id: turnId });
+  release?.();
+  expect((await done(app, turnId)).status).toBe("cancelled");
+  expect(app.snapshot().chapters).toHaveLength(0);
+});
+
+it("recovery: rejects new prose inserted by a format repair", async () => {
+  let calls = 0;
+  const first = { message: "讨论即可" };
+  const { app, projectId } = await setup((_body, res) => reply(res, ++calls === 1 ? '{"message":"讨论即可",}' : {
+    ...first, chapters: [{ title: "新增", content: "修格式不该新写正文。", stage: "opening" }],
+  }));
+  const turn = await done(app, await send(app, projectId, "先试写一段"));
+  expect(calls).toBe(2);
+  expect(turn.status).toBe("failed");
+  expect(app.snapshot().chapters).toHaveLength(0);
+});
+
+it("recovery: rejects moving preserved text between chapter fields", async () => {
+  let calls = 0;
+  const first = { message: "开篇完成", chapters: [{ title: "原始标题", content: "原始正文。", stage: "opening" }] };
+  const { app, projectId } = await setup((_body, res) => reply(res, ++calls === 1 ? JSON.stringify(first) + ',' : {
+    message: first.message, chapters: [{ title: "原始正文。", content: "原始标题", stage: "opening" }],
+  }));
+  const turn = await done(app, await send(app, projectId, "先试写一段"));
+  expect(calls).toBe(2);
+  expect(turn.status).toBe("failed");
+  expect(app.snapshot().chapters).toHaveLength(0);
+});
+
+it("recovery: preserves the order of new chapters during format repair", async () => {
+  let calls = 0;
+  const chapters = [{ title: "开端", content: "第一章正文。", stage: "complete" }, { title: "结局", content: "第二章正文。", stage: "complete" }];
+  const { app, projectId, dir } = await setup((_body, res) => reply(res, ++calls === 1 ? JSON.stringify({ message: "两章完成", chapters }) + ',' : { message: "两章完成", chapters: [...chapters].reverse() }));
+  const turn = await done(app, legacySend(dir, projectId, "先写正文，连写2章"));
+  expect(calls).toBe(2);
+  expect(turn.status).toBe("failed");
+  expect(app.snapshot().chapters).toHaveLength(0);
+});
+
+it("recovery: author edits during a repair win over the late repaired draft", async () => {
+  let calls = 0, release: (() => void) | undefined;
+  const response = { message: "开篇完成", chapters: [{ title: "开篇", content: "候选正文。", stage: "opening" }] };
+  const { app, projectId } = await setup((_body, res) => {
+    if (++calls === 1) return reply(res, JSON.stringify(response) + ',');
+    release = () => reply(res, response);
+  });
+  const turnId = await send(app, projectId, "先试写一段");
+  await expect.poll(() => calls).toBe(2);
+  const chapterId = id(await app.dispatch({ type: "chapter.create", projectId, ordinal: 1, title: "作者新建" }));
+  id(await app.dispatch({ type: "chapter.save", id: chapterId, revision: 1, content: "作者正在写的正文。" }));
+  release?.();
+  const turn = await done(app, turnId);
+  expect(turn.status).toBe("failed");
+  expect(turn.error).toContain("发生变化");
+  expect(app.snapshot().chapters.map(c => c.content)).toEqual(["作者正在写的正文。"]);
+});
+
+it("recovery: keeps an unreported empty attempt visible in the usage total", async () => {
+  let calls = 0;
+  const { app, projectId } = await setup((_body, res) => {
+    if (++calls === 1) { res.setHeader("Content-Type", "application/json"); res.end(JSON.stringify({ choices: [{ message: { content: "" } }] })); }
+    else reply(res, { message: "现在有回复" });
+  });
+  const turn = await done(app, await send(app, projectId, "先讨论"));
+  expect(turn.status).toBe("completed");
+  expect(turn.usage).toMatchObject({ totalTokens: 300, estimated: true });
+  expect(turn.attempts[0].usage.totalTokens).toBeNull();
+});
+
+it("recovery: records an overall deadline as timeout without retrying or writing", async () => {
+  const deadline = new AbortController();
+  vi.spyOn(AbortSignal, "timeout").mockReturnValue(deadline.signal);
+  let calls = 0;
+  const { app, projectId } = await setup(() => { calls++; });
+  const turnId = await send(app, projectId, "先试写一段");
+  await expect.poll(() => calls).toBe(1);
+  deadline.abort();
+  const turn = await done(app, turnId);
+  expect(turn.status).toBe("failed");
+  expect(turn.error).toContain("时限");
+  expect(turn.attempts[0].code).toBe("TIMEOUT");
+  expect(calls).toBe(1);
+  expect(app.snapshot().chapters).toHaveLength(0);
+});
+
+it("recovery: cancellation during retry delay prevents the next request", async () => {
+  let calls = 0;
+  const { app, projectId, dir } = await setup((_body, res) => { calls++; reply(res, ""); });
+  const turnId = await send(app, projectId, "先试写一段");
+  await expect.poll(() => app.conversation(turnId).recoveryPhase).toBe("retrying");
+  await app.dispatch({ type: "conversation.cancel", id: turnId });
+  await app.dispose();
+  expect(calls).toBe(1);
+  const store = new Store(join(dir, "works.sqlite"));
+  expect(store.get("conversations", turnId)).toMatchObject({ status: "cancelled", usage: { totalTokens: 300 } });
+  store.close();
+});
+
+it("recovery: retains limited output and usage without attempting format repair", async () => {
+  let calls = 0;
+  const { app, projectId } = await setup((_body, res) => {
+    calls++;
+    res.setHeader("Content-Type", "text/event-stream");
+    res.end('data: {"choices":[{"delta":{"content":"半截候选正文"},"finish_reason":"length"}]}\n\ndata: {"choices":[],"usage":{"prompt_tokens":100,"completion_tokens":200,"total_tokens":300}}\n\ndata: [DONE]\n\n');
+  });
+  const turn = await done(app, await send(app, projectId, "先试写一段"));
+  expect(turn.status).toBe("failed");
+  expect(turn.attempts[0]).toMatchObject({ code: "OUTPUT_LIMIT", rawResponse: "半截候选正文", usage: { totalTokens: 300 } });
+  expect(calls).toBe(1);
+  expect(app.snapshot().chapters).toHaveLength(0);
+});
 
 // Missing auto-application, current-draft context or chapter reuse breaks this real service workflow.
 it("discusses, saves an opening and settings, then completes the same edited chapter across restart", async () => {
@@ -283,12 +505,12 @@ it("asks before changing earlier chapters and applies a confirmed proposal throu
   ).toBe(true);
 });
 
-it("honors an explicit multi-chapter rewrite without another approval", async () => {
+it("honors an explicit multi-chapter scope and saves reviewable candidates before adoption", async () => {
   let chapters: any[] = [];
-  const { app, projectId } = await setup((_body, res) =>
+  const { app, projectId } = await setup((body, res) =>
     reply(res, {
       message: "改好了",
-      chapters: chapters.map((c) => ({
+      chapters: [JSON.parse(body.messages.at(-1).content).chapter].map((c) => ({
         id: c.id,
         title: c.title,
         content: "重写正文",
@@ -306,10 +528,11 @@ it("honors an explicit multi-chapter rewrite without another approval", async ()
       }),
     );
   chapters = app.snapshot().chapters;
-  expect(
-    (await done(app, await send(app, projectId, "把前两章一起改成轻松一点")))
-      .status,
-  ).toBe("completed");
+  const jobId = await send(app, projectId, "把前两章一起改成轻松一点");
+  await expect.poll(() => app.snapshot().revisionJobs!.find(j => j.id === jobId)?.status).toBe("awaiting-author");
+  expect(app.snapshot().revisionJobs!.find(j => j.id === jobId)!.candidates).toHaveLength(2);
+  expect(app.snapshot().chapters.every(c => c.content === "")).toBe(true);
+  id(await app.dispatch({ type: "revision.accept", id: jobId }));
   expect(app.snapshot().chapters.every((c) => c.content === "重写正文")).toBe(
     true,
   );
@@ -733,10 +956,13 @@ it("subtracts explicit excluded chapters from broader rewrite ranges", async () 
       }),
     );
   chapters = app.snapshot().chapters;
-  expect(
-    (await done(app, await send(app, projectId, "改全部章节，但别改第1章")))
-      .status,
-  ).toBe("awaiting-author");
+  const jobId = await send(app, projectId, "改全部章节，但别改第1章");
+  await expect.poll(() => app.snapshot().revisionJobs!.find(j => j.id === jobId)?.status).not.toBe("running");
+  const job = app.snapshot().revisionJobs!.find(j => j.id === jobId)!;
+  expect(job.chapterIds).toEqual([chapters[1].id]);
+  // The fixture deliberately returns the excluded chapter too; reject the whole output.
+  expect(job.status).toBe("failed");
+  expect(job.candidates).toEqual([]);
   expect(app.snapshot().chapters.every((c) => c.content === "")).toBe(true);
 });
 
@@ -821,9 +1047,9 @@ it("accepting a one-chapter proposal does not also authorize the selected chapte
   expect(app.snapshot().chapters.every((c) => c.content === "")).toBe(true);
 });
 
-it("accepts an explicit three-chapter batch, but prevents duplicate simultaneous turns", async () => {
+it("legacy runner accepts a three-chapter response and still prevents simultaneous turns", async () => {
   let release!: () => void;
-  const { app, projectId } = await setup((_body, res) => {
+  const { app, projectId, dir } = await setup((_body, res) => {
     release = () =>
       reply(res, {
         message: "三章已写好",
@@ -834,7 +1060,7 @@ it("accepts an explicit three-chapter batch, but prevents duplicate simultaneous
         })),
       });
   });
-  const turnId = await send(app, projectId, "连写三章");
+  const turnId = legacySend(dir, projectId, "连写三章");
   expect(
     await app.dispatch({
       type: "conversation.send",

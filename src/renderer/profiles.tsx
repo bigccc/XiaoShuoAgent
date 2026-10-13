@@ -20,12 +20,12 @@ export function Profiles({
   return (
     <div className="split-page">
       <aside className="item-list">
-        <h2>模型设置</h2>
+        <h2>AI 连接</h2>
         <button
           className="primary"
           onClick={() => void flush().then((ok) => ok && setSelected("new"))}
         >
-          新增模型
+          添加 AI 连接
         </button>
         {state.profiles.map((p) => (
           <button
@@ -34,7 +34,7 @@ export function Profiles({
             onClick={() => void flush().then((ok) => ok && setSelected(p.id))}
           >
             <small>
-              {purposes[p.purpose]} · {p.model}
+              {purposes[p.purpose]}用 AI
             </small>
             <strong>{p.name}</strong>
             <span className="badge">
@@ -53,18 +53,18 @@ export function Profiles({
           register={register}
         />
       ) : (
-        <Empty title="连接你自己的模型">
+        <Empty title="连接你的创作搭档">
           <p>
-            添加 OpenAI 兼容的 API 地址、模型名称和密钥。
+            选择你使用的 AI 服务，粘贴服务商提供的密钥即可。
             <br />
-            规划、正文、检查可以分别选用不同配置。
+            已有连接可以直接使用；其他服务可在高级设置中填写。
             <br />
             密钥由 macOS 钥匙串保护，作品备份不含密钥。
           </p>
           <button
             onClick={() => void flush().then((ok) => ok && setSelected("new"))}
           >
-            新增模型
+            添加 AI 连接
           </button>
         </Empty>
       )}
@@ -85,12 +85,15 @@ function ProfileForm({
   register: Register;
 }) {
   const [v, set] = useState({
-    name: profile?.name ?? "",
-    baseUrl: profile?.baseUrl ?? "",
-    model: profile?.model ?? "",
+    name: profile?.name ?? "DeepSeek",
+    baseUrl: profile?.baseUrl ?? "https://api.deepseek.com",
+    model: profile?.model ?? "deepseek-flash",
     purpose: profile?.purpose ?? ("writing" as ModelPurpose),
     apiKey: "",
   });
+  const preset = !profile || (profile.baseUrl === "https://api.deepseek.com" && profile.model === "deepseek-flash");
+  const [service, setService] = useState(preset ? "deepseek" : "custom");
+  const [advanced, setAdvanced] = useState(!preset);
   const [testId, setTestId] = useState("");
   const test = state.tasks.find((t) => t.id === testId);
   async function save() {
@@ -110,8 +113,8 @@ function ProfileForm({
   return (
     <section className="page">
       <div className="eyebrow">本机配置 / 密钥保护</div>
-      <h1>{profile ? "编辑模型" : "新增模型"}</h1>
-      <p>填写服务商提供的兼容接口；连接测试会发起真实的小额请求。</p>
+      <h1>{profile ? "编辑 AI 连接" : "添加 AI 连接"}</h1>
+      <p>连接后即可准备故事和写作。调用使用你的服务账户额度；保存连接不会发起调用，测试连接会产生少量用量。</p>
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -120,6 +123,18 @@ function ProfileForm({
       >
         {guard.dialog}
         {guard.dirty && <p className="small warn">此配置有未保存的修改</p>}
+        <Field label="服务商">
+          <select value={service} onChange={e => {
+            const next = e.target.value; setService(next); setAdvanced(next === "custom");
+            if (next === "deepseek") set({ ...v, name: "DeepSeek", baseUrl: "https://api.deepseek.com", model: "deepseek-flash" });
+          }}>
+            <option value="deepseek">DeepSeek</option>
+            <option value="custom">其他服务 / 自定义连接</option>
+          </select>
+        </Field>
+        {service === "deepseek" && <p className="muted">已填写服务地址和创作模型，只需提供密钥。其他参数可在高级设置中调整。</p>}
+        <details className="connection-advanced" open={advanced} onToggle={e => setAdvanced(e.currentTarget.open)}>
+          <summary>高级设置</summary>
         <Field label="配置名称">
           <input
             required
@@ -156,9 +171,11 @@ function ProfileForm({
             ))}
           </select>
         </Field>
+        </details>
         <Field label="API 密钥">
           <input
             type="password"
+            required={!profile?.hasKey && service === "deepseek"}
             autoComplete="new-password"
             value={v.apiKey}
             placeholder={
@@ -169,7 +186,7 @@ function ProfileForm({
         </Field>
         {profile?.hasKey && <p className="success">已安全保存密钥</p>}
         <div className="toolbar">
-          <button className="primary">保存模型</button>
+          <button className="primary">保存连接</button>
           {profile && (
             <>
               <button
@@ -195,7 +212,7 @@ function ProfileForm({
                     .catch(() => {})
                 }
               >
-                删除模型
+                删除连接
               </button>
             </>
           )}

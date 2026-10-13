@@ -1,3 +1,6 @@
+import type { ReaderCommand, ReadingWorkspace, TextSelection } from "./reader";
+import type { RevisionCommand, RevisionJob } from "./revision";
+import type { WritingCommand, WritingJob } from "./writing";
 export type ID = string;
 export type JsonValue =
   | null
@@ -178,6 +181,9 @@ export interface Note extends RecordMeta {
 }
 export type ChapterStatus = "draft" | "confirmed";
 export interface Chapter extends RecordMeta {
+  contentHash?: string;
+  wordCount?: number;
+  contentLoaded?: boolean;
   projectId: ID;
   ordinal: number;
   title: string;
@@ -234,6 +240,24 @@ export interface ConversationResponse {
   }[];
   proposal?: { chapterIds: ID[]; reason: string };
 }
+export interface ResponseDiagnostics {
+  transport: "sse" | "json" | "unknown";
+  finishReason: "stop" | "length" | "content_filter" | "tool_calls" | "function_call" | "other" | null;
+  receivedChars: number;
+  reasoningChars: number;
+  streamCompleted: boolean;
+}
+export interface ConversationAttempt {
+  phase: "generate" | "repair";
+  status: "running" | "completed" | "failed";
+  startedAt: string;
+  finishedAt?: string;
+  code?: string;
+  error?: string;
+  usage: TaskUsage | null;
+  diagnostics?: ResponseDiagnostics;
+  rawResponse?: string;
+}
 export interface ConversationTurn extends RecordMeta {
   projectId: ID;
   authoringIntent?: AuthoringIntent;
@@ -258,6 +282,8 @@ export interface ConversationTurn extends RecordMeta {
   proposal?: { chapterIds: ID[]; reason: string };
   response?: ConversationResponse;
   rawResponse?: string;
+  attempts?: ConversationAttempt[];
+  recoveryPhase?: "requesting" | "retrying" | "repairing";
   error?: string;
 }
 export interface MaterialSnapshot {
@@ -348,6 +374,9 @@ export interface AppState {
   conversations: ConversationTurn[];
   syncJobs: StageSyncJob[];
   syncBatches: StageSyncBatch[];
+  readingWorkspaces?: ReadingWorkspace[];
+  revisionJobs?: RevisionJob[];
+  writingJobs?: WritingJob[];
 }
 type Existing = { id: ID; revision: number };
 type Saving = { id?: ID; revision?: number };
@@ -424,6 +453,11 @@ export type AsyncCommand =
       chapterId?: ID;
       proposalTurnId?: ID;
       stage?: AuthoringStage;
+      selection?: TextSelection;
+      revisionScope?: RevisionJob["scope"];
+      revisionChapterIds?: ID[];
+      annotationIds?: ID[];
+      tokenBudget?: number;
     }
   | {
       type: "authoring.save";
@@ -483,7 +517,7 @@ export type AsyncCommand =
     }
   | { type: "file.backup"; projectId: ID }
   | { type: "file.importBackup" };
-export type Command = DomainCommand | AsyncCommand;
+export type Command = DomainCommand | AsyncCommand | ReaderCommand | RevisionCommand | WritingCommand;
 export type ErrorCode =
   | "VALIDATION"
   | "NOT_FOUND"

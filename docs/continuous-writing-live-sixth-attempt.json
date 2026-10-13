@@ -1,0 +1,61 @@
+{
+  "date": "2026-10-12T10:35:58.447Z",
+  "isolated": true,
+  "productionModified": false,
+  "requestLimit": 28,
+  "outputCap": 4000,
+  "tokenBudget": 100000,
+  "model": "deepseek-flash",
+  "checkingModel": "deepseek-v4-pro",
+  "result": {
+    "status": "failed",
+    "phase": "checking",
+    "reply": "连续写作检查依据无法对应本次输入原文及来源版本",
+    "calls": 14,
+    "usage": {
+      "inputTokens": 17769,
+      "outputTokens": 2095,
+      "totalTokens": 19864,
+      "estimated": false
+    },
+    "budgetUsed": 19864,
+    "chapters": [
+      {
+        "ordinal": 1,
+        "status": "checked",
+        "revisionRounds": 0,
+        "words": 204
+      },
+      {
+        "ordinal": 2,
+        "status": "checked",
+        "revisionRounds": 2,
+        "words": 203
+      },
+      {
+        "ordinal": 3,
+        "status": "checked",
+        "revisionRounds": 0,
+        "words": 212
+      },
+      {
+        "ordinal": 4,
+        "status": "written",
+        "revisionRounds": 0,
+        "words": 207
+      },
+      {
+        "ordinal": 5,
+        "status": "pending",
+        "revisionRounds": 0,
+        "words": 0
+      }
+    ],
+    "issues": [],
+    "warnings": [
+      "检查回复格式或证据引用需要整理；最多一次，仍严格核验原文，不清空疑点"
+    ]
+  },
+  "passed": false,
+  "liveCalls": 14
+}

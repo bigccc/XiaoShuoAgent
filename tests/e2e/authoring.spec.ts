@@ -1,3 +1,4 @@
+import { viewAuthorStage } from "./support/author-navigation";
 import {
   _electron as electron,
   test,
@@ -43,13 +44,15 @@ test("visible stage progression, editable upstream artifacts and restart retain 
     for await (const c of req) raw += c;
     const normalized = normalizationReply(JSON.parse(raw));
     if (!normalized) calls++;
-    const stage = (["overview", "settings", "outline"] as const)[calls - 1];
+    const stage = calls === 1 ? "overview" : undefined;
     const output = normalized ?? (stage
       ? {
           message: `已准备好${{ overview: "故事概要", settings: "必要设定", outline: "故事大纲" }[stage]}，请整体看看。`,
           artifacts: [{ stage, content: documents[stage] }],
         }
-      : calls === 4
+      : calls === 2
+        ? { message: "人物和大纲已准备，请整体确认。", artifacts: [{ stage: "settings", content: documents.settings }, { stage: "outline", content: documents.outline }] }
+      : calls === 3
         ? {
             message: "第一章试写已保存。",
             chapters: [
@@ -91,19 +94,21 @@ test("visible stage progression, editable upstream artifacts and restart retain 
     await page.getByRole("button", { name: "新建作品", exact: true }).click();
     await page.getByRole("button", { name: "创建作品", exact: true }).click();
     await expect(
-      page.getByRole("button", { name: "概要", exact: true }),
+      page.getByRole("button", { name: "定故事", exact: true }),
     ).toBeVisible();
     await page.getByLabel("创作消息").fill("我想写一个有温情的悬疑故事");
     await page.getByRole("button", { name: "发送", exact: true }).click();
     await expect(page.getByLabel("概要成果")).toHaveValue(documents.overview);
     await page.screenshot({ path: "test-results/staged-overview.png" });
-    await page.getByRole("button", { name: "继续", exact: true }).click();
+    await page.getByRole("button", { name: "确认方向，做准备", exact: true }).click();
+    await expect(page.getByLabel("大纲成果")).toHaveValue(documents.outline);
+    await viewAuthorStage(page, "设定");
     await expect(page.getByLabel("设定成果")).toHaveValue(documents.settings);
     expect(
       (await page.evaluate(() => window.novel.snapshot())).projects[0]
         .authoring!.documents.overview!.approved,
     ).toBe(true);
-    await page.getByRole("button", { name: "继续", exact: true }).click();
+    await viewAuthorStage(page, "大纲");
     await expect(page.getByLabel("大纲成果")).toHaveValue(documents.outline);
     await page.screenshot({ path: "test-results/staged-outline.png" });
     await app.evaluate(({ BrowserWindow }) =>
@@ -115,11 +120,12 @@ test("visible stage progression, editable upstream artifacts and restart retain 
         () => document.documentElement.scrollWidth <= innerWidth,
       ),
     ).toBe(true);
-    await page.getByRole("button", { name: "继续", exact: true }).click();
+    await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setSize(1440, 920));
+    await page.getByRole("button", { name: "按推荐继续", exact: true }).click();
     await expect(page.getByLabel("章节正文", { exact: true })).toHaveValue(
       /快递员/,
     );
-    await page.getByRole("button", { name: "概要", exact: true }).click();
+    await viewAuthorStage(page, "概要");
     expect(
       (await page.evaluate(() => window.novel.snapshot())).projects[0]
         .authoring!.activeStage,

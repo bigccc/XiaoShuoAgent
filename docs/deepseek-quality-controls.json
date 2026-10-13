@@ -1,0 +1,566 @@
+[
+  {
+    "repeat": 0,
+    "title": "质量复验·明确人数与座位一致",
+    "task": {
+      "id": "d37d9d27-dcc8-4af6-9e41-053b75d1d899",
+      "revision": 38,
+      "createdAt": "2026-10-07T07:35:38.440Z",
+      "updatedAt": "2026-10-07T07:35:44.379Z",
+      "projectId": "24d9f625-ab67-4cd1-9f3a-2cf854621f68",
+      "kind": "check",
+      "status": "completed",
+      "requestSnapshot": {
+        "command": {
+          "type": "ai.check",
+          "projectId": "24d9f625-ab67-4cd1-9f3a-2cf854621f68",
+          "profileId": "e16160dc-4345-4b3a-aea9-cae54b44af92",
+          "tokenBudget": 20000
+        },
+        "profile": {
+          "id": "e16160dc-4345-4b3a-aea9-cae54b44af92",
+          "name": "DeepSeek · 检查",
+          "baseUrl": "https://api.deepseek.com",
+          "model": "deepseek-v4-pro",
+          "purpose": "checking"
+        },
+        "checkingProfile": {
+          "id": "e16160dc-4345-4b3a-aea9-cae54b44af92",
+          "name": "DeepSeek · 检查",
+          "baseUrl": "https://api.deepseek.com",
+          "model": "deepseek-v4-pro",
+          "purpose": "checking"
+        },
+        "context": {
+          "text": "[project:24d9f625-ab67-4cd1-9f3a-2cf854621f68@1] 作品设定\n{\"title\":\"质量复验·明确人数与座位一致\",\"background\":\"书店有六把椅子。只有五位读者和店主许宁坐下，周岚始终站在门边。\",\"genre\":\"\",\"style\":\"\",\"pace\":\"\",\"chapterWords\":250}\n\n[chapter:55cc176b-b191-4468-ba15-ef17a3ba29ac@3] 第1章 第1章（已确认）\n周五上午，许宁和周岚打扫书店。\n\n[chapter:2007c8b5-2b00-438a-8da5-f15eaeea5d5e@3] 第2章 第2章（已确认）\n周五下午，两人摆好六把椅子。\n\n[chapter:b172acd8-4491-4f86-992f-5c1bf895df2c@3] 第3章 第3章（已确认）\n周六上午，五位读者到来，每人坐一把椅子。许宁坐下主持，周岚站在门边为大家倒水。",
+          "documents": [
+            {
+              "source": {
+                "kind": "project",
+                "id": "24d9f625-ab67-4cd1-9f3a-2cf854621f68",
+                "revision": 1
+              },
+              "text": "{\"title\":\"质量复验·明确人数与座位一致\",\"background\":\"书店有六把椅子。只有五位读者和店主许宁坐下，周岚始终站在门边。\",\"genre\":\"\",\"style\":\"\",\"pace\":\"\",\"chapterWords\":250}",
+              "label": "作品设定"
+            },
+            {
+              "source": {
+                "kind": "chapter",
+                "id": "55cc176b-b191-4468-ba15-ef17a3ba29ac",
+                "revision": 3
+              },
+              "label": "第1章 第1章（已确认）",
+              "text": "周五上午，许宁和周岚打扫书店。"
+            },
+            {
+              "source": {
+                "kind": "chapter",
+                "id": "2007c8b5-2b00-438a-8da5-f15eaeea5d5e",
+                "revision": 3
+              },
+              "label": "第2章 第2章（已确认）",
+              "text": "周五下午，两人摆好六把椅子。"
+            },
+            {
+              "source": {
+                "kind": "chapter",
+                "id": "b172acd8-4491-4f86-992f-5c1bf895df2c",
+                "revision": 3
+              },
+              "label": "第3章 第3章（已确认）",
+              "text": "周六上午，五位读者到来，每人坐一把椅子。许宁坐下主持，周岚站在门边为大家倒水。"
+            }
+          ],
+          "sources": [
+            {
+              "kind": "project",
+              "id": "24d9f625-ab67-4cd1-9f3a-2cf854621f68",
+              "revision": 1
+            },
+            {
+              "kind": "chapter",
+              "id": "55cc176b-b191-4468-ba15-ef17a3ba29ac",
+              "revision": 3
+            },
+            {
+              "kind": "chapter",
+              "id": "2007c8b5-2b00-438a-8da5-f15eaeea5d5e",
+              "revision": 3
+            },
+            {
+              "kind": "chapter",
+              "id": "b172acd8-4491-4f86-992f-5c1bf895df2c",
+              "revision": 3
+            }
+          ],
+          "disclosures": [],
+          "materials": []
+        }
+      },
+      "result": {
+        "disclosures": [
+          "初检未报告确定冲突，仍进行独立复核。",
+          "一致性复核：初检 0 项，复核保留 0 项；复核独立阅读原文，初检依据已保留。"
+        ],
+        "candidates": [],
+        "check": {
+          "issues": [],
+          "majorChange": false
+        },
+        "sources": [
+          {
+            "kind": "project",
+            "id": "24d9f625-ab67-4cd1-9f3a-2cf854621f68",
+            "revision": 1
+          },
+          {
+            "kind": "chapter",
+            "id": "55cc176b-b191-4468-ba15-ef17a3ba29ac",
+            "revision": 3
+          },
+          {
+            "kind": "chapter",
+            "id": "2007c8b5-2b00-438a-8da5-f15eaeea5d5e",
+            "revision": 3
+          },
+          {
+            "kind": "chapter",
+            "id": "b172acd8-4491-4f86-992f-5c1bf895df2c",
+            "revision": 3
+          }
+        ],
+        "issueIds": []
+      },
+      "partial": "",
+      "usage": {
+        "inputTokens": 1306,
+        "outputTokens": 349,
+        "totalTokens": 1655,
+        "estimated": false
+      },
+      "calls": 2,
+      "sourceRevisions": [
+        {
+          "kind": "project",
+          "id": "24d9f625-ab67-4cd1-9f3a-2cf854621f68",
+          "revision": 1
+        },
+        {
+          "kind": "chapter",
+          "id": "55cc176b-b191-4468-ba15-ef17a3ba29ac",
+          "revision": 3
+        },
+        {
+          "kind": "chapter",
+          "id": "2007c8b5-2b00-438a-8da5-f15eaeea5d5e",
+          "revision": 3
+        },
+        {
+          "kind": "chapter",
+          "id": "b172acd8-4491-4f86-992f-5c1bf895df2c",
+          "revision": 3
+        }
+      ],
+      "error": ""
+    }
+  },
+  {
+    "repeat": 0,
+    "title": "质量复验·钱包合法转移",
+    "task": {
+      "id": "65804756-dc1a-420f-9f31-f529782402ef",
+      "revision": 45,
+      "createdAt": "2026-10-07T07:35:38.444Z",
+      "updatedAt": "2026-10-07T07:35:46.964Z",
+      "projectId": "9d63848f-0dd7-49c2-a62f-be34bb41a709",
+      "kind": "check",
+      "status": "completed",
+      "requestSnapshot": {
+        "command": {
+          "type": "ai.check",
+          "projectId": "9d63848f-0dd7-49c2-a62f-be34bb41a709",
+          "profileId": "e16160dc-4345-4b3a-aea9-cae54b44af92",
+          "tokenBudget": 20000
+        },
+        "profile": {
+          "id": "e16160dc-4345-4b3a-aea9-cae54b44af92",
+          "name": "DeepSeek · 检查",
+          "baseUrl": "https://api.deepseek.com",
+          "model": "deepseek-v4-pro",
+          "purpose": "checking"
+        },
+        "checkingProfile": {
+          "id": "e16160dc-4345-4b3a-aea9-cae54b44af92",
+          "name": "DeepSeek · 检查",
+          "baseUrl": "https://api.deepseek.com",
+          "model": "deepseek-v4-pro",
+          "purpose": "checking"
+        },
+        "context": {
+          "text": "[project:9d63848f-0dd7-49c2-a62f-be34bb41a709@1] 作品设定\n{\"title\":\"质量复验·钱包合法转移\",\"background\":\"现实场景，陈远只有一个钱包，允许他拿取物品。\",\"genre\":\"\",\"style\":\"\",\"pace\":\"\",\"chapterWords\":250}\n\n[chapter:7c7bf232-1413-4d3c-be61-8b59e81d4ea0@3] 第1章 第1章（已确认）\n陈远把钱包放进衣袋。五分钟后，他明确从衣袋中取出钱包放在柜台上。钱包被风吹落地，陈远从地上捡起钱包，再放回衣袋。",
+          "documents": [
+            {
+              "source": {
+                "kind": "project",
+                "id": "9d63848f-0dd7-49c2-a62f-be34bb41a709",
+                "revision": 1
+              },
+              "text": "{\"title\":\"质量复验·钱包合法转移\",\"background\":\"现实场景，陈远只有一个钱包，允许他拿取物品。\",\"genre\":\"\",\"style\":\"\",\"pace\":\"\",\"chapterWords\":250}",
+              "label": "作品设定"
+            },
+            {
+              "source": {
+                "kind": "chapter",
+                "id": "7c7bf232-1413-4d3c-be61-8b59e81d4ea0",
+                "revision": 3
+              },
+              "label": "第1章 第1章（已确认）",
+              "text": "陈远把钱包放进衣袋。五分钟后，他明确从衣袋中取出钱包放在柜台上。钱包被风吹落地，陈远从地上捡起钱包，再放回衣袋。"
+            }
+          ],
+          "sources": [
+            {
+              "kind": "project",
+              "id": "9d63848f-0dd7-49c2-a62f-be34bb41a709",
+              "revision": 1
+            },
+            {
+              "kind": "chapter",
+              "id": "7c7bf232-1413-4d3c-be61-8b59e81d4ea0",
+              "revision": 3
+            }
+          ],
+          "disclosures": [],
+          "materials": []
+        }
+      },
+      "result": {
+        "disclosures": [
+          "初检未报告确定冲突，仍进行独立复核。",
+          "一致性复核：初检 0 项，复核保留 0 项；复核独立阅读原文，初检依据已保留。"
+        ],
+        "candidates": [],
+        "check": {
+          "issues": [],
+          "majorChange": false
+        },
+        "sources": [
+          {
+            "kind": "project",
+            "id": "9d63848f-0dd7-49c2-a62f-be34bb41a709",
+            "revision": 1
+          },
+          {
+            "kind": "chapter",
+            "id": "7c7bf232-1413-4d3c-be61-8b59e81d4ea0",
+            "revision": 3
+          }
+        ],
+        "issueIds": []
+      },
+      "partial": "",
+      "usage": {
+        "inputTokens": 1116,
+        "outputTokens": 629,
+        "totalTokens": 1745,
+        "estimated": false
+      },
+      "calls": 2,
+      "sourceRevisions": [
+        {
+          "kind": "project",
+          "id": "9d63848f-0dd7-49c2-a62f-be34bb41a709",
+          "revision": 1
+        },
+        {
+          "kind": "chapter",
+          "id": "7c7bf232-1413-4d3c-be61-8b59e81d4ea0",
+          "revision": 3
+        }
+      ],
+      "error": ""
+    }
+  },
+  {
+    "repeat": 1,
+    "title": "质量复验·明确人数与座位一致",
+    "task": {
+      "id": "ec58673d-9ea9-4174-81c6-29dec70156f5",
+      "revision": 45,
+      "createdAt": "2026-10-07T07:35:48.091Z",
+      "updatedAt": "2026-10-07T07:36:02.370Z",
+      "projectId": "24d9f625-ab67-4cd1-9f3a-2cf854621f68",
+      "kind": "check",
+      "status": "completed",
+      "requestSnapshot": {
+        "command": {
+          "type": "ai.check",
+          "projectId": "24d9f625-ab67-4cd1-9f3a-2cf854621f68",
+          "profileId": "e16160dc-4345-4b3a-aea9-cae54b44af92",
+          "tokenBudget": 20000
+        },
+        "profile": {
+          "id": "e16160dc-4345-4b3a-aea9-cae54b44af92",
+          "name": "DeepSeek · 检查",
+          "baseUrl": "https://api.deepseek.com",
+          "model": "deepseek-v4-pro",
+          "purpose": "checking"
+        },
+        "checkingProfile": {
+          "id": "e16160dc-4345-4b3a-aea9-cae54b44af92",
+          "name": "DeepSeek · 检查",
+          "baseUrl": "https://api.deepseek.com",
+          "model": "deepseek-v4-pro",
+          "purpose": "checking"
+        },
+        "context": {
+          "text": "[project:24d9f625-ab67-4cd1-9f3a-2cf854621f68@1] 作品设定\n{\"title\":\"质量复验·明确人数与座位一致\",\"background\":\"书店有六把椅子。只有五位读者和店主许宁坐下，周岚始终站在门边。\",\"genre\":\"\",\"style\":\"\",\"pace\":\"\",\"chapterWords\":250}\n\n[chapter:55cc176b-b191-4468-ba15-ef17a3ba29ac@3] 第1章 第1章（已确认）\n周五上午，许宁和周岚打扫书店。\n\n[chapter:2007c8b5-2b00-438a-8da5-f15eaeea5d5e@3] 第2章 第2章（已确认）\n周五下午，两人摆好六把椅子。\n\n[chapter:b172acd8-4491-4f86-992f-5c1bf895df2c@3] 第3章 第3章（已确认）\n周六上午，五位读者到来，每人坐一把椅子。许宁坐下主持，周岚站在门边为大家倒水。",
+          "documents": [
+            {
+              "source": {
+                "kind": "project",
+                "id": "24d9f625-ab67-4cd1-9f3a-2cf854621f68",
+                "revision": 1
+              },
+              "text": "{\"title\":\"质量复验·明确人数与座位一致\",\"background\":\"书店有六把椅子。只有五位读者和店主许宁坐下，周岚始终站在门边。\",\"genre\":\"\",\"style\":\"\",\"pace\":\"\",\"chapterWords\":250}",
+              "label": "作品设定"
+            },
+            {
+              "source": {
+                "kind": "chapter",
+                "id": "55cc176b-b191-4468-ba15-ef17a3ba29ac",
+                "revision": 3
+              },
+              "label": "第1章 第1章（已确认）",
+              "text": "周五上午，许宁和周岚打扫书店。"
+            },
+            {
+              "source": {
+                "kind": "chapter",
+                "id": "2007c8b5-2b00-438a-8da5-f15eaeea5d5e",
+                "revision": 3
+              },
+              "label": "第2章 第2章（已确认）",
+              "text": "周五下午，两人摆好六把椅子。"
+            },
+            {
+              "source": {
+                "kind": "chapter",
+                "id": "b172acd8-4491-4f86-992f-5c1bf895df2c",
+                "revision": 3
+              },
+              "label": "第3章 第3章（已确认）",
+              "text": "周六上午，五位读者到来，每人坐一把椅子。许宁坐下主持，周岚站在门边为大家倒水。"
+            }
+          ],
+          "sources": [
+            {
+              "kind": "project",
+              "id": "24d9f625-ab67-4cd1-9f3a-2cf854621f68",
+              "revision": 1
+            },
+            {
+              "kind": "chapter",
+              "id": "55cc176b-b191-4468-ba15-ef17a3ba29ac",
+              "revision": 3
+            },
+            {
+              "kind": "chapter",
+              "id": "2007c8b5-2b00-438a-8da5-f15eaeea5d5e",
+              "revision": 3
+            },
+            {
+              "kind": "chapter",
+              "id": "b172acd8-4491-4f86-992f-5c1bf895df2c",
+              "revision": 3
+            }
+          ],
+          "disclosures": [],
+          "materials": []
+        }
+      },
+      "result": {
+        "disclosures": [
+          "初检未报告确定冲突，仍进行独立复核。",
+          "一致性复核：初检 0 项，复核保留 0 项；复核独立阅读原文，初检依据已保留。"
+        ],
+        "candidates": [],
+        "check": {
+          "issues": [],
+          "majorChange": false
+        },
+        "sources": [
+          {
+            "kind": "project",
+            "id": "24d9f625-ab67-4cd1-9f3a-2cf854621f68",
+            "revision": 1
+          },
+          {
+            "kind": "chapter",
+            "id": "55cc176b-b191-4468-ba15-ef17a3ba29ac",
+            "revision": 3
+          },
+          {
+            "kind": "chapter",
+            "id": "2007c8b5-2b00-438a-8da5-f15eaeea5d5e",
+            "revision": 3
+          },
+          {
+            "kind": "chapter",
+            "id": "b172acd8-4491-4f86-992f-5c1bf895df2c",
+            "revision": 3
+          }
+        ],
+        "issueIds": []
+      },
+      "partial": "",
+      "usage": {
+        "inputTokens": 1306,
+        "outputTokens": 1273,
+        "totalTokens": 2579,
+        "estimated": false
+      },
+      "calls": 2,
+      "sourceRevisions": [
+        {
+          "kind": "project",
+          "id": "24d9f625-ab67-4cd1-9f3a-2cf854621f68",
+          "revision": 1
+        },
+        {
+          "kind": "chapter",
+          "id": "55cc176b-b191-4468-ba15-ef17a3ba29ac",
+          "revision": 3
+        },
+        {
+          "kind": "chapter",
+          "id": "2007c8b5-2b00-438a-8da5-f15eaeea5d5e",
+          "revision": 3
+        },
+        {
+          "kind": "chapter",
+          "id": "b172acd8-4491-4f86-992f-5c1bf895df2c",
+          "revision": 3
+        }
+      ],
+      "error": ""
+    }
+  },
+  {
+    "repeat": 1,
+    "title": "质量复验·钱包合法转移",
+    "task": {
+      "id": "d199cae5-f0cf-40c4-8c13-ba4b06d1e4ef",
+      "revision": 36,
+      "createdAt": "2026-10-07T07:35:48.093Z",
+      "updatedAt": "2026-10-07T07:36:01.293Z",
+      "projectId": "9d63848f-0dd7-49c2-a62f-be34bb41a709",
+      "kind": "check",
+      "status": "completed",
+      "requestSnapshot": {
+        "command": {
+          "type": "ai.check",
+          "projectId": "9d63848f-0dd7-49c2-a62f-be34bb41a709",
+          "profileId": "e16160dc-4345-4b3a-aea9-cae54b44af92",
+          "tokenBudget": 20000
+        },
+        "profile": {
+          "id": "e16160dc-4345-4b3a-aea9-cae54b44af92",
+          "name": "DeepSeek · 检查",
+          "baseUrl": "https://api.deepseek.com",
+          "model": "deepseek-v4-pro",
+          "purpose": "checking"
+        },
+        "checkingProfile": {
+          "id": "e16160dc-4345-4b3a-aea9-cae54b44af92",
+          "name": "DeepSeek · 检查",
+          "baseUrl": "https://api.deepseek.com",
+          "model": "deepseek-v4-pro",
+          "purpose": "checking"
+        },
+        "context": {
+          "text": "[project:9d63848f-0dd7-49c2-a62f-be34bb41a709@1] 作品设定\n{\"title\":\"质量复验·钱包合法转移\",\"background\":\"现实场景，陈远只有一个钱包，允许他拿取物品。\",\"genre\":\"\",\"style\":\"\",\"pace\":\"\",\"chapterWords\":250}\n\n[chapter:7c7bf232-1413-4d3c-be61-8b59e81d4ea0@3] 第1章 第1章（已确认）\n陈远把钱包放进衣袋。五分钟后，他明确从衣袋中取出钱包放在柜台上。钱包被风吹落地，陈远从地上捡起钱包，再放回衣袋。",
+          "documents": [
+            {
+              "source": {
+                "kind": "project",
+                "id": "9d63848f-0dd7-49c2-a62f-be34bb41a709",
+                "revision": 1
+              },
+              "text": "{\"title\":\"质量复验·钱包合法转移\",\"background\":\"现实场景，陈远只有一个钱包，允许他拿取物品。\",\"genre\":\"\",\"style\":\"\",\"pace\":\"\",\"chapterWords\":250}",
+              "label": "作品设定"
+            },
+            {
+              "source": {
+                "kind": "chapter",
+                "id": "7c7bf232-1413-4d3c-be61-8b59e81d4ea0",
+                "revision": 3
+              },
+              "label": "第1章 第1章（已确认）",
+              "text": "陈远把钱包放进衣袋。五分钟后，他明确从衣袋中取出钱包放在柜台上。钱包被风吹落地，陈远从地上捡起钱包，再放回衣袋。"
+            }
+          ],
+          "sources": [
+            {
+              "kind": "project",
+              "id": "9d63848f-0dd7-49c2-a62f-be34bb41a709",
+              "revision": 1
+            },
+            {
+              "kind": "chapter",
+              "id": "7c7bf232-1413-4d3c-be61-8b59e81d4ea0",
+              "revision": 3
+            }
+          ],
+          "disclosures": [],
+          "materials": []
+        }
+      },
+      "result": {
+        "disclosures": [
+          "初检未报告确定冲突，仍进行独立复核。",
+          "一致性复核：初检 0 项，复核保留 0 项；复核独立阅读原文，初检依据已保留。"
+        ],
+        "candidates": [],
+        "check": {
+          "issues": [],
+          "majorChange": false
+        },
+        "sources": [
+          {
+            "kind": "project",
+            "id": "9d63848f-0dd7-49c2-a62f-be34bb41a709",
+            "revision": 1
+          },
+          {
+            "kind": "chapter",
+            "id": "7c7bf232-1413-4d3c-be61-8b59e81d4ea0",
+            "revision": 3
+          }
+        ],
+        "issueIds": []
+      },
+      "partial": "",
+      "usage": {
+        "inputTokens": 1116,
+        "outputTokens": 1140,
+        "totalTokens": 2256,
+        "estimated": false
+      },
+      "calls": 2,
+      "sourceRevisions": [
+        {
+          "kind": "project",
+          "id": "9d63848f-0dd7-49c2-a62f-be34bb41a709",
+          "revision": 1
+        },
+        {
+          "kind": "chapter",
+          "id": "7c7bf232-1413-4d3c-be61-8b59e81d4ea0",
+          "revision": 3
+        }
+      ],
+      "error": ""
+    }
+  }
+]

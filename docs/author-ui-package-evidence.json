@@ -1,0 +1,123 @@
+{
+  "date": "2026-10-13",
+  "arch": "arm64",
+  "dmg": {
+    "path": "/Users/dave/Dev/XiaoShuoAgent/release/author-ui-20261013/make/dmg/arm64/XiaoShuoAgent-0.1.0-arm64.dmg",
+    "bytes": 162712904,
+    "sha256": "110afeb776a1e00c222ac54469280d2a645f85b80abfdc26a17b81c1f9d575ef",
+    "verify": "正在检查“Protective Master Boot Record（MBR：0）”的校验和…\nProtective Master Boot Record（MBR：0）：已验证CRC32 $55AA99DF\n正在检查“GPT Header（Primary GPT Header：1）”的校验和…\n    GPT Header（Primary GPT Header：1）：已验证CRC32 $94443FD6\n正在检查“GPT Partition Data（Primary GPT Table：2）”的校验和…\nGPT Partition Data（Primary GPT Table：已验证CRC32 $77B3FA3A\n正在检查“（Apple_Free：3）”的校验和…\n                      （Apple_Free：3）：已验证CRC32 $00000000\n正在检查“disk image（Apple_APFS：4）”的校验和…\n            disk image（Apple_APFS：4）：已验证CRC32 $12A39143\n正在检查“（Apple_Free：5）”的校验和…\n                      （Apple_Free：5）：已验证CRC32 $00000000\n正在检查“GPT Partition Data（Backup GPT Table：6）”的校验和…\nGPT Partition Data（Backup GPT Table：：已验证CRC32 $77B3FA3A\n正在检查“GPT Header（Backup GPT Header：7）”的校验和…\n     GPT Header（Backup GPT Header：7）：已验证CRC32 $ED70B6FD\n已验证CRC32 $EE4B8B33"
+  },
+  "zip": {
+    "path": "/Users/dave/Dev/XiaoShuoAgent/release/author-ui-20261013/make/zip/darwin/arm64/XiaoShuoAgent-darwin-arm64-0.1.0.zip",
+    "bytes": 145098137,
+    "sha256": "11d0214db940d81ccfaed60823cced84b3c5b115d40cbe4b22f927fbccea7681",
+    "verify": "No errors detected in compressed data of /Users/dave/Dev/XiaoShuoAgent/release/author-ui-20261013/make/zip/darwin/arm64/XiaoShuoAgent-darwin-arm64-0.1.0.zip."
+  },
+  "installed": "/var/folders/sj/z93s092n0j77xhmksrx9hfmh0000gn/T/xiaoshuo-author-ui-install-vfhHRs/installed/XiaoShuoAgent.app",
+  "executable": "/var/folders/sj/z93s092n0j77xhmksrx9hfmh0000gn/T/xiaoshuo-author-ui-install-vfhHRs/installed/XiaoShuoAgent.app/Contents/MacOS/XiaoShuoAgent",
+  "frameworkLinks": [
+    {
+      "path": "Contents/Frameworks/Electron Framework.framework/Electron Framework",
+      "target": "Versions/Current/Electron Framework"
+    },
+    {
+      "path": "Contents/Frameworks/Electron Framework.framework/Helpers",
+      "target": "Versions/Current/Helpers"
+    },
+    {
+      "path": "Contents/Frameworks/Electron Framework.framework/Libraries",
+      "target": "Versions/Current/Libraries"
+    },
+    {
+      "path": "Contents/Frameworks/Electron Framework.framework/Resources",
+      "target": "Versions/Current/Resources"
+    },
+    {
+      "path": "Contents/Frameworks/Electron Framework.framework/Versions/Current",
+      "target": "A"
+    },
+    {
+      "path": "Contents/Frameworks/Mantle.framework/Mantle",
+      "target": "Versions/Current/Mantle"
+    },
+    {
+      "path": "Contents/Frameworks/Mantle.framework/Resources",
+      "target": "Versions/Current/Resources"
+    },
+    {
+      "path": "Contents/Frameworks/Mantle.framework/Versions/Current",
+      "target": "A"
+    },
+    {
+      "path": "Contents/Frameworks/ReactiveObjC.framework/ReactiveObjC",
+      "target": "Versions/Current/ReactiveObjC"
+    },
+    {
+      "path": "Contents/Frameworks/ReactiveObjC.framework/Resources",
+      "target": "Versions/Current/Resources"
+    },
+    {
+      "path": "Contents/Frameworks/ReactiveObjC.framework/Versions/Current",
+      "target": "A"
+    },
+    {
+      "path": "Contents/Frameworks/Squirrel.framework/Resources",
+      "target": "Versions/Current/Resources"
+    },
+    {
+      "path": "Contents/Frameworks/Squirrel.framework/Squirrel",
+      "target": "Versions/Current/Squirrel"
+    },
+    {
+      "path": "Contents/Frameworks/Squirrel.framework/Versions/Current",
+      "target": "A"
+    }
+  ],
+  "builtFiles": [
+    {
+      "file": "out/main/index.js",
+      "sha256": "2233e73d3e9dcc4fc222ed80bb80d483e14a02d5a5f4cf55e398cf4ff410b6f0"
+    },
+    {
+      "file": "out/preload/index.cjs",
+      "sha256": "17609757ec4b7e710ba9ac19ecad4b00bd8848ace13795691d6db4cbc41dec58"
+    },
+    {
+      "file": "out/renderer/index.html",
+      "sha256": "436d9c0c12df9c87f660c561e50a4c0c92ba0257f5266c2c348c933c200e3790"
+    },
+    {
+      "file": "out/renderer/assets/index---G2ua2v.css",
+      "sha256": "b762ee14db6c404e47ee7a2176c2b8b7d40c7f71fa1ff098acb346a974217a95"
+    },
+    {
+      "file": "out/renderer/assets/index-D2Yrj1HA.js",
+      "sha256": "0ab742cca7e1779583ee4876a12be33a672b7c4bf8c15c0705348ee1b11435a7"
+    }
+  ],
+  "architecture": "/var/folders/sj/z93s092n0j77xhmksrx9hfmh0000gn/T/xiaoshuo-author-ui-install-vfhHRs/installed/XiaoShuoAgent.app/Contents/MacOS/XiaoShuoAgent: Mach-O 64-bit executable arm64",
+  "codesignVerify": false,
+  "packagedTests": {
+    "exitCode": 0,
+    "scope": "full Electron suite, DMG installation copy after unmount with build source disabled",
+    "expectedCases": 41,
+    "passed": 40,
+    "skipped": 1,
+    "skipReason": "Development-only unavailable-Keychain bootstrap injection",
+    "buildSourceRestored": true
+  },
+  "delivery": [
+    {
+      "path": "/Users/dave/Dev/XiaoShuoAgent/release/author-ui-20261013/XiaoShuoAgent-author-ui-20261013-arm64.dmg",
+      "bytes": 162712904,
+      "sha256": "110afeb776a1e00c222ac54469280d2a645f85b80abfdc26a17b81c1f9d575ef"
+    },
+    {
+      "path": "/Users/dave/Dev/XiaoShuoAgent/release/author-ui-20261013/XiaoShuoAgent-author-ui-20261013-arm64.zip",
+      "bytes": 145098137,
+      "sha256": "11d0214db940d81ccfaed60823cced84b3c5b115d40cbe4b22f927fbccea7681"
+    }
+  ],
+  "temporaryInstallCleaned": true,
+  "productionAppReplaced": false
+}

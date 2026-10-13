@@ -1,0 +1,1338 @@
+{
+  "date": "2026-10-07",
+  "baseUrl": "https://api.deepseek.com",
+  "model": "deepseek-flash",
+  "packaged": true,
+  "userData": "/Users/dave/Library/Application Support/小说工坊",
+  "rootCauseDiagnostics": [
+    {
+      "disabled": false,
+      "status": 200,
+      "maxTokens": 1500,
+      "finish": "length",
+      "contentChars": 0,
+      "reasoningChars": 2845,
+      "usage": {
+        "prompt_tokens": 1381,
+        "completion_tokens": 1500,
+        "total_tokens": 2881,
+        "prompt_tokens_details": {
+          "cached_tokens": 1152
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 1500
+        },
+        "prompt_cache_hit_tokens": 1152,
+        "prompt_cache_miss_tokens": 229
+      }
+    },
+    {
+      "disabled": true,
+      "status": 200,
+      "maxTokens": 1500,
+      "finish": "stop",
+      "contentChars": 2635,
+      "reasoningChars": 0,
+      "usage": {
+        "prompt_tokens": 1356,
+        "completion_tokens": 1318,
+        "total_tokens": 2674,
+        "prompt_tokens_details": {
+          "cached_tokens": 0
+        },
+        "prompt_cache_hit_tokens": 0,
+        "prompt_cache_miss_tokens": 1356
+      },
+      "content": "{\"issues\":[{\"type\":\"timeline\",\"reason\":\"候选正文写十年前寄出的信邮戳为'零九年'，但设定与情节把旧信定位为十年前；若故事当前时间与邮戳年份不能自洽，旧信年代会出现矛盾。同时正文出现'九八年停摆'与'零九年邮戳'两条年份线索，需明确当下年份或修正邮戳年份。\",\"evidence\":[{\"quote\":\"封口处有十年前的邮戳。\",\"source\":{\"kind\":\"chapter\",\"id\":\"3306cd69-80e7-4e75-9721-67569e4d20f6\",\"revision\":2}},{\"quote\":\"这邮戳……零九年的。\",\"source\":{\"kind\":\"chapter\",\"id\":\"3306cd69-80e7-4e75-9721-67569e4d20f6\",\"revision\":2}},{\"quote\":\"钟楼九八年就停摆了，那时你多大？十五？\",\"source\":{\"kind\":\"chapter\",\"id\":\"3306cd69-80e7-4e75-9721-67569e4d20f6\",\"revision\":2}}]},{\"type\":\"knowledge\",\"reason\":\"候选正文中林舟说信'里面就一张信纸'，后文又从信封内侧抽出第二页；若第二页确实在同一信封内，'就一张'与后文存在知情/描述不一致。若第二页是后来塞入或藏在内侧，也需在正文中明确区分，否则角色对信件内容的认知前后矛盾。\",\"evidence\":[{\"quote\":\"里面就一张信纸，短：\",\"source\":{\"kind\":\"chapter\",\"id\":\"3306cd69-80e7-4e75-9721-67569e4d20f6\",\"revision\":2}},{\"quote\":\"指尖在信封内侧碰到一张对折的薄纸。他抽出来，站在邮局门口展开。\",\"source\":{\"kind\":\"chapter\",\"id\":\"3306cd69-80e7-4e75-9721-67569e4d20f6\",\"revision\":2}},{\"quote\":\"是信的第二页，只有一行字：\",\"source\":{\"kind\":\"chapter\",\"id\":\"3306cd69-80e7-4e75-9721-67569e4d20f6\",\"revision\":2}}]},{\"type\":\"world\",\"reason\":\"候选正文出现'一九九八年七月十四号的维修登记'，但苏禾台词称'钟楼九八年就停摆了'。若七月十四是停摆当天，登记内容应是当日或此前记录；若停摆发生在其他日期，则'九八年就停摆'与具体日期线索之间存在设定细节冲突，需要统一时间锚点。\",\"evidence\":[{\"quote\":\"去查一九九八年七月十四号的维修登记。\",\"source\":{\"kind\":\"chapter\",\"id\":\"3306cd69-80e7-4e75-9721-67569e4d20f6\",\"revision\":2}},{\"quote\":\"钟楼九八年就停摆了，那时你多大？十五？\",\"source\":{\"kind\":\"chapter\",\"id\":\"3306cd69-80e7-4e75-9721-67569e4d20f6\",\"revision\":2}}]},{\"type\":\"foreshadowing\",\"reason\":\"outline 第一章悬念写'信末写着「别让苏禾上钟楼」，而苏禾就站在他面前'，暗示这句话在苏禾面前可见并形成即时悬念；候选正文则把第一页这句话写清后，又在信封内侧藏了第二页相同内容，且林舟在门口确认第二页时苏禾已抬头。第二页与第一页的关系、为何重复、是否刻意隐藏，尚未建立明确伏笔逻辑。\",\"evidence\":[{\"quote\":\"别让苏禾上钟楼。\",\"source\":{\"kind\":\"chapter\",\"id\":\"3306cd69-80e7-4e75-9721-67569e4d20f6\",\"revision\":2}},{\"quote\":\"是信的第二页，只有一行字：\",\"source\":{\"kind\":\"chapter\",\"id\":\"3306cd69-80e7-4e75-9721-67569e4d20f6\",\"revision\":2}},{\"quote\":\"林舟把第二页折回信封，塞进口袋。\",\"source\":{\"kind\":\"chapter\",\"id\":\"3306cd69-80e7-4e75-9721-67569e4d20f6\",\"revision\":2}},{\"quote\":\"悬念：信末写着「别让苏禾上钟楼」，而苏禾就站在他面前。\",\"source\":{\"kind\":\"note\",\"id\":\"fef6794b-18c1-4db4-9eb5-55c82815f358\",\"revision\":1}}]},{\"type\":\"location\",\"reason\":\"outline 第二章目标写'两人进钟楼核对十年前的维修登记'，但候选正文第一章苏禾明确拒绝进钟楼，且上钟楼需文化站批准；目前缺少从'拒绝'到'两人进钟楼'的过渡条件，若直接推进将造成地点准入与人物立场不一致。\",\"evidence\":[{\"quote\":\"再说上钟楼得找文化站批，我带你去算怎么回事。\",\"source\":{\"kind\":\"chapter\",\"id\":\"3306cd69-80e7-4e75-9721-67569e4d20f6\",\"revision\":2}},{\"quote\":\"不去。你走吧，我这还有三百封要盖。\",\"source\":{\"kind\":\"chapter\",\"id\":\"3306cd69-80e7-4e75-9721-67569e4d20f6\",\"revision\":2}},{\"quote\":\"第二章\\n目标：两人进钟楼核对十年前的维修登记，找停摆原因。\",\"source\":{\"kind\":\"note\",\"id\":\"fef6794b-18c1-4db4-9eb5-55c82815f358\",\"revision\":1}}]}],\"majorChange\":false,\"reason\":\"未发现需暂停的重大剧情或设定变化；问题集中在时间锚点、信件内容知情、第二页伏笔与进钟楼过渡条件，需作者确认后再修。\"}"
+    }
+  ],
+  "checks": {
+    "keyAbsentFromSnapshot": true,
+    "keyAbsentFromDatabase": true,
+    "keyAbsentFromBackups": true,
+    "restartPersistence": true,
+    "unauthorizedBatchBlocked": true,
+    "authorDraftPreserved": true,
+    "cancellationPartialChars": 53,
+    "viewport": {
+      "width": 1440,
+      "height": 920,
+      "horizontalOverflow": false
+    }
+  },
+  "tasks": [
+    {
+      "id": "f4be07ce-2249-4ba6-89df-8b98ade175f1",
+      "revision": 19,
+      "createdAt": "2026-10-07T06:34:18.031Z",
+      "updatedAt": "2026-10-07T06:34:19.360Z",
+      "projectId": "@connection",
+      "kind": "connection",
+      "status": "completed",
+      "requestSnapshot": {
+        "command": {
+          "type": "model.test",
+          "profileId": "5083f7ae-9ce2-4f6b-802a-eff8149f3fe2"
+        },
+        "profile": {
+          "id": "5083f7ae-9ce2-4f6b-802a-eff8149f3fe2",
+          "name": "DeepSeek · 检查",
+          "baseUrl": "https://api.deepseek.com",
+          "model": "deepseek-flash",
+          "purpose": "checking"
+        },
+        "checkingProfile": {
+          "id": "5083f7ae-9ce2-4f6b-802a-eff8149f3fe2",
+          "name": "DeepSeek · 检查",
+          "baseUrl": "https://api.deepseek.com",
+          "model": "deepseek-flash",
+          "purpose": "checking"
+        },
+        "context": {
+          "text": "",
+          "sources": [],
+          "documents": [],
+          "disclosures": [],
+          "materials": []
+        }
+      },
+      "result": {
+        "connection": true
+      },
+      "partial": "",
+      "usage": {
+        "inputTokens": 74,
+        "outputTokens": 86,
+        "totalTokens": 160,
+        "estimated": false
+      },
+      "calls": 1,
+      "sourceRevisions": [],
+      "error": ""
+    },
+    {
+      "id": "51f20c05-27e9-4737-ac10-53c383334f8d",
+      "revision": 268,
+      "createdAt": "2026-10-07T06:34:50.978Z",
+      "updatedAt": "2026-10-07T06:34:57.699Z",
+      "projectId": "df21083a-73ad-45e8-a18b-3180eb41a1f2",
+      "kind": "planning",
+      "status": "awaiting-author",
+      "requestSnapshot": {
+        "command": {
+          "type": "ai.plan",
+          "step": "outline",
+          "projectId": "df21083a-73ad-45e8-a18b-3180eb41a1f2",
+          "profileId": "a078ce04-a54e-4a7d-91ac-b9a964e99ae7",
+          "tokenBudget": 12000,
+          "instruction": "请给出三章大纲，每章一句目标、一句冲突、一句结尾悬念。总计300字以内。不要增加超自然设定。",
+          "includeDraftIds": [],
+          "materialIds": [],
+          "allowAutoMaterials": false
+        },
+        "profile": {
+          "id": "a078ce04-a54e-4a7d-91ac-b9a964e99ae7",
+          "name": "DeepSeek · 规划",
+          "baseUrl": "https://api.deepseek.com",
+          "model": "deepseek-flash",
+          "purpose": "planning"
+        },
+        "checkingProfile": {
+          "id": "a078ce04-a54e-4a7d-91ac-b9a964e99ae7",
+          "name": "DeepSeek · 规划",
+          "baseUrl": "https://api.deepseek.com",
+          "model": "deepseek-flash",
+          "purpose": "planning"
+        },
+        "context": {
+          "text": "[project:df21083a-73ad-45e8-a18b-3180eb41a1f2@2] 作品设定\n{\"title\":\"DeepSeek真实验收·雾港来信\",\"background\":\"虚构故事验收样本：雾港小镇的修表师林舟收到一封十年前自己寄出的信，与邮递员苏禾查明旧钟楼停摆之谜。现实悬疑，无超自然能力。林舟27岁，苏禾25岁。\",\"genre\":\"\",\"style\":\"简洁中文，生活化对话，线索清楚，不堆砌比喻。\",\"pace\":\"\",\"chapterWords\":1000}",
+          "documents": [
+            {
+              "source": {
+                "kind": "project",
+                "id": "df21083a-73ad-45e8-a18b-3180eb41a1f2",
+                "revision": 2
+              },
+              "text": "{\"title\":\"DeepSeek真实验收·雾港来信\",\"background\":\"虚构故事验收样本：雾港小镇的修表师林舟收到一封十年前自己寄出的信，与邮递员苏禾查明旧钟楼停摆之谜。现实悬疑，无超自然能力。林舟27岁，苏禾25岁。\",\"genre\":\"\",\"style\":\"简洁中文，生活化对话，线索清楚，不堆砌比喻。\",\"pace\":\"\",\"chapterWords\":1000}",
+              "label": "作品设定"
+            }
+          ],
+          "sources": [
+            {
+              "kind": "project",
+              "id": "df21083a-73ad-45e8-a18b-3180eb41a1f2",
+              "revision": 2
+            }
+          ],
+          "disclosures": [],
+          "materials": []
+        }
+      },
+      "result": {
+        "disclosures": [],
+        "candidates": [],
+        "suggestion": "来源：project df21083a-73ad-45e8-a18b-3180eb41a1f2@2（设定 v2）。以下为待审阅建议，未确认。\n\n第一章\n目标：林舟拆开十年前自己寄出的信，照信中提示去查钟楼停摆的旧钟。\n冲突：苏禾认定是恶作剧，不肯带他进钟楼，两人在邮局门口争执。\n悬念：信末写着「别让苏禾上钟楼」，而苏禾就站在他面前。\n\n第二章\n目标：两人进钟楼核对十年前的维修登记，找停摆原因。\n冲突：登记簿上有苏禾父亲的签名，她不肯再往下查。\n悬念：登记簿最后一行的值班人，是林舟。\n\n第三章\n目标：林舟查出有人十年前故意关停钟摆。\n冲突：苏禾要公开真相，林舟怕牵出自己父亲，两人对立。\n悬念：信还有第二页，收信人写着苏禾。\n\n（时间线、知情范围、伏笔记录未列入，因超字数；如需补，将同样标注来源 df21083a-73ad-45e8-a18b-3180eb41a1f2@2。）",
+        "step": "outline",
+        "sources": [
+          {
+            "kind": "project",
+            "id": "df21083a-73ad-45e8-a18b-3180eb41a1f2",
+            "revision": 2
+          }
+        ]
+      },
+      "partial": "",
+      "usage": {
+        "inputTokens": 265,
+        "outputTokens": 1331,
+        "totalTokens": 1596,
+        "estimated": false
+      },
+      "calls": 1,
+      "sourceRevisions": [
+        {
+          "kind": "project",
+          "id": "df21083a-73ad-45e8-a18b-3180eb41a1f2",
+          "revision": 2
+        }
+      ],
+      "error": ""
+    },
+    {
+      "id": "38191f40-1ea1-46a7-9220-cbda62fbbbbc",
+      "revision": 741,
+      "createdAt": "2026-10-07T06:35:15.898Z",
+      "updatedAt": "2026-10-07T06:39:31.563Z",
+      "projectId": "df21083a-73ad-45e8-a18b-3180eb41a1f2",
+      "kind": "generation",
+      "status": "awaiting-author",
+      "requestSnapshot": {
+        "command": {
+          "type": "ai.chapter",
+          "chapterIds": [
+            "3306cd69-80e7-4e75-9721-67569e4d20f6"
+          ],
+          "authorizeBatch": false,
+          "checkingProfileId": "5083f7ae-9ce2-4f6b-802a-eff8149f3fe2",
+          "projectId": "df21083a-73ad-45e8-a18b-3180eb41a1f2",
+          "profileId": "9405ae81-46d8-4991-996d-58a2f7f437e8",
+          "tokenBudget": 12000,
+          "instruction": "只写第一章，约500字，林舟在修表铺收到旧信，去邮局找苏禾核实，结尾展示信中警告。现实悬疑，保留人物年龄，不要列大纲。",
+          "includeDraftIds": [],
+          "materialIds": [],
+          "allowAutoMaterials": false
+        },
+        "profile": {
+          "id": "9405ae81-46d8-4991-996d-58a2f7f437e8",
+          "name": "DeepSeek · 正文",
+          "baseUrl": "https://api.deepseek.com",
+          "model": "deepseek-flash",
+          "purpose": "writing"
+        },
+        "checkingProfile": {
+          "id": "5083f7ae-9ce2-4f6b-802a-eff8149f3fe2",
+          "name": "DeepSeek · 检查",
+          "baseUrl": "https://api.deepseek.com",
+          "model": "deepseek-flash",
+          "purpose": "checking"
+        },
+        "context": {
+          "text": "[project:df21083a-73ad-45e8-a18b-3180eb41a1f2@2] 作品设定\n{\"title\":\"DeepSeek真实验收·雾港来信\",\"background\":\"虚构故事验收样本：雾港小镇的修表师林舟收到一封十年前自己寄出的信，与邮递员苏禾查明旧钟楼停摆之谜。现实悬疑，无超自然能力。林舟27岁，苏禾25岁。\",\"genre\":\"\",\"style\":\"简洁中文，生活化对话，线索清楚，不堆砌比喻。\",\"pace\":\"\",\"chapterWords\":1000}\n\n[chapter:3306cd69-80e7-4e75-9721-67569e4d20f6@2] 第1章 钟楼下的旧信（目标章节；正文未授权）\n\n\n[note:fef6794b-18c1-4db4-9eb5-55c82815f358@1] outline：AI 规划建议\n来源：project df21083a-73ad-45e8-a18b-3180eb41a1f2@2（设定 v2）。以下为待审阅建议，未确认。\n\n第一章\n目标：林舟拆开十年前自己寄出的信，照信中提示去查钟楼停摆的旧钟。\n冲突：苏禾认定是恶作剧，不肯带他进钟楼，两人在邮局门口争执。\n悬念：信末写着「别让苏禾上钟楼」，而苏禾就站在他面前。\n\n第二章\n目标：两人进钟楼核对十年前的维修登记，找停摆原因。\n冲突：登记簿上有苏禾父亲的签名，她不肯再往下查。\n悬念：登记簿最后一行的值班人，是林舟。\n\n第三章\n目标：林舟查出有人十年前故意关停钟摆。\n冲突：苏禾要公开真相，林舟怕牵出自己父亲，两人对立。\n悬念：信还有第二页，收信人写着苏禾。\n\n（时间线、知情范围、伏笔记录未列入，因超字数；如需补，将同样标注来源 df21083a-73ad-45e8-a18b-3180eb41a1f2@2。）",
+          "documents": [
+            {
+              "source": {
+                "kind": "project",
+                "id": "df21083a-73ad-45e8-a18b-3180eb41a1f2",
+                "revision": 2
+              },
+              "text": "{\"title\":\"DeepSeek真实验收·雾港来信\",\"background\":\"虚构故事验收样本：雾港小镇的修表师林舟收到一封十年前自己寄出的信，与邮递员苏禾查明旧钟楼停摆之谜。现实悬疑，无超自然能力。林舟27岁，苏禾25岁。\",\"genre\":\"\",\"style\":\"简洁中文，生活化对话，线索清楚，不堆砌比喻。\",\"pace\":\"\",\"chapterWords\":1000}",
+              "label": "作品设定"
+            },
+            {
+              "source": {
+                "kind": "chapter",
+                "id": "3306cd69-80e7-4e75-9721-67569e4d20f6",
+                "revision": 2
+              },
+              "label": "第1章 钟楼下的旧信（目标章节；正文未授权）",
+              "text": ""
+            },
+            {
+              "source": {
+                "kind": "note",
+                "id": "fef6794b-18c1-4db4-9eb5-55c82815f358",
+                "revision": 1
+              },
+              "text": "来源：project df21083a-73ad-45e8-a18b-3180eb41a1f2@2（设定 v2）。以下为待审阅建议，未确认。\n\n第一章\n目标：林舟拆开十年前自己寄出的信，照信中提示去查钟楼停摆的旧钟。\n冲突：苏禾认定是恶作剧，不肯带他进钟楼，两人在邮局门口争执。\n悬念：信末写着「别让苏禾上钟楼」，而苏禾就站在他面前。\n\n第二章\n目标：两人进钟楼核对十年前的维修登记，找停摆原因。\n冲突：登记簿上有苏禾父亲的签名，她不肯再往下查。\n悬念：登记簿最后一行的值班人，是林舟。\n\n第三章\n目标：林舟查出有人十年前故意关停钟摆。\n冲突：苏禾要公开真相，林舟怕牵出自己父亲，两人对立。\n悬念：信还有第二页，收信人写着苏禾。\n\n（时间线、知情范围、伏笔记录未列入，因超字数；如需补，将同样标注来源 df21083a-73ad-45e8-a18b-3180eb41a1f2@2。）",
+              "label": "outline：AI 规划建议"
+            }
+          ],
+          "sources": [
+            {
+              "kind": "project",
+              "id": "df21083a-73ad-45e8-a18b-3180eb41a1f2",
+              "revision": 2
+            },
+            {
+              "kind": "chapter",
+              "id": "3306cd69-80e7-4e75-9721-67569e4d20f6",
+              "revision": 2
+            },
+            {
+              "kind": "note",
+              "id": "fef6794b-18c1-4db4-9eb5-55c82815f358",
+              "revision": 1
+            }
+          ],
+          "disclosures": [],
+          "materials": []
+        }
+      },
+      "result": {
+        "disclosures": [],
+        "candidates": [
+          {
+            "chapterId": "3306cd69-80e7-4e75-9721-67569e4d20f6",
+            "text": "## 第1章 钟楼下的旧信\n\n下午三点，修表铺里没有客人。\n\n林舟坐在工作台前，镊子夹着一枚游丝，刚卡进摆轮。门缝里塞进一个牛皮纸信封，没贴邮票，只在收件人那栏写着“林舟”。\n\n字迹是他自己的。\n\n他把信封翻过来，封口处有十年前的邮戳。\n\n铺子外面，雾港的街面上没什么人。对面杂货铺的老板在收晾在外面的咸鱼，铁皮棚顶被风吹得哒哒响。林舟认得信封的折法——先把两边往里折，再把底边翻上来，最后在封口压一道指甲印。这是他自己的习惯，十年没变过。\n\n他拆开。\n\n里面就一张信纸，短：\n\n“钟楼停摆那天，不是意外。去查一九九八年七月十四号的维修登记。别让苏禾上钟楼。”\n\n林舟把纸翻到背面，一个字也没有。\n\n他锁了铺子，穿过石桥路去邮局。苏禾正在分拣台后面盖章，绿色邮政制服袖口卷到手肘，手上全是印油。\n\n“今天没你的信。”她头也没抬。\n\n林舟把信封放到分拣台上。“这个，今天塞进我铺子的。”\n\n苏禾拿起信封看了一眼，眉头先皱起来。“这邮戳……零九年的。”她用手指蹭了蹭，“这纸张都黄了，塞你门缝？谁啊？”\n\n“你觉得呢。”\n\n苏禾把信纸抽出来看了一遍，不到十秒就放回去。“林舟，这纸从旧货市场五块钱一沓。你修表修多了，看什么都像机械故障，这就是个恶作剧。”\n\n“字是我的。”\n\n“字可以学。”\n\n“折法也是我的。”\n\n苏禾停下盖章的手。分拣台上堆着一摞挂号信，电扇转着，把其中几封吹得翻了角。她盯着那张信纸，嘴唇抿了一下。\n\n“那更说明是熟人干的。”她把信推回他那边，“钟楼九八年就停摆了，那时你多大？十五？你查什么？再说上钟楼得找文化站批，我带你去算怎么回事。”\n\n“所以我才来找你。”\n\n苏禾把袖口放下来，拿起下一摞信。“不去。你走吧，我这还有三百封要盖。”\n\n林舟把信纸折好，放回信封。他转身往门口走，走了两步又停下来，把信封举到电扇前面。\n\n“你要是改主意了，今晚七点，钟楼下面。”\n\n苏禾没接话，盖章的声响快了半拍。\n\n林舟拉开门。雾港的风灌进来，把分拣台上那张信纸吹翻了个面——背面朝上，空白的。\n\n但林舟把信封收进兜里的时候，指尖在信封内侧碰到一张对折的薄纸。他抽出来，站在邮局门口展开。\n\n是信的第二页，只有一行字：\n\n“别让苏禾上钟楼。”\n\n墨迹很新，和第一页完全不同。\n\n苏禾在分拣台后面抬起头，正好看见他站在门口、对着那张纸发呆的样子。\n\n“怎么了？”她问。\n\n林舟把第二页折回信封，塞进口袋。\n\n“没事。”他说，“晚上七点，我等你。”",
+            "needsReview": false,
+            "checked": true,
+            "versionId": "e6c6918d-1673-4c18-9542-61757e3bf4d3",
+            "check": {
+              "issues": [],
+              "majorChange": false
+            }
+          }
+        ],
+        "phase": "generation"
+      },
+      "partial": "",
+      "usage": {
+        "inputTokens": 4234,
+        "outputTokens": 3905,
+        "totalTokens": 8139,
+        "estimated": true
+      },
+      "calls": 4,
+      "sourceRevisions": [
+        {
+          "kind": "project",
+          "id": "df21083a-73ad-45e8-a18b-3180eb41a1f2",
+          "revision": 2
+        },
+        {
+          "kind": "chapter",
+          "id": "3306cd69-80e7-4e75-9721-67569e4d20f6",
+          "revision": 2
+        },
+        {
+          "kind": "note",
+          "id": "fef6794b-18c1-4db4-9eb5-55c82815f358",
+          "revision": 1
+        }
+      ],
+      "error": ""
+    },
+    {
+      "id": "dcaf37c5-2e64-45f8-a329-ecfb30a3a6b8",
+      "revision": 98,
+      "createdAt": "2026-10-07T06:35:53.710Z",
+      "updatedAt": "2026-10-07T06:35:55.596Z",
+      "projectId": "df21083a-73ad-45e8-a18b-3180eb41a1f2",
+      "kind": "extraction",
+      "status": "awaiting-author",
+      "requestSnapshot": {
+        "command": {
+          "type": "ai.extract",
+          "source": "真实LLM验收自拟素材",
+          "sourceText": "林舟以为苏禾扣下旧信，拿着信封找她质问。苏禾翻出登记簿，指出收件人其实是林舟的父亲。两人从争执转为共同查证。",
+          "projectId": "df21083a-73ad-45e8-a18b-3180eb41a1f2",
+          "profileId": "a078ce04-a54e-4a7d-91ac-b9a964e99ae7",
+          "tokenBudget": 12000,
+          "instruction": "提取1个桥段，内容和适用条件各一句话。不要输出代码围栏。",
+          "includeDraftIds": [],
+          "materialIds": [],
+          "allowAutoMaterials": false
+        },
+        "profile": {
+          "id": "a078ce04-a54e-4a7d-91ac-b9a964e99ae7",
+          "name": "DeepSeek · 规划",
+          "baseUrl": "https://api.deepseek.com",
+          "model": "deepseek-flash",
+          "purpose": "planning"
+        },
+        "checkingProfile": {
+          "id": "a078ce04-a54e-4a7d-91ac-b9a964e99ae7",
+          "name": "DeepSeek · 规划",
+          "baseUrl": "https://api.deepseek.com",
+          "model": "deepseek-flash",
+          "purpose": "planning"
+        },
+        "context": {
+          "text": "[project:df21083a-73ad-45e8-a18b-3180eb41a1f2@2] 作品设定\n{\"title\":\"DeepSeek真实验收·雾港来信\",\"background\":\"虚构故事验收样本：雾港小镇的修表师林舟收到一封十年前自己寄出的信，与邮递员苏禾查明旧钟楼停摆之谜。现实悬疑，无超自然能力。林舟27岁，苏禾25岁。\",\"genre\":\"\",\"style\":\"简洁中文，生活化对话，线索清楚，不堆砌比喻。\",\"pace\":\"\",\"chapterWords\":1000}\n\n[note:fef6794b-18c1-4db4-9eb5-55c82815f358@1] outline：AI 规划建议\n来源：project df21083a-73ad-45e8-a18b-3180eb41a1f2@2（设定 v2）。以下为待审阅建议，未确认。\n\n第一章\n目标：林舟拆开十年前自己寄出的信，照信中提示去查钟楼停摆的旧钟。\n冲突：苏禾认定是恶作剧，不肯带他进钟楼，两人在邮局门口争执。\n悬念：信末写着「别让苏禾上钟楼」，而苏禾就站在他面前。\n\n第二章\n目标：两人进钟楼核对十年前的维修登记，找停摆原因。\n冲突：登记簿上有苏禾父亲的签名，她不肯再往下查。\n悬念：登记簿最后一行的值班人，是林舟。\n\n第三章\n目标：林舟查出有人十年前故意关停钟摆。\n冲突：苏禾要公开真相，林舟怕牵出自己父亲，两人对立。\n悬念：信还有第二页，收信人写着苏禾。\n\n（时间线、知情范围、伏笔记录未列入，因超字数；如需补，将同样标注来源 df21083a-73ad-45e8-a18b-3180eb41a1f2@2。）",
+          "documents": [
+            {
+              "source": {
+                "kind": "project",
+                "id": "df21083a-73ad-45e8-a18b-3180eb41a1f2",
+                "revision": 2
+              },
+              "text": "{\"title\":\"DeepSeek真实验收·雾港来信\",\"background\":\"虚构故事验收样本：雾港小镇的修表师林舟收到一封十年前自己寄出的信，与邮递员苏禾查明旧钟楼停摆之谜。现实悬疑，无超自然能力。林舟27岁，苏禾25岁。\",\"genre\":\"\",\"style\":\"简洁中文，生活化对话，线索清楚，不堆砌比喻。\",\"pace\":\"\",\"chapterWords\":1000}",
+              "label": "作品设定"
+            },
+            {
+              "source": {
+                "kind": "note",
+                "id": "fef6794b-18c1-4db4-9eb5-55c82815f358",
+                "revision": 1
+              },
+              "text": "来源：project df21083a-73ad-45e8-a18b-3180eb41a1f2@2（设定 v2）。以下为待审阅建议，未确认。\n\n第一章\n目标：林舟拆开十年前自己寄出的信，照信中提示去查钟楼停摆的旧钟。\n冲突：苏禾认定是恶作剧，不肯带他进钟楼，两人在邮局门口争执。\n悬念：信末写着「别让苏禾上钟楼」，而苏禾就站在他面前。\n\n第二章\n目标：两人进钟楼核对十年前的维修登记，找停摆原因。\n冲突：登记簿上有苏禾父亲的签名，她不肯再往下查。\n悬念：登记簿最后一行的值班人，是林舟。\n\n第三章\n目标：林舟查出有人十年前故意关停钟摆。\n冲突：苏禾要公开真相，林舟怕牵出自己父亲，两人对立。\n悬念：信还有第二页，收信人写着苏禾。\n\n（时间线、知情范围、伏笔记录未列入，因超字数；如需补，将同样标注来源 df21083a-73ad-45e8-a18b-3180eb41a1f2@2。）",
+              "label": "outline：AI 规划建议"
+            }
+          ],
+          "sources": [
+            {
+              "kind": "project",
+              "id": "df21083a-73ad-45e8-a18b-3180eb41a1f2",
+              "revision": 2
+            },
+            {
+              "kind": "note",
+              "id": "fef6794b-18c1-4db4-9eb5-55c82815f358",
+              "revision": 1
+            }
+          ],
+          "disclosures": [],
+          "materials": []
+        },
+        "inputText": "林舟以为苏禾扣下旧信，拿着信封找她质问。苏禾翻出登记簿，指出收件人其实是林舟的父亲。两人从争执转为共同查证。"
+      },
+      "result": {
+        "disclosures": [],
+        "candidates": [],
+        "materials": [
+          {
+            "type": "plot",
+            "title": "误会信件的共同查证",
+            "content": "主角以为对方私藏了旧信并上门质问，对方拿出登记簿证明收件人其实是主角父亲，二人从争执转为一起查证。",
+            "explanation": "适用于需要制造低成本冲突并迅速将对立转为合作的双人关系线，但需提前埋好登记簿等可验证物证，否则转折生硬。",
+            "source": "真实LLM验收自拟素材",
+            "approved": false
+          }
+        ]
+      },
+      "partial": "",
+      "usage": {
+        "inputTokens": 197,
+        "outputTokens": 225,
+        "totalTokens": 422,
+        "estimated": false
+      },
+      "calls": 1,
+      "sourceRevisions": [
+        {
+          "kind": "project",
+          "id": "df21083a-73ad-45e8-a18b-3180eb41a1f2",
+          "revision": 2
+        },
+        {
+          "kind": "note",
+          "id": "fef6794b-18c1-4db4-9eb5-55c82815f358",
+          "revision": 1
+        }
+      ],
+      "error": ""
+    },
+    {
+      "id": "1bc0bd89-d21e-4331-8477-84f6d7537cce",
+      "revision": 266,
+      "createdAt": "2026-10-07T06:39:33.135Z",
+      "updatedAt": "2026-10-07T06:39:34.984Z",
+      "projectId": "df21083a-73ad-45e8-a18b-3180eb41a1f2",
+      "kind": "check",
+      "status": "awaiting-author",
+      "requestSnapshot": {
+        "command": {
+          "type": "ai.check",
+          "projectId": "df21083a-73ad-45e8-a18b-3180eb41a1f2",
+          "profileId": "5083f7ae-9ce2-4f6b-802a-eff8149f3fe2",
+          "tokenBudget": 20000,
+          "instruction": "重点核对林舟年龄与十年前的年龄，只报告最明确的一条矛盾。必须逐字引用原文和来源版本。",
+          "includeDraftIds": [],
+          "materialIds": [],
+          "allowAutoMaterials": false
+        },
+        "profile": {
+          "id": "5083f7ae-9ce2-4f6b-802a-eff8149f3fe2",
+          "name": "DeepSeek · 检查",
+          "baseUrl": "https://api.deepseek.com",
+          "model": "deepseek-flash",
+          "purpose": "checking"
+        },
+        "checkingProfile": {
+          "id": "5083f7ae-9ce2-4f6b-802a-eff8149f3fe2",
+          "name": "DeepSeek · 检查",
+          "baseUrl": "https://api.deepseek.com",
+          "model": "deepseek-flash",
+          "purpose": "checking"
+        },
+        "context": {
+          "text": "[project:df21083a-73ad-45e8-a18b-3180eb41a1f2@2] 作品设定\n{\"title\":\"DeepSeek真实验收·雾港来信\",\"background\":\"虚构故事验收样本：雾港小镇的修表师林舟收到一封十年前自己寄出的信，与邮递员苏禾查明旧钟楼停摆之谜。现实悬疑，无超自然能力。林舟27岁，苏禾25岁。\",\"genre\":\"\",\"style\":\"简洁中文，生活化对话，线索清楚，不堆砌比喻。\",\"pace\":\"\",\"chapterWords\":1000}\n\n[chapter:3306cd69-80e7-4e75-9721-67569e4d20f6@4] 第1章 钟楼下的旧信（已确认）\n## 第1章 钟楼下的旧信\n\n下午三点，修表铺里没有客人。\n\n林舟坐在工作台前，镊子夹着一枚游丝，刚卡进摆轮。门缝里塞进一个牛皮纸信封，没贴邮票，只在收件人那栏写着“林舟”。\n\n字迹是他自己的。\n\n他把信封翻过来，封口处有十年前的邮戳。\n\n铺子外面，雾港的街面上没什么人。对面杂货铺的老板在收晾在外面的咸鱼，铁皮棚顶被风吹得哒哒响。林舟认得信封的折法——先把两边往里折，再把底边翻上来，最后在封口压一道指甲印。这是他自己的习惯，十年没变过。\n\n他拆开。\n\n里面就一张信纸，短：\n\n“钟楼停摆那天，不是意外。去查一九九八年七月十四号的维修登记。别让苏禾上钟楼。”\n\n林舟把纸翻到背面，一个字也没有。\n\n他锁了铺子，穿过石桥路去邮局。苏禾正在分拣台后面盖章，绿色邮政制服袖口卷到手肘，手上全是印油。\n\n“今天没你的信。”她头也没抬。\n\n林舟把信封放到分拣台上。“这个，今天塞进我铺子的。”\n\n苏禾拿起信封看了一眼，眉头先皱起来。“这邮戳……零九年的。”她用手指蹭了蹭，“这纸张都黄了，塞你门缝？谁啊？”\n\n“你觉得呢。”\n\n苏禾把信纸抽出来看了一遍，不到十秒就放回去。“林舟，这纸从旧货市场五块钱一沓。你修表修多了，看什么都像机械故障，这就是个恶作剧。”\n\n“字是我的。”\n\n“字可以学。”\n\n“折法也是我的。”\n\n苏禾停下盖章的手。分拣台上堆着一摞挂号信，电扇转着，把其中几封吹得翻了角。她盯着那张信纸，嘴唇抿了一下。\n\n“那更说明是熟人干的。”她把信推回他那边，“钟楼九八年就停摆了，那时你多大？十五？你查什么？再说上钟楼得找文化站批，我带你去算怎么回事。”\n\n“所以我才来找你。”\n\n苏禾把袖口放下来，拿起下一摞信。“不去。你走吧，我这还有三百封要盖。”\n\n林舟把信纸折好，放回信封。他转身往门口走，走了两步又停下来，把信封举到电扇前面。\n\n“你要是改主意了，今晚七点，钟楼下面。”\n\n苏禾没接话，盖章的声响快了半拍。\n\n林舟拉开门。雾港的风灌进来，把分拣台上那张信纸吹翻了个面——背面朝上，空白的。\n\n但林舟把信封收进兜里的时候，指尖在信封内侧碰到一张对折的薄纸。他抽出来，站在邮局门口展开。\n\n是信的第二页，只有一行字：\n\n“别让苏禾上钟楼。”\n\n墨迹很新，和第一页完全不同。\n\n苏禾在分拣台后面抬起头，正好看见他站在门口、对着那张纸发呆的样子。\n\n“怎么了？”她问。\n\n林舟把第二页折回信封，塞进口袋。\n\n“没事。”他说，“晚上七点，我等你。”\n\n[chapter:77d4e75e-eee7-4c76-89e9-b1dedc34c57f@3] 第2章 一致性验收：故意植入年龄冲突（已确认）\n同一天下午，林舟刚刚过完十八岁生日。他拿着旧信来到邮局，告诉苏禾：“我今年十八岁，十年前我才八岁。”\n\n[note:fef6794b-18c1-4db4-9eb5-55c82815f358@1] outline：AI 规划建议\n来源：project df21083a-73ad-45e8-a18b-3180eb41a1f2@2（设定 v2）。以下为待审阅建议，未确认。\n\n第一章\n目标：林舟拆开十年前自己寄出的信，照信中提示去查钟楼停摆的旧钟。\n冲突：苏禾认定是恶作剧，不肯带他进钟楼，两人在邮局门口争执。\n悬念：信末写着「别让苏禾上钟楼」，而苏禾就站在他面前。\n\n第二章\n目标：两人进钟楼核对十年前的维修登记，找停摆原因。\n冲突：登记簿上有苏禾父亲的签名，她不肯再往下查。\n悬念：登记簿最后一行的值班人，是林舟。\n\n第三章\n目标：林舟查出有人十年前故意关停钟摆。\n冲突：苏禾要公开真相，林舟怕牵出自己父亲，两人对立。\n悬念：信还有第二页，收信人写着苏禾。\n\n（时间线、知情范围、伏笔记录未列入，因超字数；如需补，将同样标注来源 df21083a-73ad-45e8-a18b-3180eb41a1f2@2。）",
+          "documents": [
+            {
+              "source": {
+                "kind": "project",
+                "id": "df21083a-73ad-45e8-a18b-3180eb41a1f2",
+                "revision": 2
+              },
+              "text": "{\"title\":\"DeepSeek真实验收·雾港来信\",\"background\":\"虚构故事验收样本：雾港小镇的修表师林舟收到一封十年前自己寄出的信，与邮递员苏禾查明旧钟楼停摆之谜。现实悬疑，无超自然能力。林舟27岁，苏禾25岁。\",\"genre\":\"\",\"style\":\"简洁中文，生活化对话，线索清楚，不堆砌比喻。\",\"pace\":\"\",\"chapterWords\":1000}",
+              "label": "作品设定"
+            },
+            {
+              "source": {
+                "kind": "chapter",
+                "id": "3306cd69-80e7-4e75-9721-67569e4d20f6",
+                "revision": 4
+              },
+              "label": "第1章 钟楼下的旧信（已确认）",
+              "text": "## 第1章 钟楼下的旧信\n\n下午三点，修表铺里没有客人。\n\n林舟坐在工作台前，镊子夹着一枚游丝，刚卡进摆轮。门缝里塞进一个牛皮纸信封，没贴邮票，只在收件人那栏写着“林舟”。\n\n字迹是他自己的。\n\n他把信封翻过来，封口处有十年前的邮戳。\n\n铺子外面，雾港的街面上没什么人。对面杂货铺的老板在收晾在外面的咸鱼，铁皮棚顶被风吹得哒哒响。林舟认得信封的折法——先把两边往里折，再把底边翻上来，最后在封口压一道指甲印。这是他自己的习惯，十年没变过。\n\n他拆开。\n\n里面就一张信纸，短：\n\n“钟楼停摆那天，不是意外。去查一九九八年七月十四号的维修登记。别让苏禾上钟楼。”\n\n林舟把纸翻到背面，一个字也没有。\n\n他锁了铺子，穿过石桥路去邮局。苏禾正在分拣台后面盖章，绿色邮政制服袖口卷到手肘，手上全是印油。\n\n“今天没你的信。”她头也没抬。\n\n林舟把信封放到分拣台上。“这个，今天塞进我铺子的。”\n\n苏禾拿起信封看了一眼，眉头先皱起来。“这邮戳……零九年的。”她用手指蹭了蹭，“这纸张都黄了，塞你门缝？谁啊？”\n\n“你觉得呢。”\n\n苏禾把信纸抽出来看了一遍，不到十秒就放回去。“林舟，这纸从旧货市场五块钱一沓。你修表修多了，看什么都像机械故障，这就是个恶作剧。”\n\n“字是我的。”\n\n“字可以学。”\n\n“折法也是我的。”\n\n苏禾停下盖章的手。分拣台上堆着一摞挂号信，电扇转着，把其中几封吹得翻了角。她盯着那张信纸，嘴唇抿了一下。\n\n“那更说明是熟人干的。”她把信推回他那边，“钟楼九八年就停摆了，那时你多大？十五？你查什么？再说上钟楼得找文化站批，我带你去算怎么回事。”\n\n“所以我才来找你。”\n\n苏禾把袖口放下来，拿起下一摞信。“不去。你走吧，我这还有三百封要盖。”\n\n林舟把信纸折好，放回信封。他转身往门口走，走了两步又停下来，把信封举到电扇前面。\n\n“你要是改主意了，今晚七点，钟楼下面。”\n\n苏禾没接话，盖章的声响快了半拍。\n\n林舟拉开门。雾港的风灌进来，把分拣台上那张信纸吹翻了个面——背面朝上，空白的。\n\n但林舟把信封收进兜里的时候，指尖在信封内侧碰到一张对折的薄纸。他抽出来，站在邮局门口展开。\n\n是信的第二页，只有一行字：\n\n“别让苏禾上钟楼。”\n\n墨迹很新，和第一页完全不同。\n\n苏禾在分拣台后面抬起头，正好看见他站在门口、对着那张纸发呆的样子。\n\n“怎么了？”她问。\n\n林舟把第二页折回信封，塞进口袋。\n\n“没事。”他说，“晚上七点，我等你。”"
+            },
+            {
+              "source": {
+                "kind": "chapter",
+                "id": "77d4e75e-eee7-4c76-89e9-b1dedc34c57f",
+                "revision": 3
+              },
+              "label": "第2章 一致性验收：故意植入年龄冲突（已确认）",
+              "text": "同一天下午，林舟刚刚过完十八岁生日。他拿着旧信来到邮局，告诉苏禾：“我今年十八岁，十年前我才八岁。”"
+            },
+            {
+              "source": {
+                "kind": "note",
+                "id": "fef6794b-18c1-4db4-9eb5-55c82815f358",
+                "revision": 1
+              },
+              "text": "来源：project df21083a-73ad-45e8-a18b-3180eb41a1f2@2（设定 v2）。以下为待审阅建议，未确认。\n\n第一章\n目标：林舟拆开十年前自己寄出的信，照信中提示去查钟楼停摆的旧钟。\n冲突：苏禾认定是恶作剧，不肯带他进钟楼，两人在邮局门口争执。\n悬念：信末写着「别让苏禾上钟楼」，而苏禾就站在他面前。\n\n第二章\n目标：两人进钟楼核对十年前的维修登记，找停摆原因。\n冲突：登记簿上有苏禾父亲的签名，她不肯再往下查。\n悬念：登记簿最后一行的值班人，是林舟。\n\n第三章\n目标：林舟查出有人十年前故意关停钟摆。\n冲突：苏禾要公开真相，林舟怕牵出自己父亲，两人对立。\n悬念：信还有第二页，收信人写着苏禾。\n\n（时间线、知情范围、伏笔记录未列入，因超字数；如需补，将同样标注来源 df21083a-73ad-45e8-a18b-3180eb41a1f2@2。）",
+              "label": "outline：AI 规划建议"
+            }
+          ],
+          "sources": [
+            {
+              "kind": "project",
+              "id": "df21083a-73ad-45e8-a18b-3180eb41a1f2",
+              "revision": 2
+            },
+            {
+              "kind": "chapter",
+              "id": "3306cd69-80e7-4e75-9721-67569e4d20f6",
+              "revision": 4
+            },
+            {
+              "kind": "chapter",
+              "id": "77d4e75e-eee7-4c76-89e9-b1dedc34c57f",
+              "revision": 3
+            },
+            {
+              "kind": "note",
+              "id": "fef6794b-18c1-4db4-9eb5-55c82815f358",
+              "revision": 1
+            }
+          ],
+          "disclosures": [],
+          "materials": []
+        }
+      },
+      "result": {
+        "disclosures": [],
+        "candidates": [],
+        "check": {
+          "issues": [
+            {
+              "type": "timeline",
+              "reason": "林舟的年龄与十年前年龄存在明确冲突：作品设定称林舟27岁，第一章写第一封信有十年前的邮戳、信中提示查一九九八年七月十四号，而第2章又写他刚过十八岁生日、十年前才八岁。两个年龄口径无法同时成立。",
+              "evidence": [
+                {
+                  "quote": "林舟27岁，苏禾25岁。",
+                  "source": {
+                    "kind": "project",
+                    "id": "df21083a-73ad-45e8-a18b-3180eb41a1f2",
+                    "revision": 2
+                  }
+                },
+                {
+                  "quote": "他拆开。",
+                  "source": {
+                    "kind": "chapter",
+                    "id": "3306cd69-80e7-4e75-9721-67569e4d20f6",
+                    "revision": 4
+                  }
+                },
+                {
+                  "quote": "同一天下午，林舟刚刚过完十八岁生日。他拿着旧信来到邮局，告诉苏禾：“我今年十八岁，十年前我才八岁。”",
+                  "source": {
+                    "kind": "chapter",
+                    "id": "77d4e75e-eee7-4c76-89e9-b1dedc34c57f",
+                    "revision": 3
+                  }
+                }
+              ]
+            }
+          ],
+          "majorChange": false
+        },
+        "sources": [
+          {
+            "kind": "project",
+            "id": "df21083a-73ad-45e8-a18b-3180eb41a1f2",
+            "revision": 2
+          },
+          {
+            "kind": "chapter",
+            "id": "3306cd69-80e7-4e75-9721-67569e4d20f6",
+            "revision": 4
+          },
+          {
+            "kind": "chapter",
+            "id": "77d4e75e-eee7-4c76-89e9-b1dedc34c57f",
+            "revision": 3
+          },
+          {
+            "kind": "note",
+            "id": "fef6794b-18c1-4db4-9eb5-55c82815f358",
+            "revision": 1
+          }
+        ],
+        "issueIds": [
+          "4bac3ee7-59c8-484f-a02b-a4954aefdfc9"
+        ]
+      },
+      "partial": "",
+      "usage": {
+        "inputTokens": 1430,
+        "outputTokens": 260,
+        "totalTokens": 1690,
+        "estimated": false
+      },
+      "calls": 1,
+      "sourceRevisions": [
+        {
+          "kind": "project",
+          "id": "df21083a-73ad-45e8-a18b-3180eb41a1f2",
+          "revision": 2
+        },
+        {
+          "kind": "chapter",
+          "id": "3306cd69-80e7-4e75-9721-67569e4d20f6",
+          "revision": 4
+        },
+        {
+          "kind": "chapter",
+          "id": "77d4e75e-eee7-4c76-89e9-b1dedc34c57f",
+          "revision": 3
+        },
+        {
+          "kind": "note",
+          "id": "fef6794b-18c1-4db4-9eb5-55c82815f358",
+          "revision": 1
+        }
+      ],
+      "error": ""
+    },
+    {
+      "id": "15d82b3a-58d7-4975-8fec-be3281b5d03a",
+      "revision": 3144,
+      "createdAt": "2026-10-07T06:42:12.694Z",
+      "updatedAt": "2026-10-07T06:42:52.962Z",
+      "projectId": "6ed14961-ad11-4c8f-bf4c-fdfcf6169057",
+      "kind": "generation",
+      "status": "awaiting-author",
+      "requestSnapshot": {
+        "command": {
+          "type": "ai.chapter",
+          "chapterIds": [
+            "087b2fd8-f090-4046-b3df-2df654da9d35",
+            "2c1b2a13-7441-4b5a-a6fb-2e6e7f3c9ed3",
+            "b716fd60-d6ac-4fc2-94db-66f3eecd7e26"
+          ],
+          "authorizeBatch": true,
+          "checkingProfileId": "5083f7ae-9ce2-4f6b-802a-eff8149f3fe2",
+          "projectId": "6ed14961-ad11-4c8f-bf4c-fdfcf6169057",
+          "profileId": "9405ae81-46d8-4991-996d-58a2f7f437e8",
+          "tokenBudget": 30000,
+          "instruction": "按当前章标题与背景顺序写正文，每章约250字，日常生活化对话。只完成本章的活动，不提前写下一章，不增设年份或人物年龄，不需要总结说明。",
+          "includeDraftIds": [],
+          "materialIds": [],
+          "allowAutoMaterials": false
+        },
+        "profile": {
+          "id": "9405ae81-46d8-4991-996d-58a2f7f437e8",
+          "name": "DeepSeek · 正文",
+          "baseUrl": "https://api.deepseek.com",
+          "model": "deepseek-flash",
+          "purpose": "writing"
+        },
+        "checkingProfile": {
+          "id": "5083f7ae-9ce2-4f6b-802a-eff8149f3fe2",
+          "name": "DeepSeek · 检查",
+          "baseUrl": "https://api.deepseek.com",
+          "model": "deepseek-flash",
+          "purpose": "checking"
+        },
+        "context": {
+          "text": "[project:6ed14961-ad11-4c8f-bf4c-fdfcf6169057@2] 作品设定\n{\"title\":\"DeepSeek真实验收·连续三章\",\"background\":\"现实日常故事。小镇书店店主许宁与邻居周岚一起准备周末读书会。人物无特殊能力，地点只在书店。第一章周五上午打扫，第二章周五下午摆书，第三章周六上午读书会开始。每章只推进当前阶段。\",\"genre\":\"\",\"style\":\"\",\"pace\":\"\",\"chapterWords\":800}\n\n[chapter:087b2fd8-f090-4046-b3df-2df654da9d35@2] 第1章 打扫书店（目标章节；正文未授权）\n\n\n[chapter:2c1b2a13-7441-4b5a-a6fb-2e6e7f3c9ed3@2] 第2章 摆好书桌（目标章节；正文未授权）\n\n\n[chapter:b716fd60-d6ac-4fc2-94db-66f3eecd7e26@3] 第3章 读书会开始（目标章节；正文未授权）\n",
+          "documents": [
+            {
+              "source": {
+                "kind": "project",
+                "id": "6ed14961-ad11-4c8f-bf4c-fdfcf6169057",
+                "revision": 2
+              },
+              "text": "{\"title\":\"DeepSeek真实验收·连续三章\",\"background\":\"现实日常故事。小镇书店店主许宁与邻居周岚一起准备周末读书会。人物无特殊能力，地点只在书店。第一章周五上午打扫，第二章周五下午摆书，第三章周六上午读书会开始。每章只推进当前阶段。\",\"genre\":\"\",\"style\":\"\",\"pace\":\"\",\"chapterWords\":800}",
+              "label": "作品设定"
+            },
+            {
+              "source": {
+                "kind": "chapter",
+                "id": "087b2fd8-f090-4046-b3df-2df654da9d35",
+                "revision": 2
+              },
+              "label": "第1章 打扫书店（目标章节；正文未授权）",
+              "text": ""
+            },
+            {
+              "source": {
+                "kind": "chapter",
+                "id": "2c1b2a13-7441-4b5a-a6fb-2e6e7f3c9ed3",
+                "revision": 2
+              },
+              "label": "第2章 摆好书桌（目标章节；正文未授权）",
+              "text": ""
+            },
+            {
+              "source": {
+                "kind": "chapter",
+                "id": "b716fd60-d6ac-4fc2-94db-66f3eecd7e26",
+                "revision": 3
+              },
+              "label": "第3章 读书会开始（目标章节；正文未授权）",
+              "text": ""
+            }
+          ],
+          "sources": [
+            {
+              "kind": "project",
+              "id": "6ed14961-ad11-4c8f-bf4c-fdfcf6169057",
+              "revision": 2
+            },
+            {
+              "kind": "chapter",
+              "id": "087b2fd8-f090-4046-b3df-2df654da9d35",
+              "revision": 2
+            },
+            {
+              "kind": "chapter",
+              "id": "2c1b2a13-7441-4b5a-a6fb-2e6e7f3c9ed3",
+              "revision": 2
+            },
+            {
+              "kind": "chapter",
+              "id": "b716fd60-d6ac-4fc2-94db-66f3eecd7e26",
+              "revision": 3
+            }
+          ],
+          "disclosures": [],
+          "materials": []
+        }
+      },
+      "result": {
+        "disclosures": [],
+        "candidates": [
+          {
+            "chapterId": "087b2fd8-f090-4046-b3df-2df654da9d35",
+            "text": "## 第1章 打扫书店\n\n周五早上八点半，许宁把书店的卷帘门推上去，晨风灌进来，带着隔壁早餐铺的油条味。她拿起靠在门边的扫帚，从柜台后面开始扫。木地板用了好些年，边角有几处起了细缝，扫帚丝卡进去，得使劲拨一下才出来。\n\n门帘一响，周岚探进半个身子：“我来啦——哟，都动上手了？”\n\n“你不是说九点？”\n\n“醒了就来了。”周岚拎着一块抹布进屋，往柜台上一搭，环顾四周，“今天先从上往下，还是从里往外？”\n\n“先擦书架顶吧，灰攒了一礼拜了。”许宁把扫帚递过去，“你够得着，我去打水。”\n\n周岚接过扫帚，顺手在许宁肩上拍了一下：“行，你负责湿的，我负责高的。”\n\n水龙头在书店后头的小隔间里，许宁拧开水桶接水，听见前厅传来扫帚划过地板的声音，一下一下，不急不慢。她端着水盆出来时，周岚已经踩着凳子够最上排的书架了，袖口沾了一层灰也浑然不觉。\n\n“左边那格还没擦。”\n\n“知道知道，我按顺序来。”周岚头也不回地应着，“你门口那盆绿萝该浇水了，叶子都打蔫。”\n\n许宁放下水盆，拧干抹布，擦了两下柜台，又抬头看了看窗外。街对面杂货铺的老赵正往外搬货，冲她抬手打了个招呼。她也抬手回了一下，继续低头擦柜台。\n\n到九点四十左右，书架顶和窗台都擦过一遍，地上的灰也扫成了两堆。许宁直起腰，捶了捶后背：“先歇会儿？”\n\n周岚从凳子上跳下来，把抹布往桶里一丢：“歇，我手都酸了。”她拉过一把椅子坐下，扇着风说，“下午摆书桌的时候，你那个‘小镇记忆’的展台放哪边？”\n\n“靠窗吧，光线好。”\n\n“行。”周岚点点头，“那下午再说，我回去吃口饭。”",
+            "needsReview": false,
+            "checked": true,
+            "versionId": "22a3ad2a-4ec0-483e-91b4-8461f44b22fb",
+            "check": {
+              "issues": [],
+              "majorChange": false
+            }
+          },
+          {
+            "chapterId": "2c1b2a13-7441-4b5a-a6fb-2e6e7f3c9ed3",
+            "text": "## 第2章 摆好书桌\n\n下午两点，周岚准时推门进来，手里提着一袋从家带的橘子。\n\n许宁正蹲在窗边比划展台的位置，听见动静抬头：“你来得正好，帮我看看这张桌子是靠窗好，还是往里收半米好。”\n\n周岚把橘子放在柜台上，走过去左右看了看：“靠窗吧，光线好，人坐着也敞亮。往里收反而挡着过道。”她伸手把桌子挪过去半步，“就这儿。”\n\n许宁把带来的旧书一本本摆上展台，都是镇上有年头的老照片集和地方志。周岚在旁边递书，顺手拿抹布又蹭了一遍桌角。\n\n“椅子摆几把？”\n\n“先摆六把，多了挤。”许宁说着去杂物间搬椅子，周岚跟过去搭手。\n\n六把木椅围成半圈，周岚挨个试了试晃不晃，最后在靠门那把椅子上坐下，剥了个橘子，递一半给许宁。\n\n“明天几点开始？”\n\n“九点半。”许宁接过橘子，看了眼窗台上的水杯，“橘子皮别乱扔，扔垃圾桶。”\n\n“知道啦。”",
+            "needsReview": true,
+            "checked": true,
+            "versionId": "b4b5d4e0-2ed9-4505-b885-a4ee1e88d0e9",
+            "check": {
+              "issues": [
+                {
+                  "type": "timeline",
+                  "reason": "设定规定第一章是周五上午打扫、第二章是周五下午摆书、第三章是周六上午读书会开始。第2章写‘下午两点’摆书且结尾说‘明天几点开始’，与第一章同属周五上午/下午的推进一致；但第2章提到‘明天九点半’与第三章周六上午开始相容，暂无不一致。",
+                  "evidence": [
+                    {
+                      "quote": "下午两点，周岚准时推门进来",
+                      "source": {
+                        "kind": "chapter",
+                        "id": "2c1b2a13-7441-4b5a-a6fb-2e6e7f3c9ed3",
+                        "revision": 2
+                      },
+                      "candidateVersionId": "b4b5d4e0-2ed9-4505-b885-a4ee1e88d0e9"
+                    },
+                    {
+                      "quote": "明天几点开始？",
+                      "source": {
+                        "kind": "chapter",
+                        "id": "2c1b2a13-7441-4b5a-a6fb-2e6e7f3c9ed3",
+                        "revision": 2
+                      },
+                      "candidateVersionId": "b4b5d4e0-2ed9-4505-b885-a4ee1e88d0e9"
+                    },
+                    {
+                      "quote": "九点半。",
+                      "source": {
+                        "kind": "chapter",
+                        "id": "2c1b2a13-7441-4b5a-a6fb-2e6e7f3c9ed3",
+                        "revision": 2
+                      },
+                      "candidateVersionId": "b4b5d4e0-2ed9-4505-b885-a4ee1e88d0e9"
+                    }
+                  ]
+                },
+                {
+                  "type": "character",
+                  "reason": "第一章中周岚拿的是抹布，许宁把扫帚递给她，随后周岚接过扫帚。但前文周岚已‘拎着一块抹布进屋，往柜台上一搭’，后文又说‘周岚接过扫帚’，工具交接存在轻微含混，不算硬冲突但可能造成动作归属不清。",
+                  "evidence": [
+                    {
+                      "quote": "周岚拎着一块抹布进屋，往柜台上一搭",
+                      "source": {
+                        "kind": "chapter",
+                        "id": "087b2fd8-f090-4046-b3df-2df654da9d35",
+                        "revision": 2
+                      },
+                      "candidateVersionId": "22a3ad2a-4ec0-483e-91b4-8461f44b22fb"
+                    },
+                    {
+                      "quote": "许宁把扫帚递过去",
+                      "source": {
+                        "kind": "chapter",
+                        "id": "087b2fd8-f090-4046-b3df-2df654da9d35",
+                        "revision": 2
+                      },
+                      "candidateVersionId": "22a3ad2a-4ec0-483e-91b4-8461f44b22fb"
+                    },
+                    {
+                      "quote": "周岚接过扫帚",
+                      "source": {
+                        "kind": "chapter",
+                        "id": "087b2fd8-f090-4046-b3df-2df654da9d35",
+                        "revision": 2
+                      },
+                      "candidateVersionId": "22a3ad2a-4ec0-483e-91b4-8461f44b22fb"
+                    }
+                  ]
+                },
+                {
+                  "type": "location",
+                  "reason": "设定写‘地点只在书店’。第一章出现‘隔壁早餐铺的油条味’与‘街对面杂货铺的老赵’，属于书店外环境，但均为从书店门口感知/看见的外部，不构成场景转移。",
+                  "evidence": [
+                    {
+                      "quote": "带着隔壁早餐铺的油条味",
+                      "source": {
+                        "kind": "chapter",
+                        "id": "087b2fd8-f090-4046-b3df-2df654da9d35",
+                        "revision": 2
+                      },
+                      "candidateVersionId": "22a3ad2a-4ec0-483e-91b4-8461f44b22fb"
+                    },
+                    {
+                      "quote": "街对面杂货铺的老赵正往外搬货",
+                      "source": {
+                        "kind": "chapter",
+                        "id": "087b2fd8-f090-4046-b3df-2df654da9d35",
+                        "revision": 2
+                      },
+                      "candidateVersionId": "22a3ad2a-4ec0-483e-91b4-8461f44b22fb"
+                    }
+                  ]
+                },
+                {
+                  "type": "world",
+                  "reason": "设定为现实日常、人物无特殊能力，候选稿未引入超现实元素，符合。",
+                  "evidence": [
+                    {
+                      "quote": "周五早上八点半，许宁把书店的卷帘门推上去",
+                      "source": {
+                        "kind": "chapter",
+                        "id": "087b2fd8-f090-4046-b3df-2df654da9d35",
+                        "revision": 2
+                      },
+                      "candidateVersionId": "22a3ad2a-4ec0-483e-91b4-8461f44b22fb"
+                    }
+                  ]
+                },
+                {
+                  "type": "knowledge",
+                  "reason": "第一章周岚问‘下午摆书桌的时候，你那个“小镇记忆”的展台放哪边？’，说明周岚已知‘小镇记忆’展台计划；第二章摆书时旧书包括老照片集和地方志，与展台内容一致，未见知识越界。",
+                  "evidence": [
+                    {
+                      "quote": "下午摆书桌的时候，你那个‘小镇记忆’的展台放哪边？",
+                      "source": {
+                        "kind": "chapter",
+                        "id": "087b2fd8-f090-4046-b3df-2df654da9d35",
+                        "revision": 2
+                      },
+                      "candidateVersionId": "22a3ad2a-4ec0-483e-91b4-8461f44b22fb"
+                    },
+                    {
+                      "quote": "都是镇上有年头的老照片集和地方志",
+                      "source": {
+                        "kind": "chapter",
+                        "id": "2c1b2a13-7441-4b5a-a6fb-2e6e7f3c9ed3",
+                        "revision": 2
+                      },
+                      "candidateVersionId": "b4b5d4e0-2ed9-4505-b885-a4ee1e88d0e9"
+                    }
+                  ]
+                },
+                {
+                  "type": "foreshadowing",
+                  "reason": "第一章末尾提到下午摆书桌和‘小镇记忆’展台位置，第二章落实为靠窗并摆老照片集、地方志；第二章末尾提到‘明天九点半’开始，为第三章周六上午读书会做铺垫，未见悬空或断裂。",
+                  "evidence": [
+                    {
+                      "quote": "下午摆书桌的时候，你那个‘小镇记忆’的展台放哪边？",
+                      "source": {
+                        "kind": "chapter",
+                        "id": "087b2fd8-f090-4046-b3df-2df654da9d35",
+                        "revision": 2
+                      },
+                      "candidateVersionId": "22a3ad2a-4ec0-483e-91b4-8461f44b22fb"
+                    },
+                    {
+                      "quote": "靠窗吧，光线好",
+                      "source": {
+                        "kind": "chapter",
+                        "id": "2c1b2a13-7441-4b5a-a6fb-2e6e7f3c9ed3",
+                        "revision": 2
+                      },
+                      "candidateVersionId": "b4b5d4e0-2ed9-4505-b885-a4ee1e88d0e9"
+                    },
+                    {
+                      "quote": "明天几点开始？",
+                      "source": {
+                        "kind": "chapter",
+                        "id": "2c1b2a13-7441-4b5a-a6fb-2e6e7f3c9ed3",
+                        "revision": 2
+                      },
+                      "candidateVersionId": "b4b5d4e0-2ed9-4505-b885-a4ee1e88d0e9"
+                    }
+                  ]
+                }
+              ],
+              "majorChange": false
+            }
+          },
+          {
+            "chapterId": "b716fd60-d6ac-4fc2-94db-66f3eecd7e26",
+            "text": "## 第3章 读书会开始\n\n周六早上九点，许宁把“今日读书会”的小黑板搬到门口，粉笔字是昨晚写的，边上还画了圈橘色小花。她回身把窗边那摞老照片集又理了理，听见门帘响，周岚端着两盘杯子进来。\n\n“纸杯我拿了，热水也烧上了。”周岚把盘子搁在操作台上，“你说九点半开始，现在来的是不是早了点？”\n\n正说着，门口有人探头，是住街尾的刘老师，手里拿着一本旧相册。“许宁，我来早啦，先坐哪儿？”\n\n“靠窗，光线好。”许宁引她过去，周岚已经笑着搬开椅子。\n\n陆陆续续又来了四五个人，椅子差不多坐满。许宁站到展台旁，清了清嗓子：“今天先看这几本老照片集，谁想先说，就举一下手。”周岚坐在靠门那把椅子上，把剥好的橘子往中间盘子里放，轻声接话：“边聊边吃，不着急。”\n\n窗外的街慢慢亮起来，书店里有人翻书，有人低声说话。许宁拉过最后一把椅子，在周岚旁边坐下。",
+            "needsReview": true,
+            "checked": true,
+            "versionId": "8745f15f-7779-45cd-8faa-1d0bd79fe5a7",
+            "check": {
+              "issues": [
+                {
+                  "type": "timeline",
+                  "reason": "设定写明第三章为“周六上午读书会开始”，但三章连续看，第一章周五上午、第二章周五下午、第三章周六上午，时间推进本身无冲突；不过第三章开头“周六早上九点”与第二章结尾“明天几点开始——九点半”之间没有矛盾，属于正常衔接。真正可疑的是第二章发生在周五下午两点，而第一章结束周岚说“我回去吃口饭”，午饭时间与下午两点之间并无交代，且不算硬冲突；故不列为问题。",
+                  "evidence": [
+                    {
+                      "quote": "下午两点，周岚准时推门进来",
+                      "source": {
+                        "kind": "chapter",
+                        "id": "2c1b2a13-7441-4b5a-a6fb-2e6e7f3c9ed3",
+                        "revision": 2
+                      },
+                      "candidateVersionId": "b4b5d4e0-2ed9-4505-b885-a4ee1e88d0e9"
+                    },
+                    {
+                      "quote": "明天几点开始？",
+                      "source": {
+                        "kind": "chapter",
+                        "id": "2c1b2a13-7441-4b5a-a6fb-2e6e7f3c9ed3",
+                        "revision": 2
+                      },
+                      "candidateVersionId": "b4b5d4e0-2ed9-4505-b885-a4ee1e88d0e9"
+                    },
+                    {
+                      "quote": "周六早上九点",
+                      "source": {
+                        "kind": "chapter",
+                        "id": "b716fd60-d6ac-4fc2-94db-66f3eecd7e26",
+                        "revision": 3
+                      },
+                      "candidateVersionId": "8745f15f-7779-45cd-8faa-1d0bd79fe5a7"
+                    }
+                  ]
+                },
+                {
+                  "type": "world",
+                  "reason": "设定规定“地点只在书店”，且第一章明确书店后面有小隔间和水龙头，属于书店范围；但第二章许宁“去杂物间搬椅子”未交代杂物间是否在书店内，若在书店内则无问题，若不在则违反地点限定。证据不足以判定越界，故标记为待核。",
+                  "evidence": [
+                    {
+                      "quote": "水龙头在书店后头的小隔间里",
+                      "source": {
+                        "kind": "chapter",
+                        "id": "087b2fd8-f090-4046-b3df-2df654da9d35",
+                        "revision": 2
+                      },
+                      "candidateVersionId": "22a3ad2a-4ec0-483e-91b4-8461f44b22fb"
+                    },
+                    {
+                      "quote": "许宁说着去杂物间搬椅子",
+                      "source": {
+                        "kind": "chapter",
+                        "id": "2c1b2a13-7441-4b5a-a6fb-2e6e7f3c9ed3",
+                        "revision": 2
+                      },
+                      "candidateVersionId": "b4b5d4e0-2ed9-4505-b885-a4ee1e88d0e9"
+                    },
+                    {
+                      "quote": "地点只在书店",
+                      "source": {
+                        "kind": "project",
+                        "id": "6ed14961-ad11-4c8f-bf4c-fdfcf6169057",
+                        "revision": 2
+                      }
+                    }
+                  ]
+                },
+                {
+                  "type": "character",
+                  "reason": "设定人物为“许宁”与“周岚”，三章均只有这两人为主，其他人物为街道邻居，符合日常设定；但第三章新出现“刘老师”和“四五个人”，未在设定中列名，属于新增配角。若设定允许临时群众则无碍，若要求严格限定人物则属越界。证据显示设定只点名主要人物，未禁止临时角色，故列为提示而非硬伤。",
+                  "evidence": [
+                    {
+                      "quote": "住街尾的刘老师",
+                      "source": {
+                        "kind": "chapter",
+                        "id": "b716fd60-d6ac-4fc2-94db-66f3eecd7e26",
+                        "revision": 3
+                      },
+                      "candidateVersionId": "8745f15f-7779-45cd-8faa-1d0bd79fe5a7"
+                    },
+                    {
+                      "quote": "陆陆续续又来了四五个人",
+                      "source": {
+                        "kind": "chapter",
+                        "id": "b716fd60-d6ac-4fc2-94db-66f3eecd7e26",
+                        "revision": 3
+                      },
+                      "candidateVersionId": "8745f15f-7779-45cd-8faa-1d0bd79fe5a7"
+                    },
+                    {
+                      "quote": "许宁与邻居周岚一起准备周末读书会",
+                      "source": {
+                        "kind": "project",
+                        "id": "6ed14961-ad11-4c8f-bf4c-fdfcf6169057",
+                        "revision": 2
+                      }
+                    }
+                  ]
+                },
+                {
+                  "type": "foreshadowing",
+                  "reason": "第一章周岚提到“你那个‘小镇记忆’的展台放哪边”，第二章展台摆的是“老照片集和地方志”，第三章读书会主题也用“老照片集”，前后呼应完整，无断裂。",
+                  "evidence": [
+                    {
+                      "quote": "你那个‘小镇记忆’的展台放哪边？",
+                      "source": {
+                        "kind": "chapter",
+                        "id": "087b2fd8-f090-4046-b3df-2df654da9d35",
+                        "revision": 2
+                      },
+                      "candidateVersionId": "22a3ad2a-4ec0-483e-91b4-8461f44b22fb"
+                    },
+                    {
+                      "quote": "都是镇上有年头的老照片集和地方志",
+                      "source": {
+                        "kind": "chapter",
+                        "id": "2c1b2a13-7441-4b5a-a6fb-2e6e7f3c9ed3",
+                        "revision": 2
+                      },
+                      "candidateVersionId": "b4b5d4e0-2ed9-4505-b885-a4ee1e88d0e9"
+                    },
+                    {
+                      "quote": "今天先看这几本老照片集",
+                      "source": {
+                        "kind": "chapter",
+                        "id": "b716fd60-d6ac-4fc2-94db-66f3eecd7e26",
+                        "revision": 3
+                      },
+                      "candidateVersionId": "8745f15f-7779-45cd-8faa-1d0bd79fe5a7"
+                    }
+                  ]
+                }
+              ],
+              "majorChange": false
+            }
+          }
+        ],
+        "phase": "generation",
+        "pauseReason": "候选稿存在一致性疑点，请作者处理后继续"
+      },
+      "partial": "",
+      "usage": {
+        "inputTokens": 6350,
+        "outputTokens": 4667,
+        "totalTokens": 11017,
+        "estimated": true
+      },
+      "calls": 7,
+      "sourceRevisions": [
+        {
+          "kind": "project",
+          "id": "6ed14961-ad11-4c8f-bf4c-fdfcf6169057",
+          "revision": 2
+        },
+        {
+          "kind": "chapter",
+          "id": "087b2fd8-f090-4046-b3df-2df654da9d35",
+          "revision": 2
+        },
+        {
+          "kind": "chapter",
+          "id": "2c1b2a13-7441-4b5a-a6fb-2e6e7f3c9ed3",
+          "revision": 2
+        },
+        {
+          "kind": "chapter",
+          "id": "b716fd60-d6ac-4fc2-94db-66f3eecd7e26",
+          "revision": 3
+        }
+      ],
+      "error": ""
+    },
+    {
+      "id": "8a0712c8-bd12-4893-ae72-d29e38f90e8e",
+      "revision": 44,
+      "createdAt": "2026-10-07T06:43:34.488Z",
+      "updatedAt": "2026-10-07T06:43:35.642Z",
+      "projectId": "@connection",
+      "kind": "connection",
+      "status": "completed",
+      "requestSnapshot": {
+        "command": {
+          "type": "model.test",
+          "profileId": "5083f7ae-9ce2-4f6b-802a-eff8149f3fe2"
+        },
+        "profile": {
+          "id": "5083f7ae-9ce2-4f6b-802a-eff8149f3fe2",
+          "name": "DeepSeek · 检查",
+          "baseUrl": "https://api.deepseek.com",
+          "model": "deepseek-flash",
+          "purpose": "checking"
+        },
+        "checkingProfile": {
+          "id": "5083f7ae-9ce2-4f6b-802a-eff8149f3fe2",
+          "name": "DeepSeek · 检查",
+          "baseUrl": "https://api.deepseek.com",
+          "model": "deepseek-flash",
+          "purpose": "checking"
+        },
+        "context": {
+          "text": "",
+          "sources": [],
+          "documents": [],
+          "disclosures": [],
+          "materials": []
+        }
+      },
+      "result": {
+        "connection": true
+      },
+      "partial": "",
+      "usage": {
+        "inputTokens": 49,
+        "outputTokens": 38,
+        "totalTokens": 87,
+        "estimated": false
+      },
+      "calls": 1,
+      "sourceRevisions": [],
+      "error": ""
+    }
+  ],
+  "projects": [
+    {
+      "id": "df21083a-73ad-45e8-a18b-3180eb41a1f2",
+      "revision": 2,
+      "createdAt": "2026-10-07T06:34:50.910Z",
+      "updatedAt": "2026-10-07T06:34:50.977Z",
+      "title": "DeepSeek真实验收·雾港来信",
+      "background": "虚构故事验收样本：雾港小镇的修表师林舟收到一封十年前自己寄出的信，与邮递员苏禾查明旧钟楼停摆之谜。现实悬疑，无超自然能力。林舟27岁，苏禾25岁。",
+      "genre": "",
+      "style": "简洁中文，生活化对话，线索清楚，不堆砌比喻。",
+      "pace": "",
+      "targetWords": 100000,
+      "chapterWords": 1000,
+      "archived": false
+    },
+    {
+      "id": "6ed14961-ad11-4c8f-bf4c-fdfcf6169057",
+      "revision": 2,
+      "createdAt": "2026-10-07T06:40:04.215Z",
+      "updatedAt": "2026-10-07T06:40:04.268Z",
+      "title": "DeepSeek真实验收·连续三章",
+      "background": "现实日常故事。小镇书店店主许宁与邻居周岚一起准备周末读书会。人物无特殊能力，地点只在书店。第一章周五上午打扫，第二章周五下午摆书，第三章周六上午读书会开始。每章只推进当前阶段。",
+      "genre": "",
+      "style": "",
+      "pace": "",
+      "targetWords": 100000,
+      "chapterWords": 800,
+      "archived": false
+    }
+  ],
+  "chapters": [
+    {
+      "id": "3306cd69-80e7-4e75-9721-67569e4d20f6",
+      "revision": 4,
+      "createdAt": "2026-10-07T06:35:15.843Z",
+      "updatedAt": "2026-10-07T06:39:32.922Z",
+      "projectId": "df21083a-73ad-45e8-a18b-3180eb41a1f2",
+      "ordinal": 1,
+      "title": "钟楼下的旧信",
+      "content": "## 第1章 钟楼下的旧信\n\n下午三点，修表铺里没有客人。\n\n林舟坐在工作台前，镊子夹着一枚游丝，刚卡进摆轮。门缝里塞进一个牛皮纸信封，没贴邮票，只在收件人那栏写着“林舟”。\n\n字迹是他自己的。\n\n他把信封翻过来，封口处有十年前的邮戳。\n\n铺子外面，雾港的街面上没什么人。对面杂货铺的老板在收晾在外面的咸鱼，铁皮棚顶被风吹得哒哒响。林舟认得信封的折法——先把两边往里折，再把底边翻上来，最后在封口压一道指甲印。这是他自己的习惯，十年没变过。\n\n他拆开。\n\n里面就一张信纸，短：\n\n“钟楼停摆那天，不是意外。去查一九九八年七月十四号的维修登记。别让苏禾上钟楼。”\n\n林舟把纸翻到背面，一个字也没有。\n\n他锁了铺子，穿过石桥路去邮局。苏禾正在分拣台后面盖章，绿色邮政制服袖口卷到手肘，手上全是印油。\n\n“今天没你的信。”她头也没抬。\n\n林舟把信封放到分拣台上。“这个，今天塞进我铺子的。”\n\n苏禾拿起信封看了一眼，眉头先皱起来。“这邮戳……零九年的。”她用手指蹭了蹭，“这纸张都黄了，塞你门缝？谁啊？”\n\n“你觉得呢。”\n\n苏禾把信纸抽出来看了一遍，不到十秒就放回去。“林舟，这纸从旧货市场五块钱一沓。你修表修多了，看什么都像机械故障，这就是个恶作剧。”\n\n“字是我的。”\n\n“字可以学。”\n\n“折法也是我的。”\n\n苏禾停下盖章的手。分拣台上堆着一摞挂号信，电扇转着，把其中几封吹得翻了角。她盯着那张信纸，嘴唇抿了一下。\n\n“那更说明是熟人干的。”她把信推回他那边，“钟楼九八年就停摆了，那时你多大？十五？你查什么？再说上钟楼得找文化站批，我带你去算怎么回事。”\n\n“所以我才来找你。”\n\n苏禾把袖口放下来，拿起下一摞信。“不去。你走吧，我这还有三百封要盖。”\n\n林舟把信纸折好，放回信封。他转身往门口走，走了两步又停下来，把信封举到电扇前面。\n\n“你要是改主意了，今晚七点，钟楼下面。”\n\n苏禾没接话，盖章的声响快了半拍。\n\n林舟拉开门。雾港的风灌进来，把分拣台上那张信纸吹翻了个面——背面朝上，空白的。\n\n但林舟把信封收进兜里的时候，指尖在信封内侧碰到一张对折的薄纸。他抽出来，站在邮局门口展开。\n\n是信的第二页，只有一行字：\n\n“别让苏禾上钟楼。”\n\n墨迹很新，和第一页完全不同。\n\n苏禾在分拣台后面抬起头，正好看见他站在门口、对着那张纸发呆的样子。\n\n“怎么了？”她问。\n\n林舟把第二页折回信封，塞进口袋。\n\n“没事。”他说，“晚上七点，我等你。”",
+      "status": "confirmed",
+      "needsReview": false,
+      "style": "",
+      "pace": ""
+    },
+    {
+      "id": "77d4e75e-eee7-4c76-89e9-b1dedc34c57f",
+      "revision": 3,
+      "createdAt": "2026-10-07T06:39:33.077Z",
+      "updatedAt": "2026-10-07T06:39:33.109Z",
+      "projectId": "df21083a-73ad-45e8-a18b-3180eb41a1f2",
+      "ordinal": 2,
+      "title": "一致性验收：故意植入年龄冲突",
+      "content": "同一天下午，林舟刚刚过完十八岁生日。他拿着旧信来到邮局，告诉苏禾：“我今年十八岁，十年前我才八岁。”",
+      "status": "confirmed",
+      "needsReview": false,
+      "style": "",
+      "pace": ""
+    },
+    {
+      "id": "087b2fd8-f090-4046-b3df-2df654da9d35",
+      "revision": 2,
+      "createdAt": "2026-10-07T06:40:04.321Z",
+      "updatedAt": "2026-10-07T06:40:04.375Z",
+      "projectId": "6ed14961-ad11-4c8f-bf4c-fdfcf6169057",
+      "ordinal": 1,
+      "title": "打扫书店",
+      "content": "",
+      "status": "draft",
+      "needsReview": false,
+      "style": "",
+      "pace": ""
+    },
+    {
+      "id": "2c1b2a13-7441-4b5a-a6fb-2e6e7f3c9ed3",
+      "revision": 2,
+      "createdAt": "2026-10-07T06:40:04.376Z",
+      "updatedAt": "2026-10-07T06:41:50.901Z",
+      "projectId": "6ed14961-ad11-4c8f-bf4c-fdfcf6169057",
+      "ordinal": 2,
+      "title": "摆好书桌",
+      "content": "",
+      "status": "draft",
+      "needsReview": false,
+      "style": "",
+      "pace": ""
+    },
+    {
+      "id": "b716fd60-d6ac-4fc2-94db-66f3eecd7e26",
+      "revision": 3,
+      "createdAt": "2026-10-07T06:40:04.401Z",
+      "updatedAt": "2026-10-07T06:41:51.819Z",
+      "projectId": "6ed14961-ad11-4c8f-bf4c-fdfcf6169057",
+      "ordinal": 3,
+      "title": "读书会开始",
+      "content": "",
+      "status": "draft",
+      "needsReview": true,
+      "style": "",
+      "pace": ""
+    }
+  ],
+  "notes": [
+    {
+      "id": "fef6794b-18c1-4db4-9eb5-55c82815f358",
+      "revision": 1,
+      "createdAt": "2026-10-07T06:34:58.843Z",
+      "updatedAt": "2026-10-07T06:34:58.843Z",
+      "projectId": "df21083a-73ad-45e8-a18b-3180eb41a1f2",
+      "type": "outline",
+      "title": "AI 规划建议",
+      "body": "来源：project df21083a-73ad-45e8-a18b-3180eb41a1f2@2（设定 v2）。以下为待审阅建议，未确认。\n\n第一章\n目标：林舟拆开十年前自己寄出的信，照信中提示去查钟楼停摆的旧钟。\n冲突：苏禾认定是恶作剧，不肯带他进钟楼，两人在邮局门口争执。\n悬念：信末写着「别让苏禾上钟楼」，而苏禾就站在他面前。\n\n第二章\n目标：两人进钟楼核对十年前的维修登记，找停摆原因。\n冲突：登记簿上有苏禾父亲的签名，她不肯再往下查。\n悬念：登记簿最后一行的值班人，是林舟。\n\n第三章\n目标：林舟查出有人十年前故意关停钟摆。\n冲突：苏禾要公开真相，林舟怕牵出自己父亲，两人对立。\n悬念：信还有第二页，收信人写着苏禾。\n\n（时间线、知情范围、伏笔记录未列入，因超字数；如需补，将同样标注来源 df21083a-73ad-45e8-a18b-3180eb41a1f2@2。）",
+      "sources": [
+        {
+          "kind": "project",
+          "id": "df21083a-73ad-45e8-a18b-3180eb41a1f2",
+          "revision": 2
+        }
+      ],
+      "needsReview": false
+    }
+  ],
+  "materials": [
+    {
+      "id": "283b842c-948c-4046-a3f1-fa34132ad63a",
+      "revision": 1,
+      "createdAt": "2026-10-07T06:35:56.658Z",
+      "updatedAt": "2026-10-07T06:35:56.658Z",
+      "type": "plot",
+      "title": "误会信件的共同查证",
+      "source": "真实LLM验收自拟素材",
+      "content": "主角以为对方私藏了旧信并上门质问，对方拿出登记簿证明收件人其实是主角父亲，二人从争执转为一起查证。",
+      "explanation": "适用于需要制造低成本冲突并迅速将对立转为合作的双人关系线，但需提前埋好登记簿等可验证物证，否则转折生硬。",
+      "approved": true,
+      "projectReferences": []
+    }
+  ],
+  "issues": [
+    {
+      "id": "4bac3ee7-59c8-484f-a02b-a4954aefdfc9",
+      "revision": 1,
+      "createdAt": "2026-10-07T06:39:34.984Z",
+      "updatedAt": "2026-10-07T06:39:34.984Z",
+      "type": "timeline",
+      "reason": "林舟的年龄与十年前年龄存在明确冲突：作品设定称林舟27岁，第一章写第一封信有十年前的邮戳、信中提示查一九九八年七月十四号，而第2章又写他刚过十八岁生日、十年前才八岁。两个年龄口径无法同时成立。",
+      "evidence": [
+        {
+          "quote": "林舟27岁，苏禾25岁。",
+          "source": {
+            "kind": "project",
+            "id": "df21083a-73ad-45e8-a18b-3180eb41a1f2",
+            "revision": 2
+          }
+        },
+        {
+          "quote": "他拆开。",
+          "source": {
+            "kind": "chapter",
+            "id": "3306cd69-80e7-4e75-9721-67569e4d20f6",
+            "revision": 4
+          }
+        },
+        {
+          "quote": "同一天下午，林舟刚刚过完十八岁生日。他拿着旧信来到邮局，告诉苏禾：“我今年十八岁，十年前我才八岁。”",
+          "source": {
+            "kind": "chapter",
+            "id": "77d4e75e-eee7-4c76-89e9-b1dedc34c57f",
+            "revision": 3
+          }
+        }
+      ],
+      "projectId": "df21083a-73ad-45e8-a18b-3180eb41a1f2",
+      "chapterId": "3306cd69-80e7-4e75-9721-67569e4d20f6",
+      "status": "open"
+    }
+  ]
+}

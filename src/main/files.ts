@@ -23,8 +23,11 @@ import { validateConversationTurn } from "../shared/conversation";
 import { validateAuthoring, planningStages } from "../shared/authoring";
 import { validateBundle, renderStage } from "../shared/sync";
 import { writeDocument } from "./authoring";
+import { validateRevisionJob } from "../shared/revision";
+import { authoringDigest } from "./revision";
+import { validateWritingJob } from "../shared/writing";
 const MAX_SOURCE = 2_000_000,
-  MAX_PACKAGE = 100_000_000;
+  MAX_PACKAGE = 512_000_000;
 function fail(message: string): never {
   throw new DomainError("VALIDATION", message);
 }
@@ -146,8 +149,11 @@ const tables = [
   "conversations",
   "syncJobs",
   "syncBatches",
+  "readingWorkspaces",
+  "revisionJobs",
+  "writingJobs",
 ] as const;
-type Portable = Pick<AppState, (typeof tables)[number]>;
+type Portable = Required<Pick<AppState, (typeof tables)[number]>>;
 export class ProjectFiles {
   constructor(private store: Store) {}
   private manuscript(id: string, drafts: boolean): string[] {
@@ -206,6 +212,9 @@ export class ProjectFiles {
       syncJobs: s.syncJobs.filter(j => j.projectId === id).map(({ profileId, ...job }) => job),
       syncBatches: s.syncBatches.filter(b => b.projectId === id),
       conversations: s.conversations.filter(t => t.projectId === id).map(({ profileId, ...turn }) => turn),
+      readingWorkspaces: (s.readingWorkspaces ?? []).filter(w => w.projectId === id),
+      revisionJobs: (s.revisionJobs ?? []).filter(j => j.projectId === id).map(({ profileId, ...job }) => job),
+      writingJobs: (s.writingJobs ?? []).filter(j => j.projectId === id).map(({ profileId, checkingProfileId, ...job }) => job),
       materials: s.materials
         .filter((m) => m.projectReferences.some((r) => r.projectId === id))
         .map((m) => {
@@ -223,7 +232,7 @@ export class ProjectFiles {
       path,
       JSON.stringify({
         format: "xiaoshuo-project",
-        version: 3,
+        version: 5,
         sha256: digest(payload),
         payload,
       }),
@@ -242,7 +251,7 @@ export class ProjectFiles {
     if (
       !pack ||
       !["xiaoshuo-project", "xiaoshuo-recovery"].includes(pack.format) ||
-      ![1, 2, 3].includes(pack.version) ||
+      ![1, 2, 3, 4, 5].includes(pack.version) ||
       !pack.payload ||
       pack.sha256 !== digest(pack.payload)
     )
@@ -264,6 +273,15 @@ export class ProjectFiles {
       }
       if (pack.format === "xiaoshuo-recovery") pack.payload.schemaVersion = 3;
     }
+    if (pack.version < 4) {
+      pack.payload.readingWorkspaces = [];
+      pack.payload.revisionJobs = [];
+      if (pack.format === "xiaoshuo-recovery") pack.payload.schemaVersion = 4;
+    }
+    if (pack.version < 5) {
+      pack.payload.writingJobs = [];
+      if (pack.format === "xiaoshuo-recovery") pack.payload.schemaVersion = 5;
+    }
     const s = pack.payload as Portable;
     if (pack.format === "xiaoshuo-recovery") validateRecovery(s);
     else validatePortable(s);
@@ -273,6 +291,15 @@ export class ProjectFiles {
     const ids = new Map<string, string>();
     for (const table of tables)
       for (const r of s[table]) ids.set(r.id, randomUUID());
+    for (const w of s.readingWorkspaces) {
+      w.annotations.forEach(a => { remapReadingId(a.id); });
+      w.volumes.forEach(v => { remapReadingId(v.id); });
+    }
+    for (const j of s.revisionJobs) {
+      j.noteSources?.forEach(n => remapReadingId(n.id));
+      j.notes.forEach(n => { if (n.id) remapReadingId(n.id); });
+    }
+    function remapReadingId(id: string) { if (!ids.has(id)) ids.set(id, randomUUID()); }
     // Deleted notes can still be mentioned in historic conversation responses.
     // Give those historical identities fresh ids too, without recreating the notes.
     for (const t of s.conversations) for (const n of t.response?.notes ?? []) if (n.id && !ids.has(n.id)) ids.set(n.id, randomUUID());
@@ -410,7 +437,31 @@ export class ProjectFiles {
         const { profileId, ...portable } = t;
         this.store.put("conversations", { ...nested(portable), status: t.status === "running" ? "interrupted" : t.status });
       }
+      for (const w of s.readingWorkspaces) this.store.put("readingWorkspaces", nested(w));
+      for (const j of s.revisionJobs) {
+        const { profileId, ...job } = j;
+        const original = s.projects.find(p => p.id === j.projectId)!;
+        const originalDigest = createHash("sha256").update(JSON.stringify([original.title, original.background, original.genre, original.style, original.pace])).digest("hex");
+        const imported = this.store.get("projects", remap(j.projectId))!;
+        const sourceProjectDigest = j.sourceProjectDigest === originalDigest
+          ? createHash("sha256").update(JSON.stringify([imported.title, imported.background, imported.genre, imported.style, imported.pace])).digest("hex")
+          : j.sourceProjectDigest;
+        this.store.put("revisionJobs", { ...nested(job), ...(sourceProjectDigest ? { sourceProjectDigest } : {}), status: j.status === "running" ? "interrupted" : j.status });
+      }
+      for (const j of s.writingJobs) {
+        const { profileId, checkingProfileId, reviewSourceDigest, checkCursor, checkSourceDigest, checkIssues, ...job } = j;
+        this.store.put("writingJobs", { ...nested(job), status: j.status === "running" ? "interrupted" : j.status });
+      }
       for (const original of s.projects) this.reprojectImportedProject(remap(original.id), original.title);
+      // A renamed imported copy may re-render synchronized planning documents.
+      // Rebase only fingerprints that were current in the source package.
+      for (const original of s.revisionJobs) {
+        const sourceProject = s.projects.find(p => p.id === original.projectId)!;
+        if (original.sourceAuthoringDigest && original.sourceAuthoringDigest === authoringDigest(sourceProject)) {
+          const imported = this.store.get("revisionJobs", remap(original.id))!;
+          this.store.put("revisionJobs", { ...imported, sourceAuthoringDigest: authoringDigest(this.store.get("projects", remap(original.projectId))!) });
+        }
+      }
     });
     return newId;
   }
@@ -566,13 +617,15 @@ function validatePortable(s: any): asserts s is Portable {
     validateConversationTurn(t);
     if ([...t.chapterIds, ...(t.chapterId ? [t.chapterId] : []), ...(t.proposal?.chapterIds ?? []), ...(t.response?.proposal?.chapterIds ?? []), ...(t.response?.chapters ?? []).flatMap((c: any) => c.id ? [c.id] : [])].some(id => !chapters.has(id)) || (t.proposalTurnId && !turns.has(t.proposalTurnId))) fail("作品包对话引用不正确");
   }
+  validateReadingPayload(s);
+  validateWritingPayload(s);
 }
 
 function validateRecovery(s: any): void {
   validatePublicJson(s);
   if (
     !s ||
-    s.schemaVersion !== 3 ||
+    s.schemaVersion !== 5 ||
     Object.keys(s).sort().join(",") !==
       ["schemaVersion", ...tables].sort().join(",")
   )
@@ -617,6 +670,9 @@ function validateRecovery(s: any): void {
       conversations: s.conversations.filter((r: any) => r.projectId === pid),
       syncJobs: s.syncJobs.filter((r: any) => r.projectId === pid),
       syncBatches: s.syncBatches.filter((r: any) => r.projectId === pid),
+      readingWorkspaces: s.readingWorkspaces.filter((r: any) => r.projectId === pid),
+      revisionJobs: s.revisionJobs.filter((r: any) => r.projectId === pid),
+      writingJobs: s.writingJobs.filter((r: any) => r.projectId === pid),
       materials: s.materials
         .filter(
           (m: any) =>
@@ -649,6 +705,94 @@ function validateRecovery(s: any): void {
         m.projectReferences.length
     )
       fail("恢复包素材格式或引用不正确");
+  }
+}
+
+function validateReadingPayload(s: Portable): void {
+  const pid = s.projects[0].id;
+  const chapters = new Map(s.chapters.map(c => [c.id, c]));
+  const versions = new Map(s.versions.map(v => [v.id, v]));
+  const notes = new Map(s.notes.map(n => [n.id, n]));
+  const check = (ok: unknown, message = "阅读与改稿资料格式不正确") => { if (!ok) fail(message); };
+  const int = (value: unknown, min = 0) => Number.isSafeInteger(value) && Number(value) >= min;
+  const string = (value: unknown) => typeof value === "string";
+  const meta = (r: any) => check(r && string(r.id) && r.id && int(r.revision, 1) && Number.isFinite(Date.parse(r.createdAt)) && Number.isFinite(Date.parse(r.updatedAt)));
+  const identifiers = new Set<string>();
+  const unique = (id: string) => { check(string(id) && id && !identifiers.has(id), "阅读资料编号重复"); identifiers.add(id); };
+  const anchor = (a: any) => {
+    check(a && chapters.has(a.chapterId) && int(a.revision, 1) && int(a.start) && int(a.end) && a.end > a.start && string(a.quote) && a.quote.length === a.end - a.start, "批注原文位置不正确");
+    const current = chapters.get(a.chapterId)!;
+    const source = current.revision === a.revision ? current : s.versions
+      .filter(v => v.chapterId === a.chapterId && v.chapterRevision <= a.revision && v.reason !== "ai-candidate")
+      .sort((a, b) => b.chapterRevision - a.chapterRevision || b.createdAt.localeCompare(a.createdAt))[0];
+    check(source && source.content.slice(a.start, a.end) === a.quote, "批注来源版本或原文不正确");
+    return source!;
+  };
+  check(s.readingWorkspaces.length <= 1, "一部作品只能包含一份阅读工作区");
+  for (const w of s.readingWorkspaces) {
+    meta(w); check(w.projectId === pid); check(Array.isArray(w.annotations) && Array.isArray(w.reviews) && Array.isArray(w.volumes));
+    for (const a of w.annotations) {
+      meta(a); unique(a.id); check(chapters.has(a.chapterId) && a.anchor?.chapterId === a.chapterId && string(a.text) && a.text.length <= 10000 && ["open", "resolved"].includes(a.status));
+      const source = anchor(a.anchor);
+      if (a.contentHash !== undefined) check(a.contentHash === createHash("sha256").update(source.content).digest("hex"), "批注完整来源不正确");
+    }
+    const reviewed = new Set<string>();
+    for (const r of w.reviews) {
+      const v = versions.get(r.versionId);
+      check(chapters.has(r.chapterId) && !reviewed.has(r.chapterId) && int(r.revision, 1) && v?.chapterId === r.chapterId && v.chapterRevision <= r.revision && Number.isFinite(Date.parse(r.reviewedAt)), "审阅基准版本不正确");
+      if (r.contentHash !== undefined) check(r.contentHash === createHash("sha256").update(v!.content).digest("hex"), "审阅基准内容不正确");
+      reviewed.add(r.chapterId);
+    }
+    const ranges: { fromOrdinal: number; toOrdinal: number }[] = [];
+    for (const v of w.volumes) {
+      unique(v.id); check(string(v.title) && v.title.trim() && int(v.fromOrdinal, 1) && int(v.toOrdinal, 1) && v.toOrdinal >= v.fromOrdinal);
+      check(!ranges.some(r => r.fromOrdinal <= v.toOrdinal && v.fromOrdinal <= r.toOrdinal), "分卷范围重叠"); ranges.push(v);
+    }
+    if (w.position) check(chapters.has(w.position.chapterId) && int(w.position.offset) && ["reading", "review"].includes(w.position.mode));
+  }
+  for (const j of s.revisionJobs) {
+    validateRevisionJob(j);
+    meta(j); check(j.projectId === pid && string(j.text) && int(j.tokenBudget, 1) && int(j.calls) && int(j.sourceProjectRevision, 1));
+    check(["selection", "chapter", "chapters", "all"].includes(j.scope) && ["running", "paused", "interrupted", "cancelled", "failed", "awaiting-author", "completed"].includes(j.status));
+    check(Array.isArray(j.chapterIds) && Array.isArray(j.checkedChapterIds) && Array.isArray(j.annotationIds) && Array.isArray(j.candidates) && Array.isArray(j.notes) && Array.isArray(j.warnings));
+    check(new Set(j.chapterIds).size === j.chapterIds.length && j.chapterIds.every(id => chapters.has(id)), "改稿范围引用不正确");
+    check(new Set(j.checkedChapterIds).size === j.checkedChapterIds.length && j.checkedChapterIds.every(id => j.chapterIds.includes(id)), "改稿检查覆盖范围不正确");
+    check(j.annotationIds.every(id => s.readingWorkspaces.some(w => w.annotations.some(a => a.id === id))), "改稿批注引用不正确");
+    if (j.selection) anchor(j.selection);
+    const candidateIds = new Set<string>();
+    for (const c of j.candidates) {
+      check(j.chapterIds.includes(c.chapterId) && !candidateIds.has(c.chapterId) && int(c.sourceRevision, 1) && string(c.title) && string(c.baseContent) && string(c.content) && ["pending", "accepted", "rejected"].includes(c.status), "改稿候选引用不正确");
+      candidateIds.add(c.chapterId);
+    }
+    for (const n of j.notes) check((!n.id || notes.has(n.id) || j.noteSources?.some(s => s.id === n.id)) && string(n.title) && string(n.body) && (!n.sourceRevision || int(n.sourceRevision, 1)), "改稿资料引用不正确");
+    if (j.usage !== null) check(j.usage && typeof j.usage.estimated === "boolean" && [j.usage.inputTokens, j.usage.outputTokens, j.usage.totalTokens].every(t => t === null || int(t)));
+    check(["pending", "accepted", "rejected"].includes(j.materialsStatus) && j.warnings.every(string) && string(j.reply));
+  }
+}
+
+function validateWritingPayload(state: Portable): void {
+  const projectId = state.projects[0].id;
+  const chapters = new Map(state.chapters.map(chapter => [chapter.id, chapter]));
+  const notes = new Map(state.notes.map(note => [note.id, note]));
+  const revisions = new Map(state.revisionJobs.map(job => [job.id, job]));
+  for (const job of state.writingJobs) {
+    validateWritingJob(job);
+    if (job.projectId !== projectId) fail("连续写作任务跨作品引用不正确");
+    for (const progress of job.chapters) if (progress.chapterId) {
+      const chapter = chapters.get(progress.chapterId);
+      if (!chapter || chapter.projectId !== projectId || chapter.ordinal !== progress.ordinal || (progress.checkedRevision !== undefined && progress.checkedRevision > chapter.revision))
+        fail("连续写作任务章节引用不正确");
+    }
+    for (const id of job.revisionJobIds) if (revisions.get(id)?.projectId !== projectId) fail("连续写作待审稿引用不正确");
+    for (const issue of [...job.issues, ...(job.checkIssues ?? [])]) {
+      if (issue.chapterId && chapters.get(issue.chapterId)?.projectId !== projectId) fail("连续写作问题章节引用不正确");
+      for (const { source } of issue.evidence) {
+        const record = source.kind === "project" ? state.projects.find(project => project.id === source.id)
+          : source.kind === "chapter" ? chapters.get(source.id) : notes.get(source.id);
+        if (!record || (source.kind === "project" ? record.id !== projectId : !("projectId" in record) || record.projectId !== projectId) || source.revision > record.revision)
+          fail("连续写作问题来源引用不正确");
+      }
+    }
   }
 }
 

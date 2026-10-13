@@ -1,0 +1,58 @@
+{
+  "date": "2026-10-12T10:18:56.306Z",
+  "isolated": true,
+  "productionModified": false,
+  "requestLimit": 28,
+  "outputCap": 1500,
+  "tokenBudget": 100000,
+  "model": "deepseek-flash",
+  "result": {
+    "status": "failed",
+    "phase": "checking",
+    "reply": "连续写作检查依据无法对应本次输入原文及来源版本",
+    "calls": 7,
+    "usage": {
+      "inputTokens": 9576,
+      "outputTokens": 3004,
+      "totalTokens": 12580,
+      "estimated": false
+    },
+    "budgetUsed": 12580,
+    "chapters": [
+      {
+        "ordinal": 1,
+        "status": "written",
+        "revisionRounds": 2,
+        "words": 284
+      },
+      {
+        "ordinal": 2,
+        "status": "pending",
+        "revisionRounds": 0,
+        "words": 0
+      },
+      {
+        "ordinal": 3,
+        "status": "pending",
+        "revisionRounds": 0,
+        "words": 0
+      },
+      {
+        "ordinal": 4,
+        "status": "pending",
+        "revisionRounds": 0,
+        "words": 0
+      },
+      {
+        "ordinal": 5,
+        "status": "pending",
+        "revisionRounds": 0,
+        "words": 0
+      }
+    ],
+    "issues": [],
+    "warnings": []
+  },
+  "passed": false,
+  "liveCalls": 7
+}

@@ -1,5 +1,5 @@
 import { DomainError } from "../shared/validation";
-import type { TaskUsage } from "../shared/types";
+import type { ResponseDiagnostics, TaskUsage } from "../shared/types";
 export type ProviderCode =
   | "CONFIG"
   | "AUTH"
@@ -7,6 +7,9 @@ export type ProviderCode =
   | "NETWORK"
   | "TIMEOUT"
   | "FORMAT"
+  | "EMPTY"
+  | "OUTPUT_LIMIT"
+  | "WORD_LIMIT"
   | "CANCELLED";
 export class ProviderError extends Error {
   constructor(
@@ -14,6 +17,8 @@ export class ProviderError extends Error {
     message: string,
     public partial = "",
     public transient = false,
+    public usage?: TaskUsage,
+    public diagnostics?: ResponseDiagnostics,
   ) {
     super(message);
   }
@@ -29,13 +34,17 @@ export interface ChatRequest {
   messages: ChatMessage[];
   maxTokens: number;
   jsonResponse?: boolean;
+  thinkingMode?: "enabled" | "disabled";
   signal?: AbortSignal;
   onChunk?: (chunk: string) => void;
   onAttempt?: () => void;
+  /** Callers with a shared recovery budget disable nested retries with 1. */
+  maxAttempts?: number;
 }
 export interface ChatResult {
   text: string;
   usage: TaskUsage;
+  diagnostics?: ResponseDiagnostics;
 }
 export interface ProviderOptions {
   fetch?: typeof fetch;
@@ -96,7 +105,10 @@ export class ChatProvider {
       request.maxTokens > 32000
     )
       throw new ProviderError("CONFIG", "模型名称或输出长度配置不正确");
-    for (let attempt = 0; attempt < 3; attempt++) {
+    const maxAttempts = request.maxAttempts ?? 3;
+    if (!Number.isInteger(maxAttempts) || maxAttempts < 1 || maxAttempts > 3)
+      throw new ProviderError("CONFIG", "请求重试次数不正确");
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
       if (request.signal?.aborted)
         throw new ProviderError("CANCELLED", "任务已取消");
       try {
@@ -106,7 +118,7 @@ export class ChatProvider {
           !(error instanceof ProviderError) ||
           !error.transient ||
           error.partial ||
-          attempt === 2
+          attempt === maxAttempts - 1
         )
           throw error;
         await new Promise<void>((resolve, reject) => {
@@ -129,11 +141,31 @@ export class ChatProvider {
     throw new ProviderError("NETWORK", "模型连接失败");
   }
   private async once(url: string, r: ChatRequest): Promise<ChatResult> {
+    const deepSeekContent =
+      new URL(url).hostname === "api.deepseek.com" &&
+      ["deepseek-flash", "deepseek-v4-pro"].includes(r.model);
     const controller = new AbortController();
     let timedOut = false;
     let text = "";
     let reported = unknownUsage();
+    let outputLimited = false;
     let bytes = 0;
+    let nonTextResponse = false;
+    const inspectMessage = (message: any) => {
+      if (!message) return;
+      if (typeof message.reasoning_content === "string") diagnostics.reasoningChars += message.reasoning_content.length;
+      if (message.refusal || message.function_call || message.tool_calls?.length) nonTextResponse = true;
+    };
+    const diagnostics: ResponseDiagnostics = {
+      transport: "unknown", finishReason: null, receivedChars: 0,
+      reasoningChars: 0, streamCompleted: false,
+    };
+    const finish = (reason: unknown) => {
+      if (typeof reason !== "string" || !reason) return;
+      diagnostics.finishReason = ["stop", "length", "content_filter", "tool_calls", "function_call"].includes(reason)
+        ? reason as ResponseDiagnostics["finishReason"] : "other";
+      if (reason === "length") outputLimited = true;
+    };
     const abort = () => controller.abort();
     r.signal?.addEventListener("abort", abort, { once: true });
     const timer = setTimeout(() => {
@@ -173,8 +205,19 @@ export class ChatProvider {
           model: r.model,
           messages: r.messages,
           max_tokens: r.maxTokens,
-          ...(r.jsonResponse && new URL(url).hostname === "api.deepseek.com" && ["deepseek-flash", "deepseek-v4-pro"].includes(r.model)
-            ? { thinking: { type: "disabled" }, response_format: { type: "json_object" } } : {}),
+          // Writing stays in non-thinking mode. Only an explicitly budgeted
+          // check requests reasoning; scope both modes to the official models.
+          ...(deepSeekContent
+            ? {
+                thinking: { type: r.thinkingMode ?? "disabled" },
+                ...(r.thinkingMode === "enabled"
+                  ? { reasoning_effort: "low" }
+                  : {}),
+              }
+            : {}),
+          ...(deepSeekContent && r.jsonResponse
+            ? { response_format: { type: "json_object" } }
+            : {}),
           stream: true,
           stream_options: { include_usage: true },
         }),
@@ -209,6 +252,7 @@ export class ChatProvider {
       const streaming = response.headers
         .get("content-type")
         ?.includes("text/event-stream");
+      diagnostics.transport = streaming ? "sse" : "json";
       const event = (block: string) => {
         const data = block
           .split(/\r?\n/)
@@ -218,6 +262,7 @@ export class ChatProvider {
         if (!data) return;
         if (data === "[DONE]") {
           done = true;
+          diagnostics.streamCompleted = true;
           return;
         }
         const raw = parse(data);
@@ -225,17 +270,14 @@ export class ChatProvider {
           throw new ProviderError("FORMAT", "模型流式响应格式不正确", text);
         if (raw.usage) reported = usage(raw.usage);
         for (const choice of raw.choices) {
+          if (choice.index !== undefined && choice.index !== 0) continue;
+          inspectMessage(choice.delta);
           if (
             choice.delta?.content !== undefined &&
             choice.delta.content !== null
           )
             emit(choice.delta.content);
-          if (choice.finish_reason === "length")
-            throw new ProviderError(
-              "FORMAT",
-              "模型输出达到长度上限，请提高预算或缩短请求",
-              text,
-            );
+          finish(choice.finish_reason);
         }
       };
       try {
@@ -259,6 +301,7 @@ export class ChatProvider {
         }
         pending += decoder.decode();
         if (streaming) {
+          if (!done && pending.trim()) event(pending);
           if (!done)
             throw new ProviderError(
               "FORMAT",
@@ -273,37 +316,57 @@ export class ChatProvider {
             !raw.choices[0]?.message
           )
             throw new ProviderError("FORMAT", "模型响应缺少正文");
-          emit(raw.choices[0].message.content);
-          if (raw.choices[0].finish_reason === "length")
-            throw new ProviderError("FORMAT", "模型输出达到长度上限", text);
           reported = usage(raw.usage);
+          finish(raw.choices[0].finish_reason);
+          diagnostics.streamCompleted = true;
+          inspectMessage(raw.choices[0].message);
+          if (raw.choices[0].message.content != null)
+            emit(raw.choices[0].message.content);
         }
         if (r.signal?.aborted)
           throw new ProviderError("CANCELLED", "任务已取消", text);
-        if (!text.trim()) throw new ProviderError("FORMAT", "模型未返回正文");
-        return { text, usage: reported };
+        if (outputLimited)
+          throw new ProviderError(
+            "OUTPUT_LIMIT",
+            `模型达到单次输出上限（本次请求 ${r.maxTokens} Token，也可能受模型上下文限制），不代表任务总预算耗尽。已保留片段，可继续任务，或调整单次输出上限后新建任务。`,
+            text,
+            false,
+            reported,
+          );
+        if (nonTextResponse || ["content_filter", "tool_calls", "function_call", "other"].includes(diagnostics.finishReason ?? ""))
+          throw new ProviderError("FORMAT", "模型未返回可用文本，请检查模型是否支持当前创作请求", text);
+        if (!text.trim()) {
+          throw new ProviderError("EMPTY", "模型未返回正文");
+        }
+        diagnostics.receivedChars = text.length;
+        return { text, usage: reported, diagnostics };
       } finally {
         await reader.cancel().catch(() => {});
       }
     } catch (error) {
+      diagnostics.receivedChars = text.length;
+      let failure = error;
       if (r.signal?.aborted)
-        throw new ProviderError("CANCELLED", "任务已取消", text);
-      if (timedOut)
-        throw new ProviderError(
+        failure = new ProviderError("CANCELLED", "任务已取消", text);
+      else if (timedOut)
+        failure = new ProviderError(
           "TIMEOUT",
           "模型请求超时，已保留片段",
           text,
           true,
         );
-      if (error instanceof ProviderError || error instanceof DomainError)
-        throw error;
+      if (failure instanceof DomainError) throw failure;
       // No provider-controlled messages or exception strings escape this boundary.
-      throw new ProviderError(
+      if (!(failure instanceof ProviderError)) failure = new ProviderError(
         "NETWORK",
         "模型连接失败，请检查网络与 API 地址",
         text,
         true,
       );
+      const providerFailure = failure as ProviderError;
+      providerFailure.usage ??= reported;
+      providerFailure.diagnostics = diagnostics;
+      throw providerFailure;
     } finally {
       clearTimeout(timer);
       r.signal?.removeEventListener("abort", abort);

@@ -211,6 +211,22 @@ it("delegates settings and outline together without granting prose authorization
   expect(app.snapshot().chapters).toHaveLength(0);
 });
 
+it("commits structured character and outline preparation together after direction confirmation", async () => {
+  let calls = 0;
+  const { app, projectId } = setup(() => ++calls === 1
+    ? { message: "方向", artifacts: [{ stage: "overview", blocks: [{ kind: "field", field: "background", text: "少女寻找家人。" }] }] }
+    : { message: "准备", artifacts: [
+      { stage: "settings", blocks: [{ kind: "note", noteType: "character", title: "阿宁", text: "勇敢的少女。" }] },
+      { stage: "outline", blocks: [{ kind: "note", noteType: "outline", title: "故事大纲", text: "第一章遇见猫。" }] },
+    ] });
+  await send(app, projectId, "准备故事");
+  const result = await send(app, projectId, "按推荐，后面的设定和大纲你来定");
+  expect(result.error).toBeUndefined();
+  expect(result.status).toBe("completed");
+  expect(workflow(app).reviewGroup).toEqual(["settings", "outline"]);
+  expect(app.snapshot().notes.map(n => n.title)).toEqual(["阿宁", "故事大纲"]);
+});
+
 it("manual upstream edits preserve history, invalidate downstream approvals and protect manuscript", async () => {
   let count = 0;
   const { app, projectId } = setup(() =>

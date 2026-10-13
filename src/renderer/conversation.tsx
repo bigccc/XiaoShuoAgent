@@ -2,6 +2,11 @@ import { useEffect, useRef, useState } from "react";
 import type { AppState, AuthoringStage } from "../shared/types";
 import type { Run } from "./api";
 import type { Flush, Register } from "./editing";
+import { Reader, type RevisionRequest } from "./reader";
+import { Revisions } from "./revisions";
+import { ConversationRecovery } from "./conversation-recovery";
+import { WritingProgress } from "./writing-progress";
+import { MAX_REVISION_TOKEN_BUDGET } from "../shared/revision";
 import { ChapterEditor } from "./chapters";
 import { Field, noteNames } from "./ui";
 import { NoteHistory } from "./note-history";
@@ -12,6 +17,7 @@ import {
 } from "../shared/authoring";
 import { StageEditor } from "./authoring";
 import { fieldLabels } from "../shared/sync";
+import { authorStep, prepareAuthorMessage, authorError } from "./author-experience";
 
 function readLocal(key: string) {
   try {
@@ -36,6 +42,8 @@ export function Conversation({
   register,
   showProfiles,
   showNotes,
+  revisionRequest,
+  clearRevisionRequest,
 }: {
   state: AppState;
   projectId: string;
@@ -44,6 +52,8 @@ export function Conversation({
   register: Register;
   showProfiles: () => void;
   showNotes: () => void;
+  revisionRequest?: RevisionRequest;
+  clearRevisionRequest: () => void;
 }) {
   const draftKey = `conversation-draft:${projectId}`,
     chapterKey = `conversation-chapter:${projectId}`;
@@ -60,11 +70,29 @@ export function Conversation({
     setShowData(false);
   }
   const turns = state.conversations.filter((t) => t.projectId === projectId);
+  const writingJobs = (state.writingJobs ?? []).filter((job) => job.projectId === projectId);
   const last = turns.at(-1);
   const chapters = state.chapters
     .filter((c) => c.projectId === projectId)
     .sort((a, b) => a.ordinal - b.ordinal);
-  const notes = state.notes.filter((n) => n.projectId === projectId && !n.archived);
+  const notes = state.notes.filter(
+    (n) => n.projectId === projectId && !n.archived,
+  );
+  const [paneRequest, setPaneRequest] = useState<RevisionRequest>();
+  const requestTarget = paneRequest ?? revisionRequest;
+  const [readingPane, setReadingPane] = useState(false);
+  const [revisionScope, setRevisionScope] = useState<
+    "" | "chapter" | "chapters" | "all"
+  >("");
+  const [mobilePane, setMobilePane] = useState<"chat" | "manuscript">("chat");
+  const [startMode, setStartMode] = useState<"idea" | "inspiration">();
+  const [genre, setGenre] = useState("玄幻");
+  const [chapterCount, setChapterCount] = useState(1);
+  const [chapterWords, setChapterWords] = useState(project.chapterWords || 3000);
+  const composer = useRef<HTMLTextAreaElement>(null);
+  const [tokenBudget, setTokenBudget] = useState(100000);
+  const [rangeStart, setRangeStart] = useState(1),
+    [rangeEnd, setRangeEnd] = useState(1);
   const [text, setText] = useState(() => readLocal(draftKey));
   const [selected, setSelected] = useState(() => readLocal(chapterKey));
   const [profileId, setProfileId] = useState("");
@@ -75,7 +103,8 @@ export function Conversation({
   const observed = useRef(last?.status === "completed" ? last.id : "");
   const chapter = chapters.find((c) => c.id === selected) ?? chapters.at(-1);
   const active = turns.find((t) => t.status === "running");
-  const busy = sending || !!active;
+  const activeWriting = writingJobs.find((job) => job.status === "running");
+  const busy = sending || !!active || !!activeWriting;
   const preferredId =
     profileId ||
     [...turns]
@@ -88,7 +117,7 @@ export function Conversation({
   useEffect(() => {
     if (stick.current && log.current)
       log.current.scrollTop = log.current.scrollHeight;
-  }, [last?.id, last?.revision, sending]);
+  }, [last?.id, last?.revision, writingJobs.at(-1)?.revision, sending]);
   useEffect(() => {
     if (last?.status !== "completed" || observed.current === last.id) return;
     observed.current = last.id;
@@ -107,6 +136,22 @@ export function Conversation({
       }
     });
   }, [last?.id, last?.status]);
+  useEffect(() => {
+    if (revisionRequest) {
+      const first = revisionRequest.chapterIds[0];
+      if (first) {
+        setSelected(first);
+        saveLocal(chapterKey, first);
+      }
+      editMessage(
+        revisionRequest.text ??
+          (revisionRequest.selection
+            ? "请修改这段文字："
+            : "请根据所选批注修改相关章节："),
+      );
+      showStage("writing");
+    }
+  }, [revisionRequest]);
   function editMessage(value: string) {
     setText(value);
     saveLocal(draftKey, value);
@@ -120,25 +165,58 @@ export function Conversation({
       await run({
         type: "conversation.send",
         projectId,
-        text: message,
+        text: prepareAuthorMessage(message, workflow),
         profileId: model.id,
+        tokenBudget,
         stage: viewStage,
         ...(chapter ? { chapterId: chapter.id } : {}),
         ...(proposalTurnId ? { proposalTurnId } : {}),
+        ...(requestTarget && !requestTarget.proposalOnly
+          ? {
+              revisionScope: requestTarget.scope,
+              revisionChapterIds: requestTarget.chapterIds,
+              selection: requestTarget.selection,
+              annotationIds: requestTarget.annotationIds,
+            }
+          : revisionScope && !requestTarget?.proposalOnly
+            ? {
+                revisionScope,
+                revisionChapterIds:
+                  revisionScope === "all"
+                    ? chapters.map((c) => c.id)
+                    : revisionScope === "chapter"
+                      ? chapter
+                        ? [chapter.id]
+                        : []
+                      : chapters
+                          .filter(
+                            (c) =>
+                              c.ordinal >= rangeStart && c.ordinal <= rangeEnd,
+                          )
+                          .map((c) => c.id),
+              }
+            : {}),
       });
       editMessage("");
+      clearRevisionRequest();
+      setPaneRequest(undefined);
+      setRevisionScope("");
     } finally {
       setSending(false);
     }
   }
   return (
-    <section className="conversation-workspace" aria-label="对话创作工作区">
+    <section className={`conversation-workspace mobile-pane-${mobilePane}`} aria-label="对话创作工作区">
+      <div className="mobile-pane-switch" role="group" aria-label="创作视图">
+        <button className={mobilePane === "chat" ? "active" : ""} onClick={() => setMobilePane("chat")}>聊天</button>
+        <button className={mobilePane === "manuscript" ? "active" : ""} onClick={() => setMobilePane("manuscript")}>稿件</button>
+      </div>
       <div className="conversation-pane">
         <header className="conversation-heading">
           <div className="eyebrow">想法在这里，慢慢长成故事</div>
           <h1>和 AI 一起写故事</h1>
           <p>
-            当前阶段：{stageNames[workflow.activeStage]} ·{" "}
+            当前：{authorStep(workflow.activeStage) === "overview" ? "定故事" : authorStep(workflow.activeStage) === "preparation" ? "做准备" : "开始写"} ·{" "}
             {workflow.activeStage === "writing"
               ? "逐章推进故事"
               : "AI 准备方案，你来判断方向"}
@@ -155,7 +233,7 @@ export function Conversation({
               el.scrollHeight - el.scrollTop - el.clientHeight < 90;
           }}
         >
-          {!turns.length && (
+          {!turns.length && !writingJobs.length && (
             <div className="conversation-welcome">
               <div className="welcome-mark">✦</div>
               <h2>
@@ -167,24 +245,17 @@ export function Conversation({
                   : "一句灵感、一种感觉都可以。人物、设定和规划会随着创作逐步整理。"}
               </p>
               <div className="starter-list">
-                {(chapters.length
-                  ? [
-                      "帮我梳理当前故事，推荐下一步",
-                      "继续下一章",
-                      "聊聊当前这一章可以怎样改进",
-                    ]
-                  : [
-                      "我还没有想法，推荐一个完整的故事概要",
-                      "我有一个想法，想和你聊聊",
-                      "先构思一部有温情的悬疑小说",
-                    ]
-                ).map((s) => (
-                  <button key={s} onClick={() => editMessage(s)}>
-                    {s}
-                    <span>↗</span>
-                  </button>
-                ))}
+                {chapters.length ? ["帮我梳理当前故事，推荐下一步", "继续下一章", "聊聊当前这一章可以怎样改进"].map(s => <button key={s} onClick={() => { editMessage(s); composer.current?.focus(); }}>{s}</button>) : <>
+                  <button aria-label="我有一个想法" onClick={() => { setStartMode("idea"); composer.current?.focus(); }}>我有一个想法<span>说一句也可以</span></button>
+                  <button aria-label="帮我找个灵感" onClick={() => setStartMode("inspiration")}>帮我找个灵感<span>一起挑一个想写的方向</span></button>
+                </>}
               </div>
+              {startMode === "idea" && <p>说说主角、一个场景，或者你想写的感觉。还没想好的部分，我们一起补齐。</p>}
+              {startMode === "inspiration" && <div className="inspiration-picker">
+                <Field label="喜欢的题材"><select value={genre} onChange={e => setGenre(e.target.value)}>{["玄幻", "都市", "仙侠", "悬疑", "言情", "科幻", "历史", "暂时没想好"].map(g => <option key={g}>{g}</option>)}</select></Field>
+                <button disabled={busy || !model} onClick={() => void send(`我想写${genre === "暂时没想好" ? "一部网文，还没选定题材" : `一部${genre}网文`}，请推荐三个不同的故事方向，简要说说主角、冲突和看点，让我选一个后再准备完整故事。`).catch(() => {})}>推荐几个方向</button>
+              </div>}
+
             </div>
           )}
           {turns.map((t) => (
@@ -197,12 +268,12 @@ export function Conversation({
                 <small>创作搭档</small>
                 {t.status === "running" ? (
                   <div className="thinking" role="status">
-                    正在构思和写作…完成后会自动保存到右侧。
+                    {t.recoveryPhase === "retrying" ? "正在重新获取回复…" : t.recoveryPhase === "repairing" ? "正在整理回复格式，保留已生成的内容…" : "正在构思和写作…完成后会自动保存到右侧。"}
                   </div>
                 ) : (
-                  <div>{t.reply || t.error || "本轮尚未完成"}</div>
+                  <div>{t.reply || (t.error ? authorError(t.error) : "本轮尚未完成")}</div>
                 )}
-                {t.reply && t.error && <p className="error">{t.error}</p>}
+                {t.reply && t.error && <p className="error">{authorError(t.error)}</p>}
                 {t.status === "completed" && t.chapterIds.length > 0 && (
                   <div className="chat-saved">
                     ✓ 正文已自动保存 · 可以直接编辑或查看历史
@@ -221,10 +292,12 @@ export function Conversation({
                     ))}
                   </details>
                 )}
-                {t.usage?.totalTokens != null && (
+                {(t.usage?.totalTokens != null || !!t.attempts?.length) && (
                   <details className="chat-details">
                     <summary>本轮用量</summary>
-                    <span>{t.usage.totalTokens.toLocaleString()} Token</span>
+                    <span>{t.usage?.totalTokens == null ? "模型未报告用量" : `${t.usage.totalTokens.toLocaleString()} Token`}</span>
+                    {!!t.attempts?.length && <p>本轮共 {t.attempts.length} 次请求，包含自动恢复。</p>}
+                    {t.attempts?.some(a => a.usage?.totalTokens == null) && <p>部分请求未返回用量，以上仅为已记录用量。</p>}
                   </details>
                 )}
                 {t.status === "failed" && t.response && (
@@ -234,8 +307,24 @@ export function Conversation({
                     {t.response.artifacts?.map((a, i) => (
                       <div key={a.stage + i}>
                         <h3>{stageNames[a.stage]}</h3>
-                        <pre>{a.content ?? a.blocks?.map(b => `${b.title ?? (b.field ? fieldLabels[b.field] : "")}\n${b.text ?? ""}`).join("\n\n")}</pre>
-                        <p>{state.syncJobs.filter(j => j.projectId === projectId && j.stage === a.stage).at(-1)?.error ?? "成果仍保留，请处理同步后继续。"}</p>
+                        <pre>
+                          {a.content ??
+                            a.blocks
+                              ?.map(
+                                (b) =>
+                                  `${b.title ?? (b.field ? fieldLabels[b.field] : "")}\n${b.text ?? ""}`,
+                              )
+                              .join("\n\n")}
+                        </pre>
+                        <p>
+                          {state.syncJobs
+                            .filter(
+                              (j) =>
+                                j.projectId === projectId &&
+                                j.stage === a.stage,
+                            )
+                            .at(-1)?.error ?? "成果仍保留，请处理同步后继续。"}
+                        </p>
                       </div>
                     ))}
                     {t.response.chapters?.map((c, i) => (
@@ -246,6 +335,7 @@ export function Conversation({
                     ))}
                   </details>
                 )}
+                <ConversationRecovery turn={t} />
                 {last?.id === t.id &&
                   ["failed", "cancelled", "interrupted"].includes(t.status) && (
                     <button
@@ -268,8 +358,77 @@ export function Conversation({
               </div>
             </div>
           ))}
+          {writingJobs.map((job) => (
+            <WritingProgress key={job.id} job={job} state={state} run={run} flush={flush}
+              otherBusy={sending || !!active || (!!activeWriting && activeWriting.id !== job.id)}
+              openChapter={(id) => void flush().then((ok) => {
+                if (ok) { setSelected(id); saveLocal(chapterKey, id); showStage("writing"); }
+              }).catch(() => {})} />
+          ))}
+          {writingJobs.length > 0 && <Revisions state={state} projectId={projectId} run={run} />}
         </div>
+        {!writingJobs.length && <Revisions state={state} projectId={projectId} run={run} />}
         <div className="conversation-compose">
+          {requestTarget && (
+            <div className="revision-target">
+              <strong>
+                {requestTarget.selection
+                  ? `选段 ${requestTarget.selection.end - requestTarget.selection.start} 字`
+                  : requestTarget.proposalOnly
+                    ? "分卷建议 · 待手动确认"
+                    : `${requestTarget.chapterIds.length} 章 · ${requestTarget.annotationIds?.length ?? 0} 条批注`}
+              </strong>
+              {requestTarget.selection && (
+                <blockquote>{requestTarget.selection.quote}</blockquote>
+              )}
+              <button
+                onClick={() => {
+                  clearRevisionRequest();
+                  setPaneRequest(undefined);
+                }}
+              >
+                清除改稿目标
+              </button>
+            </div>
+          )}
+          <details className="revision-scope-controls">
+            <summary>选择改稿范围</summary>
+            <label>
+              改稿范围
+              <select
+                aria-label="改稿范围"
+                value={revisionScope}
+                disabled={!!requestTarget}
+                onChange={(e) =>
+                  setRevisionScope(e.target.value as typeof revisionScope)
+                }
+              >
+                <option value="">普通创作对话</option>
+                <option value="chapter">当前章改稿</option>
+                <option value="chapters">多章待审稿</option>
+                <option value="all">全书联动检查与改稿</option>
+              </select>
+            </label>
+            {revisionScope === "chapters" && (
+              <div className="toolbar">
+                <input
+                  aria-label="改稿起始章"
+                  type="number"
+                  min={1}
+                  value={rangeStart}
+                  onChange={(e) => setRangeStart(Number(e.target.value))}
+                />
+                <input
+                  aria-label="改稿结束章"
+                  type="number"
+                  min={rangeStart}
+                  value={rangeEnd}
+                  onChange={(e) => setRangeEnd(Number(e.target.value))}
+                />
+              </div>
+            )}
+            <small>选段与单章保留历史，多章改稿先生成待审稿。</small>
+          </details>
           {last &&
             !busy &&
             ["completed", "awaiting-author"].includes(last.status) && (
@@ -292,10 +451,25 @@ export function Conversation({
                 ))}
               </div>
             )}
+          {!busy && model && <div className="author-next-actions">
+            {workflow.activeStage === "overview" && workflow.documents.overview?.content.trim() && !workflow.documents.overview.needsReview && <button onClick={() => void send("按推荐").catch(() => {})}>确认方向，做准备</button>}
+            {authorStep(workflow.activeStage) === "preparation" && <button onClick={() => void send("按推荐").catch(() => {})}>按推荐继续</button>}
+            {workflow.activeStage !== "writing" && <button onClick={() => void send("先写一段看看").catch(() => {})}>先写一段看看</button>}
+            {workflow.activeStage === "writing" && <details className="chapter-actions"><summary>写下一章 / 连续写作</summary>
+              <Field label="一次写几章"><input type="number" min={1} max={100} value={chapterCount} onChange={e => setChapterCount(Number(e.target.value))} /></Field>
+              <Field label="每章大约多少字"><input type="number" min={1} max={16000} value={chapterWords} onChange={e => setChapterWords(Number(e.target.value))} /></Field>
+              <button disabled={!Number.isInteger(chapterCount) || chapterCount < 1 || chapterCount > 100 || !Number.isInteger(chapterWords) || chapterWords < 1 || chapterWords > 16000} onClick={() => void (async () => {
+                if (!(await flush())) return;
+                const current = (await window.novel.snapshot()).projects.find(p => p.id === projectId)!;
+                if (current.chapterWords !== chapterWords) await run({ type: "project.update", id: current.id, revision: current.revision, patch: { chapterWords } });
+                await send(`接着写${chapterCount}章，每章大约${chapterWords}字`);
+              })().catch(() => {})}>开始写作</button>
+            </details>}
+          </div>}
           {!model && (
             <div className="model-nudge">
-              <span>添加你使用的模型，就能开始创作。</span>
-              <button onClick={showProfiles}>去配置模型</button>
+              <span>连接你使用的 AI 服务，就能一起准备故事。</span>
+              <button onClick={showProfiles}>连接 AI</button>
             </div>
           )}
           <form
@@ -305,6 +479,7 @@ export function Conversation({
             }}
           >
             <textarea
+              ref={composer}
               aria-label="创作消息"
               placeholder="说说你的想法，也可以说「按推荐」「先写一段看看」…"
               maxLength={10000}
@@ -323,7 +498,9 @@ export function Conversation({
             />
             <div className="composer-actions">
               <details className="model-choice">
-                <summary>{model?.name ?? "尚未配置模型"}</summary>
+                <summary>高级设置</summary>
+                <Field label="创作 Token 预算"><input type="number" min={1000} max={MAX_REVISION_TOKEN_BUDGET} step={1000} value={tokenBudget} onChange={e => setTokenBudget(Number(e.target.value))} /></Field>
+                <small>调用上限覆盖写作、检查和重试，达到后会暂停；不等同于服务账户余额。</small>
                 <Field label="创作模型">
                   <select
                     value={model?.id ?? ""}
@@ -338,7 +515,7 @@ export function Conversation({
                   </select>
                 </Field>
                 <button type="button" onClick={showProfiles}>
-                  管理模型
+                  管理 AI 连接
                 </button>
               </details>
               <div>
@@ -373,57 +550,34 @@ export function Conversation({
       </div>
       <div className="manuscript-pane">
         <nav className="authoring-progress" aria-label="创作阶段">
-          {authoringStages.map((stage, index) => {
-            const doc =
-              stage === "writing" ? undefined : workflow.documents[stage];
-            return (
-              <button
-                key={stage}
-                aria-label={stageNames[stage]}
-                aria-current={
-                  stage === workflow.activeStage ? "step" : undefined
-                }
-                className={viewStage === stage && !showData ? "selected" : ""}
-                onClick={() =>
-                  void flush().then((ok) => {
-                    if (ok) showStage(stage);
-                  })
-                }
-              >
-                <span className="stage-number">
-                  {doc?.approved ? "✓" : index + 1}
-                </span>
-                <span>
-                  {stageNames[stage]}
-                  <small>
-                    {stage === "writing"
-                      ? stage === workflow.activeStage
-                        ? "进行中"
-                        : "规划后开始"
-                      : doc?.sync?.status === "conflict"
-                        ? "待选择"
-                        : doc?.sync?.status === "running"
-                          ? "同步中"
-                          : doc?.sync && doc.sync.status !== "synced"
-                            ? "待同步"
-                      : doc?.needsReview
-                        ? "待同步"
-                        : doc?.approved
-                          ? "已确认"
-                          : doc?.content.trim()
-                            ? "待确认"
-                            : "待准备"}
-                  </small>
-                </span>
-              </button>
-            );
+          {(["overview", "preparation", "writing"] as const).map((step, index) => {
+            const stages: AuthoringStage[] = step === "overview" ? ["overview"] : step === "preparation" ? ["settings", "outline"] : ["writing"];
+            const target = step === "preparation" ? (authorStep(workflow.activeStage) === "preparation" ? workflow.activeStage : workflow.documents.outline ? "outline" : "settings") : step;
+            const approved = step !== "writing" && stages.every(s => s !== "writing" && workflow.documents[s]?.approved);
+            return <button key={step} aria-label={["定故事", "做准备", "开始写"][index]} aria-current={authorStep(workflow.activeStage) === step ? "step" : undefined}
+              className={authorStep(viewStage) === step && !showData ? "selected" : ""}
+              onClick={() => void flush().then(ok => ok && showStage(target))}>
+              <span className="stage-number">{approved ? "✓" : index + 1}</span><span>{["定故事", "做准备", "开始写"][index]}<small>{approved ? "已确认" : authorStep(workflow.activeStage) === step ? "进行中" : "随时查看"}</small></span>
+            </button>;
           })}
         </nav>
+        <details className="stage-documents"><summary>查看具体成果</summary><div className="stage-subtabs" aria-label="查看阶段成果">
+          {authoringStages.map(stage => <button key={stage} className={viewStage === stage && !showData ? "active" : ""} onClick={() => void flush().then(ok => ok && showStage(stage))}>{stageNames[stage]}</button>)}
+        </div></details>
         <header className="manuscript-heading">
           <div className="manuscript-tabs">
             <span className="current-stage-label">
               {showData ? "资料" : stageNames[viewStage]}
             </span>
+            {viewStage === "writing" && (
+              <button
+                onClick={() =>
+                  void flush().then((ok) => ok && setReadingPane(!readingPane))
+                }
+              >
+                {readingPane ? "编辑正文" : "阅读正文"}
+              </button>
+            )}
             <button
               className={showData ? "active" : ""}
               onClick={() => void flush().then((ok) => ok && setShowData(true))}
@@ -508,6 +662,21 @@ export function Conversation({
               profileId={model?.id}
               run={run}
               register={register}
+            />
+          ) : readingPane ? (
+            <Reader
+              state={state}
+              projectId={projectId}
+              run={run}
+              flush={flush}
+              register={register}
+              compact
+              onRevisionRequest={(r) => {
+                setReadingPane(false);
+                setPaneRequest(r);
+                editMessage(r.text ?? "请修改所选内容");
+                setSelected(r.chapterIds[0] ?? selected);
+              }}
             />
           ) : chapter ? (
             <ChapterEditor

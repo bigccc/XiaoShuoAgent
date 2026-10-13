@@ -16,6 +16,7 @@ export default {
       /^\/adr($|\/)/,
       /^\/scripts($|\/)/,
       /^\/\.superpowers($|\/)/,
+      /^\/\.tmp($|\/)/,
       /^\/test-results($|\/)/,
       /^\/playwright-report($|\/)/,
       /^\/release($|\/)/,

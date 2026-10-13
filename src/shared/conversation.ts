@@ -178,6 +178,8 @@ export function validateConversationTurn(
     "error",
     "authoringIntent",
     "authoringSource",
+    "attempts",
+    "recoveryPhase",
   ]);
   for (const k of ["id", "projectId"]) string(value[k], 200);
   for (const k of ["profileId", "chapterId", "proposalTurnId"])
@@ -190,6 +192,26 @@ export function validateConversationTurn(
   )
     fail();
   if (value.rawResponse !== undefined) string(value.rawResponse, 300000);
+  if (value.recoveryPhase !== undefined && !["requesting", "retrying", "repairing"].includes(value.recoveryPhase)) fail();
+  if (value.attempts !== undefined) {
+    list(value.attempts, 3);
+    for (const attempt of value.attempts) {
+      object(attempt, ["phase", "status", "startedAt", "finishedAt", "code", "error", "usage", "diagnostics", "rawResponse"]);
+      if (!["generate", "repair"].includes(attempt.phase) || !["running", "completed", "failed"].includes(attempt.status)) fail();
+      if (typeof attempt.startedAt !== "string" || !Number.isFinite(Date.parse(attempt.startedAt))) fail();
+      if (attempt.finishedAt !== undefined && (typeof attempt.finishedAt !== "string" || !Number.isFinite(Date.parse(attempt.finishedAt)))) fail();
+      if (attempt.code !== undefined) string(attempt.code, 40);
+      if (attempt.error !== undefined) string(attempt.error, 2000);
+      if (attempt.rawResponse !== undefined) string(attempt.rawResponse, 1000000, true);
+      validateUsage(attempt.usage);
+      if (attempt.diagnostics !== undefined) {
+        const d = attempt.diagnostics;
+        object(d, ["transport", "finishReason", "receivedChars", "reasoningChars", "streamCompleted"]);
+        if (!["sse", "json", "unknown"].includes(d.transport) || ![null, "stop", "length", "content_filter", "tool_calls", "function_call", "other"].includes(d.finishReason) || typeof d.streamCompleted !== "boolean") fail();
+        for (const k of ["receivedChars", "reasoningChars"]) if (!Number.isSafeInteger(d[k]) || d[k] < 0) fail();
+      }
+    }
+  }
   string(value.text, 10000);
   if (value.authoringSource !== undefined) string(value.authoringSource, 64);
   if (value.authoringIntent !== undefined) {
@@ -245,20 +267,23 @@ export function validateConversationTurn(
       message: "proposal",
       proposal: value.proposal,
     });
-  if (value.usage !== null) {
-    object(value.usage, [
+  validateUsage(value.usage);
+  validatePublicJson(value);
+}
+function validateUsage(value: unknown): void {
+  if (value !== null) {
+    object(value, [
       "inputTokens",
       "outputTokens",
       "totalTokens",
       "estimated",
     ]);
-    if (typeof value.usage.estimated !== "boolean") fail();
+    if (typeof value.estimated !== "boolean") fail();
     for (const k of ["inputTokens", "outputTokens", "totalTokens"])
       if (
-        value.usage[k] !== null &&
-        (!Number.isSafeInteger(value.usage[k]) || value.usage[k] < 0)
+        value[k] !== null &&
+        (!Number.isSafeInteger(value[k]) || value[k] < 0)
       )
         fail();
   }
-  validatePublicJson(value);
 }

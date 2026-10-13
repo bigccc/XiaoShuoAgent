@@ -21,6 +21,12 @@ import { TaskRunner, type CredentialCodec } from "./tasks";
 import { ProjectFiles, readMaterialFile, atomicWrite } from "./files";
 import { ConversationRunner } from "./conversation";
 import { StageSyncService } from "./stage-sync";
+import { ReadingService } from "./reading";
+import { RevisionRunner, detectRevisionRequest } from "./revision";
+import type { ReaderCommand } from "../shared/reader";
+import type { RevisionCommand } from "../shared/revision";
+import { WritingRunner } from "./writing";
+import { detectWritingGoal, hasUnresolvedWritingGoal, DEFAULT_WRITING_TOKEN_BUDGET, type WritingCommand } from "../shared/writing";
 export interface FileDialogAdapter {
   open: (kind: "material" | "backup") => Promise<string | null>;
   save: (
@@ -45,6 +51,9 @@ export class AppServices {
   private tasks: TaskRunner;
   private conversations: ConversationRunner;
   private sync: StageSyncService;
+  private reading: ReadingService;
+  private revisions: RevisionRunner;
+  private writing: WritingRunner;
   private timer: ReturnType<typeof setInterval>;
   private recovering: Promise<void> | null = null;
   private lastDigest = "";
@@ -82,6 +91,7 @@ export class AppServices {
         this.store
           .list("conversations")
           .some((t) => t.projectId === id && t.status === "running") ||
+        this.store.selectByProject("writingJobs", id).some(j => j.status === "running") ||
         this.store
           .list("tasks")
           .some(
@@ -97,6 +107,9 @@ export class AppServices {
       options.maxContextChars ?? 48000,
       this.sync,
     );
+    this.reading = new ReadingService(this.store, this.domain);
+    this.revisions = new RevisionRunner(this.store, this.domain, new ChatProvider({ ...options.provider, fetch: options.fetch }), options.credentials, this.sync, options.maxContextChars ?? 48000);
+    this.writing = new WritingRunner(this.store, this.domain, new ChatProvider({ ...options.provider, fetch: options.fetch }), options.credentials, options.maxContextChars ?? 48000);
     this.timer = setInterval(
       () => {
         if (!this.recovering && !this.disposed) {
@@ -112,6 +125,32 @@ export class AppServices {
   snapshot(): AppState {
     return { ...this.domain.snapshot(), persistence: { ...this.persistence } };
   }
+  workspaceSnapshot(projectId?: string, since?: number) {
+    if ((projectId !== undefined && (typeof projectId !== "string" || !projectId)) || (since !== undefined && (!Number.isSafeInteger(since) || since < 0)))
+      throw new DomainError("VALIDATION", "工作区参数不正确");
+    const result = this.store.workspaceSnapshot(projectId, since);
+    if (result.state) result.state.persistence = { ...this.persistence };
+    return result;
+  }
+  chapter(id: string) {
+    if (typeof id !== "string" || !id) throw new DomainError("VALIDATION", "章节编号不正确");
+    const chapter = this.store.get("chapters", id);
+    if (!chapter) throw new DomainError("NOT_FOUND", "章节不存在");
+    return { ...chapter, contentLoaded: true, contentHash: createHash("sha256").update(chapter.content).digest("hex") };
+  }
+  chapterVersions(id: string) { this.chapter(id); return this.store.chapterVersions(id); }
+  conversation(id: string) {
+    if (typeof id !== "string" || !id) throw new DomainError("VALIDATION", "对话编号不正确");
+    const turn = this.store.get("conversations", id);
+    if (!turn) throw new DomainError("NOT_FOUND", "对话不存在");
+    return turn;
+  }
+  search(projectId: string, query: string, offset = 0) { return this.reading.search(projectId, query, offset); }
+  revisionJob(id: string, offset = 0, limit = 20) {
+    if (typeof id !== "string" || !id) throw new DomainError("VALIDATION", "改稿任务编号不正确");
+    if (!Number.isSafeInteger(offset) || offset < 0 || !Number.isSafeInteger(limit) || limit < 1 || limit > 40) throw new DomainError("VALIDATION", "待审稿分页参数不正确");
+    return this.store.revisionDetails(id, offset, limit);
+  }
   async dispatch(command: Command): Promise<CommandResult> {
     try {
       if (this.disposed) throw new DomainError("STORAGE", "应用正在关闭");
@@ -122,6 +161,32 @@ export class AppServices {
         typeof command.type !== "string"
       )
         throw new DomainError("VALIDATION", "请求格式不正确");
+      if (command.type.startsWith("writing.")) {
+        const c = command as WritingCommand;
+        if (c.type === "writing.start") {
+          await this.sync.barrier(c.projectId);
+          return { ok: true, entityId: this.writing.start(c) };
+        }
+        return { ok: true, entityId: await this.writing.command(c) };
+      }
+      const resumeProject = "id" in command
+        ? command.type === "revision.resume" ? this.store.get("revisionJobs", command.id)?.projectId
+          : command.type === "conversation.retry" ? this.store.get("conversations", command.id)?.projectId
+            : command.type === "task.resume" ? this.store.get("tasks", command.id)?.projectId
+              : command.type === "authoring.retrySync" ? this.store.get("syncJobs", command.id)?.projectId : undefined
+        : undefined;
+      const busyProject = "projectId" in command ? command.projectId : resumeProject;
+      const writesWithAI = command.type === "conversation.send" || command.type === "revision.start" || command.type.startsWith("ai.") || command.type === "authoring.sync" || !!resumeProject;
+      if (writesWithAI && busyProject && this.store.selectByProject("writingJobs", busyProject).some(j => j.status === "running"))
+        throw new DomainError("CONFLICT", "连续写作任务正在执行，请先暂停后再发起其他 AI 任务");
+      if (command.type.startsWith("reading.")) return this.reading.dispatch(command as ReaderCommand);
+      if (command.type.startsWith("revision.")) {
+        if (command.type === "revision.start") {
+          await this.sync.barrier(command.projectId);
+          return { ok: true, entityId: this.revisions.start(command) };
+        }
+        return { ok: true, entityId: this.revisions.command(command as Exclude<RevisionCommand, { type: "revision.start" }>) };
+      }
       if (!isAsync(command.type)) {
         if (command.type === "authoring.save") {
           const result = this.conversations.saveDocument(command);
@@ -215,6 +280,17 @@ export class AppServices {
         }
         if (command.type === "conversation.send") {
           await this.sync.barrier(command.projectId);
+          if (Object.keys(command).some(k => !["type", "projectId", "text", "profileId", "chapterId", "proposalTurnId", "stage", "selection", "revisionScope", "revisionChapterIds", "annotationIds", "tokenBudget"].includes(k)))
+            throw new DomainError("VALIDATION", "对话参数不正确");
+          const explicitRevision = command.revisionScope || command.selection || command.annotationIds?.length || command.revisionChapterIds?.length || command.proposalTurnId;
+          const goal = !explicitRevision ? detectWritingGoal(command.text, Math.max(0, ...this.store.chapterMetadata(command.projectId).map(ch => ch.ordinal))) : null;
+          if (goal) return { ok: true, entityId: this.writing.start({ type: "writing.start", projectId: command.projectId, text: command.text, goal, profileId: command.profileId, tokenBudget: command.tokenBudget ?? DEFAULT_WRITING_TOKEN_BUDGET }) };
+          if (!explicitRevision && hasUnresolvedWritingGoal(command.text))
+            throw new DomainError("VALIDATION", "需要明确连续写作范围：例如“写完前五章”表示补齐到第5章，“接着写五章”表示新增5章；一次最多100章");
+          const revision = detectRevisionRequest(command, this.store);
+          if (revision) return { ok: true, entityId: this.revisions.start(revision) };
+          if (this.store.selectByProject("revisionJobs", command.projectId).some(j => j.status === "running"))
+            throw new DomainError("CONFLICT", "这部作品正在改稿，请先完成或暂停改稿再继续创作");
           return { ok: true, entityId: this.conversations.start(command) };
         }
         if (
@@ -365,6 +441,9 @@ export class AppServices {
         ),
         syncJobs: state.syncJobs.map(({ profileId, ...job }) => job),
         syncBatches: state.syncBatches,
+        readingWorkspaces: state.readingWorkspaces ?? [],
+        revisionJobs: (state.revisionJobs ?? []).map(({ profileId, ...job }) => job),
+        writingJobs: (state.writingJobs ?? []).map(({ profileId, checkingProfileId, ...job }) => job),
       };
       validatePublicJson(payload);
       const sha256 = createHash("sha256")
@@ -381,7 +460,7 @@ export class AppServices {
         file,
         JSON.stringify({
           format: "xiaoshuo-recovery",
-          version: 3,
+          version: 5,
           sha256,
           payload,
         }),
@@ -403,6 +482,8 @@ export class AppServices {
     this.disposed = true;
     clearInterval(this.timer);
     this.disposePromise = (async () => {
+      await this.writing.dispose();
+      await this.revisions.dispose();
       await this.tasks.dispose();
       await this.conversations.dispose();
       await this.sync.dispose();

@@ -1,3 +1,4 @@
+import { navigateAuthor, customConnection, openLegacyOperations } from "./support/author-navigation";
 import {
   test,
   expect,
@@ -29,7 +30,47 @@ test.afterEach(async () => {
   await app?.close();
   await rm(dir, { recursive: true, force: true });
 });
-
+test("segmented check shows incomplete coverage and resumes to the chapter ending", async () => {
+  let calls = 0;
+  let sawEnding = false;
+  const server = createServer(async (req, res) => {
+    let raw = "";
+    for await (const chunk of req) raw += chunk;
+    const body = JSON.parse(raw);
+    calls++;
+    sawEnding ||= body.messages[1].content.includes("最后一句必须检查");
+    if (calls === 3) return;
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ choices: [{ message: { content: JSON.stringify({ issues: [], majorChange: false }) } }], usage: { prompt_tokens: 100, completion_tokens: 20, total_tokens: 120 } }));
+  });
+  await new Promise<void>(r => server.listen(0, "127.0.0.1", r));
+  try {
+    const url = `http://127.0.0.1:${(server.address() as { port: number }).port}/v1`;
+    await createWork("长篇检查覆盖");
+    await page.evaluate(async (url) => {
+      const projectId = (await window.novel.snapshot()).projects[0].id;
+      await window.novel.invoke({ type: "profile.save", name: "检查回归", baseUrl: url, model: "fixture", purpose: "checking" });
+      const created = await window.novel.invoke({ type: "chapter.create", projectId, ordinal: 1, title: "长章节" });
+      if (!created.ok) throw Error(created.error.message);
+      await window.novel.invoke({ type: "chapter.save", id: created.entityId, revision: 1, content: "甲".repeat(50000) + "最后一句必须检查" });
+      await window.novel.invoke({ type: "chapter.confirm", id: created.entityId, revision: 2 });
+    }, url);
+    await page.locator(".ai-advanced > summary").click();
+    await page.getByLabel("任务总 Token 预算").fill("200000");
+    await page.getByRole("button", { name: "检查已确认正文", exact: true }).click();
+    await expect(page.getByText(/检查覆盖：1 \/ \d+ 段/)).toBeVisible();
+    await expect(page.getByText(/检查尚未完成，未覆盖部分不能视为通过/)).toBeVisible();
+    await page.getByRole("button", { name: "取消任务", exact: true }).click();
+    await expect(page.locator(".task-detail").getByText("已取消", { exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "继续任务", exact: true }).click();
+    await expect(page.locator(".task-detail").getByText("已完成", { exact: true })).toBeVisible();
+    await expect(page.getByText(/所有分段已检查/)).toBeVisible();
+    expect(sawEnding).toBe(true);
+    await page.screenshot({ path: "test-results/check-coverage.png" });
+  } finally {
+    await new Promise<void>(r => { server.closeAllConnections(); server.close(() => r()); });
+  }
+});
 // A missing flush/save or wrong revision loses edits across immediate navigation/restart.
 test("author edits persist across navigation, confirmation, history and restart", async () => {
   await expect(page.getByText("你的下一部故事，从这里开始")).toBeVisible();
@@ -40,11 +81,11 @@ test("author edits persist across navigation, confirmation, history and restart"
   await page
     .getByLabel("简介与背景", { exact: true })
     .fill("山城少年与回声列车。");
-  await page.getByRole("button", { name: "人物与世界", exact: true }).click();
+  await navigateAuthor(page, "人物与世界");
   await page.getByRole("button", { name: "新建设定", exact: true }).click();
   await page.getByLabel("设定标题").fill("林舟");
   await page.getByLabel("设定正文").fill("林舟十七岁，怕黑，习惯轻声说话。");
-  await page.getByRole("button", { name: "正文与版本", exact: true }).click();
+  await navigateAuthor(page, "正文与版本");
   await page.getByRole("button", { name: "新建章节", exact: true }).click();
   await page
     .getByLabel("章节正文", { exact: true })
@@ -74,11 +115,11 @@ test("author edits persist across navigation, confirmation, history and restart"
   await expect(page.getByLabel("简介与背景", { exact: true })).toHaveValue(
     "山城少年与回声列车。",
   );
-  await page.getByRole("button", { name: "人物与世界", exact: true }).click();
+  await navigateAuthor(page, "人物与世界");
   await expect(page.getByLabel("设定正文")).toHaveValue(
     "林舟十七岁，怕黑，习惯轻声说话。",
   );
-  await page.getByRole("button", { name: "正文与版本", exact: true }).click();
+  await navigateAuthor(page, "正文与版本");
   await expect(page.getByLabel("章节正文", { exact: true })).toHaveValue(
     "第一夜，林舟在站台听见自己的回声。",
   );
@@ -105,18 +146,19 @@ test("real local provider creates reviewed AI candidate without replacing author
   await new Promise<void>((r) => server.listen(0, "127.0.0.1", r));
   const address = server.address() as { port: number };
   try {
-    await page.getByRole("button", { name: "模型设置", exact: true }).click();
+    await navigateAuthor(page, "模型设置");
     await page
-      .getByRole("button", { name: "新增模型", exact: true })
+      .getByRole("button", { name: "添加 AI 连接", exact: true })
       .first()
       .click();
+  await customConnection(page);
     await page.getByLabel("配置名称").fill("本地验收");
     await page
       .getByLabel("API 地址")
       .fill(`http://127.0.0.1:${address.port}/v1`);
     await page.getByLabel("模型名称").fill("fixture");
     await page.getByLabel("API 密钥").fill("fixture-only");
-    await page.getByRole("button", { name: "保存模型", exact: true }).click();
+    await page.getByRole("button", { name: "保存连接", exact: true }).click();
     await expect(page.getByText("已安全保存密钥")).toBeVisible();
     await page.getByRole("button", { name: "测试连接", exact: true }).click();
     await expect(page.getByText("连接成功")).toBeVisible();
@@ -125,7 +167,7 @@ test("real local provider creates reviewed AI candidate without replacing author
     await page.getByLabel("作品名称").fill("列车");
     await page.getByRole("button", { name: "创建作品", exact: true }).click();
   await openAuxiliaryTools();
-    await page.getByRole("button", { name: "正文与版本", exact: true }).click();
+    await navigateAuthor(page, "正文与版本");
     await page.getByRole("button", { name: "新建章节", exact: true }).click();
     await page.getByLabel("章节正文", { exact: true }).fill("作者保留的草稿。");
     await page.getByLabel("本次章节字数").fill("14");
@@ -136,13 +178,13 @@ test("real local provider creates reviewed AI candidate without replacing author
       page.getByText("风从古城吹来，林舟握紧车票。", { exact: true }).first(),
     ).toBeVisible({ timeout: 20000 });
     await page.screenshot({ path: "test-results/task-review.png" });
-    await page.getByRole("button", { name: "正文与版本", exact: true }).click();
+    await navigateAuthor(page, "正文与版本");
     await expect(page.getByLabel("章节正文", { exact: true })).toHaveValue(
       "作者保留的草稿。",
     );
-    await page.getByRole("button", { name: "任务与审阅", exact: true }).click();
+    await navigateAuthor(page, "任务与审阅");
     await page.getByRole("button", { name: "采用为草稿", exact: true }).click();
-    await page.getByRole("button", { name: "正文与版本", exact: true }).click();
+    await navigateAuthor(page, "正文与版本");
     await expect(page.getByLabel("章节正文", { exact: true })).toHaveValue(
       "风从古城吹来，林舟握紧车票。",
     );
@@ -152,8 +194,8 @@ test("real local provider creates reviewed AI candidate without replacing author
   }
 });
 async function openAuxiliaryTools() {
-  await page.getByRole("button", { name: "辅助工具", exact: true }).click();
-  await page.getByRole("button", { name: "创意与风格", exact: true }).click();
+  await navigateAuthor(page, "辅助工具");
+  await navigateAuthor(page, "创意与风格");
 }
 async function createWork(title = "验收小说") {
   await page.getByRole("button", { name: "书架", exact: true }).click();
@@ -163,16 +205,17 @@ async function createWork(title = "验收小说") {
   await openAuxiliaryTools();
 }
 async function configure(url: string) {
-  await page.getByRole("button", { name: "模型设置", exact: true }).click();
+  await navigateAuthor(page, "模型设置");
   await page
-    .getByRole("button", { name: "新增模型", exact: true })
+    .getByRole("button", { name: "添加 AI 连接", exact: true })
     .first()
     .click();
+  await customConnection(page);
   await page.getByLabel("配置名称").fill("验收模型");
   await page.getByLabel("API 地址").fill(url);
   await page.getByLabel("模型名称").fill("fixture");
   await page.getByLabel("API 密钥").fill("fixture-secret-not-production");
-  await page.getByRole("button", { name: "保存模型", exact: true }).click();
+  await page.getByRole("button", { name: "保存连接", exact: true }).click();
   await expect(page.getByText("已安全保存密钥")).toBeVisible();
 }
 async function localProvider(reply: (body: any) => string | Promise<string>) {
@@ -195,10 +238,119 @@ async function localProvider(reply: (body: any) => string | Promise<string>) {
     close: () => new Promise<void>((r) => server.close(() => r())),
   };
 }
+test("planning controls separate suggestion limits from chapter targets and send the configured cap", async () => {
+  let request: any;
+  const provider = await localProvider((body) => { request = body; return "人物与关系规划。"; });
+  try {
+    await configure(provider.url);
+    await createWork("规划长度验收");
+    await page.getByLabel("规划建议字数上限", { exact: true }).fill("300000");
+    await expect(page.getByLabel("本次章节字数", { exact: true })).toHaveCount(0);
+    await page.getByLabel("任务总 Token 预算", { exact: true }).fill("2000000");
+    await page.getByLabel("规划单次输出上限（Token）", { exact: true }).fill("16000");
+    await page.getByRole("button", { name: "生成规划建议", exact: true }).click();
+    await expect(page.getByLabel("可编辑的规划建议")).toHaveValue("人物与关系规划。");
+    await expect(page.getByRole("button", { name: "继续任务", exact: true })).toHaveCount(0);
+    const snapshot = await page.evaluate(() => window.novel.snapshot());
+    const command = (snapshot.tasks[0].requestSnapshot as any).command;
+    expect(command).toMatchObject({ planningMaxWords: 300000, maxOutputTokens: 16000, tokenBudget: 2000000 });
+    expect(command.chapterWords).toBeUndefined();
+    expect(request.max_tokens).toBe(16000);
+    expect(request.messages[0].content).toContain("300000");
+    await navigateAuthor(page, "正文与版本");
+    await expect(page.getByLabel("本次章节字数", { exact: true })).toHaveValue("3000");
+    await expect(page.getByLabel("规划建议字数上限", { exact: true })).toHaveCount(0);
+  } finally {
+    await provider.close();
+  }
+});
+test("bounded length correction retains versions and shows the final candidate count", async () => {
+  let writes = 0;
+  const provider = await localProvider((body) => {
+    if (body.messages[0].content.includes("issues"))
+      return JSON.stringify({ issues: [], majorChange: false });
+    return ++writes === 1 ? "甲".repeat(180) : "乙".repeat(100);
+  });
+  try {
+    await configure(provider.url);
+    await createWork("字数修订验收");
+    await navigateAuthor(page, "正文与版本");
+    await page.getByLabel("本次章节字数").fill("100");
+    await page.getByRole("button", { name: "新建章节", exact: true }).click();
+    await page
+      .getByRole("button", { name: "生成选中章节", exact: true })
+      .click();
+    await expect(
+      page.getByText("正文 100 字 · 本次目标 100 字（80—120 字）"),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "采用为草稿", exact: true }),
+    ).toBeEnabled();
+    const snapshot = await page.evaluate(() => window.novel.snapshot());
+    expect(
+      snapshot.versions
+        .filter((v) => v.reason === "ai-candidate")
+        .map((v) => v.content),
+    ).toEqual(["甲".repeat(180), "乙".repeat(100)]);
+    expect(snapshot.chapters[0].content).toBe("");
+    expect(writes).toBe(2);
+    await page.getByRole("button", { name: "采用为草稿", exact: true }).click();
+    await navigateAuthor(page, "正文与版本");
+    await expect(page.getByLabel("章节正文", { exact: true })).toHaveValue(
+      "乙".repeat(100),
+    );
+  } finally {
+    await provider.close();
+  }
+});
 
-
-
-
+test("reviewed passed findings do not appear as author conflicts", async () => {
+  const provider = await localProvider((body) => {
+    if (body.messages[0].content.includes("复核初检疑点"))
+      return JSON.stringify({ issues: [], majorChange: false });
+    const user = body.messages[1].content;
+    const [, id, revision] = user.match(/\[chapter:([^@]+)@(\d+)/);
+    return JSON.stringify({
+      issues: [
+        {
+          type: "timeline",
+          reason: "暂无不一致",
+          evidence: [
+            {
+              quote: "周五打扫，周六读书会。",
+              source: { kind: "chapter", id, revision: Number(revision) },
+            },
+          ],
+        },
+      ],
+      majorChange: false,
+    });
+  });
+  try {
+    await configure(provider.url);
+    await createWork("误报复核验收");
+    await navigateAuthor(page, "正文与版本");
+    await page.getByRole("button", { name: "新建章节", exact: true }).click();
+    await page
+      .getByLabel("章节正文", { exact: true })
+      .fill("周五打扫，周六读书会。");
+    await page.getByRole("button", { name: "确认正文", exact: true }).click();
+    await page
+      .getByRole("button", { name: "检查已确认正文", exact: true })
+      .click();
+    await expect(
+      page.getByText("本次未发现有原文证据的冲突。仍需作者通读。"),
+    ).toBeVisible();
+    expect(
+      (await page.evaluate(() => window.novel.snapshot())).issues,
+    ).toHaveLength(0);
+    await expect(
+      page.getByText(/一致性复核：初检 1 项，复核保留 0 项/),
+    ).toBeVisible();
+  } finally {
+    await provider.close();
+  }
+});
 // Lost UI wiring, auto-promotion, missing provenance or wrong issue status fails this real workflow.
 test("planning, materials, source evidence, export and backup work through visible controls", async () => {
   const provider = await localProvider((body) => {
@@ -257,14 +409,11 @@ test("planning, materials, source evidence, export and backup work through visib
     await expect(
       page.getByRole("button", { name: "已保存为设定", exact: true }),
     ).toBeVisible();
-    await page.getByRole("button", { name: "故事规划", exact: true }).click();
+    await navigateAuthor(page, "故事规划");
     await expect(page.getByLabel("设定正文")).toHaveValue(
       "第一幕：误会相遇；第二幕：回声揭示真相。",
     );
-    await page
-      .getByRole("button", { name: "素材库", exact: true })
-      .first()
-      .click();
+    await navigateAuthor(page, "素材库");
     await page.getByRole("button", { name: "粘贴新素材", exact: true }).click();
     await page.getByLabel("素材标题").fill("站台表达");
     await page.getByLabel("原始来源").fill("作者自创");
@@ -290,7 +439,7 @@ test("planning, materials, source evidence, export and backup work through visib
     await page.getByLabel("我已阅读并审核此素材").check();
     await page.getByRole("button", { name: "保存素材", exact: true }).click();
     await expect(page.getByText("已保存素材", { exact: true })).toBeVisible();
-    await page.getByRole("button", { name: "正文与版本", exact: true }).click();
+    await navigateAuthor(page, "正文与版本");
     await page.getByRole("button", { name: "新建章节", exact: true }).click();
     await page.getByLabel("章节正文", { exact: true }).fill("林舟十七岁。");
     await page.getByRole("button", { name: "确认正文", exact: true }).click();
@@ -300,7 +449,7 @@ test("planning, materials, source evidence, export and backup work through visib
     await expect(
       page.getByText("时间记录需要核对", { exact: true }),
     ).toBeVisible();
-    await page.getByRole("button", { name: "一致性检查", exact: true }).click();
+    await navigateAuthor(page, "一致性检查");
     await expect(page.locator("blockquote")).toContainText("林舟十七岁。");
     await page
       .getByRole("button", { name: "已修改，标记处理", exact: true })
@@ -309,7 +458,7 @@ test("planning, materials, source evidence, export and backup work through visib
     await expect(
       page.getByText("时间记录需要核对", { exact: true }),
     ).toBeVisible();
-    await page.getByRole("button", { name: "素材库", exact: true }).click();
+    await navigateAuthor(page, "素材库");
     const inputPath = join(dir, "import.txt");
     await writeFile(inputPath, "导入的中文素材。");
     await app.evaluate(({ dialog }, path) => {
@@ -341,7 +490,7 @@ test("planning, materials, source evidence, export and backup work through visib
       },
       [txt, docx, backup],
     );
-    await page.getByRole("button", { name: "导出与备份", exact: true }).click();
+    await navigateAuthor(page, "导出与备份");
     await page.getByRole("button", { name: "导出 TXT", exact: true }).click();
     await expect(
       page.getByText("正文已导出到所选位置。", { exact: true }),
@@ -395,7 +544,7 @@ test("planning, materials, source evidence, export and backup work through visib
 // Polls must not discard dirty text; save conflicts must block navigation and orderly close must flush.
 test("dirty edits survive polling, pending close and a real revision conflict", async () => {
   await createWork("保存验收");
-  await page.getByRole("button", { name: "正文与版本", exact: true }).click();
+  await navigateAuthor(page, "正文与版本");
   await page.getByRole("button", { name: "新建章节", exact: true }).click();
   await page
     .getByLabel("章节正文", { exact: true })
@@ -404,7 +553,7 @@ test("dirty edits survive polling, pending close and a real revision conflict", 
   await launch();
   await page.getByRole("button", { name: /打开 保存验收/ }).click();
   await openAuxiliaryTools();
-  await page.getByRole("button", { name: "正文与版本", exact: true }).click();
+  await navigateAuthor(page, "正文与版本");
   await expect(page.getByLabel("章节正文", { exact: true })).toHaveValue(
     "关闭前仍待保存的文字。",
   );
@@ -420,7 +569,7 @@ test("dirty edits survive polling, pending close and a real revision conflict", 
       content: "另一条本机修改。",
     });
   });
-  await page.getByRole("button", { name: "人物与世界", exact: true }).click();
+  await navigateAuthor(page, "人物与世界");
   await expect(
     page.getByText("保存失败，内容仍在编辑器中", { exact: false }),
   ).toBeVisible();
@@ -460,7 +609,7 @@ test("explicit batch generation, cancellation and continuation retain reviewed c
   try {
     await configure(provider.url);
     await createWork("批量验收");
-    await page.getByRole("button", { name: "正文与版本", exact: true }).click();
+    await navigateAuthor(page, "正文与版本");
     await page.getByLabel("本次章节字数").fill("16");
     for (let i = 0; i < 3; i++)
       await page.getByRole("button", { name: "新建章节", exact: true }).click();
@@ -493,7 +642,7 @@ test("explicit batch generation, cancellation and continuation retain reviewed c
       page.getByText("待作者处理", { exact: true }).first(),
     ).toBeVisible();
     await page.screenshot({ path: "test-results/batch-review.png" });
-    await page.getByRole("button", { name: "正文与版本", exact: true }).click();
+    await navigateAuthor(page, "正文与版本");
     await expect(page.getByLabel("章节正文", { exact: true })).toHaveValue("");
   } finally {
     await provider.close();
@@ -516,9 +665,9 @@ test("changed-source planning and generation require explicit review", async () 
     await expect(page.getByLabel("可编辑的规划建议")).toHaveValue(
       "林舟听见了新的回声。",
     );
-    await page.getByRole("button", { name: "创意与风格", exact: true }).click();
+    await navigateAuthor(page, "创意与风格");
     await page.getByLabel("简介与背景", { exact: true }).fill("修改后的背景");
-    await page.getByRole("button", { name: "任务与审阅", exact: true }).click();
+    await navigateAuthor(page, "任务与审阅");
     await expect(
       page.getByRole("button", { name: "采纳为新设定", exact: true }),
     ).toBeDisabled();
@@ -542,7 +691,7 @@ test("changed-source planning and generation require explicit review", async () 
     await expect(
       page.getByRole("button", { name: "已保存为设定", exact: true }),
     ).toBeVisible();
-    await page.getByRole("button", { name: "正文与版本", exact: true }).click();
+    await navigateAuthor(page, "正文与版本");
     await page.getByLabel("本次章节字数").fill("10");
     await page.getByRole("button", { name: "新建章节", exact: true }).click();
     await page
@@ -551,15 +700,15 @@ test("changed-source planning and generation require explicit review", async () 
     await expect(
       page.getByRole("button", { name: "采用为草稿", exact: true }),
     ).toBeEnabled();
-    await page.getByRole("button", { name: "创意与风格", exact: true }).click();
+    await navigateAuthor(page, "创意与风格");
     await page.getByLabel("简介与背景", { exact: true }).fill("第三版背景");
-    await page.getByRole("button", { name: "任务与审阅", exact: true }).click();
+    await navigateAuthor(page, "任务与审阅");
     await expect(
       page.getByRole("button", { name: "采用为草稿", exact: true }),
     ).toBeDisabled();
     await page.getByLabel("我已对照变化后的来源复核此候选").check();
     await page.getByRole("button", { name: "采用为草稿", exact: true }).click();
-    await page.getByRole("button", { name: "正文与版本", exact: true }).click();
+    await navigateAuthor(page, "正文与版本");
     await expect(page.getByLabel("章节正文", { exact: true })).toHaveValue(
       "林舟听见了新的回声。",
     );
@@ -570,17 +719,17 @@ test("changed-source planning and generation require explicit review", async () 
 // Navigating away from manually saved model/material forms must not silently discard typed data.
 test("unsaved material asks to save before leaving", async () => {
   await createWork("素材保存");
-  await page.getByRole("button", { name: "素材库", exact: true }).click();
+  await navigateAuthor(page, "素材库");
   await page.getByRole("button", { name: "粘贴新素材", exact: true }).click();
   await page.getByLabel("素材标题").fill("未保存的灵感");
   await page.getByLabel("原始来源").fill("作者笔记");
   await page.getByLabel("素材内容").fill("窗外的雨倒着走。");
-  await page.getByRole("button", { name: "正文与版本", exact: true }).click();
+  await navigateAuthor(page, "正文与版本");
   await expect(
     page.getByRole("dialog", { name: "尚有未保存的修改" }),
   ).toBeVisible();
   await page.getByRole("button", { name: "保存后离开", exact: true }).click();
-  await page.getByRole("button", { name: "素材库", exact: true }).click();
+  await navigateAuthor(page, "素材库");
   await page.getByRole("button", { name: /未保存的灵感/ }).click();
   await expect(page.getByLabel("素材内容")).toHaveValue("窗外的雨倒着走。");
 });
@@ -593,7 +742,7 @@ test("isolated renderer rejects a second window sender and has no Node or creden
     })),
   ).toEqual({
     node: "undefined",
-    keys: ["closeReady", "invoke", "onBeforeClose", "snapshot"],
+    keys: ["chapter", "chapterVersions", "closeReady", "conversation", "invoke", "onBeforeClose", "revisionJob", "search", "snapshot", "workspaceSnapshot"],
   });
   expect(
     await app.evaluate(async ({ BrowserWindow }) => {
@@ -611,7 +760,7 @@ test("isolated renderer rejects a second window sender and has no Node or creden
       });
       await rogue.loadURL(main.webContents.getURL());
       const rejected = await rogue.webContents.executeJavaScript(
-        "window.novel.snapshot().then(()=>false,()=>true)",
+        "Promise.all([window.novel.snapshot(),window.novel.conversation('untrusted')].map(p=>p.then(()=>false,e=>String(e).includes('拒绝未授权的窗口请求')))).then(results=>results.every(Boolean))",
       );
       rogue.destroy();
       return rejected;
@@ -674,7 +823,7 @@ test("streaming cancellation retains partial text and continues through the actu
       `http://127.0.0.1:${(server.address() as { port: number }).port}/v1`,
     );
     await createWork("流式验收");
-    await page.getByRole("button", { name: "正文与版本", exact: true }).click();
+    await navigateAuthor(page, "正文与版本");
     await page.getByLabel("本次章节字数").fill("18");
     await page.getByRole("button", { name: "新建章节", exact: true }).click();
     await page
@@ -726,28 +875,29 @@ test("offline startup and editing do not initialize an unavailable Keychain", as
     await page
       .getByLabel("简介与背景", { exact: true })
       .fill("钥匙串不可用也能写作。");
-    await page.getByRole("button", { name: "正文与版本", exact: true }).click();
+    await navigateAuthor(page, "正文与版本");
     await page.getByRole("button", { name: "新建章节", exact: true }).click();
     await page.getByLabel("章节正文", { exact: true }).fill("作者的离线文字。");
     await page.getByRole("button", { name: "确认正文", exact: true }).click();
     expect(await readFile(observed, "utf8").catch(() => "")).toBe("");
-    await page.getByRole("button", { name: "模型设置", exact: true }).click();
+    await navigateAuthor(page, "模型设置");
     await page
-      .getByRole("button", { name: "新增模型", exact: true })
+      .getByRole("button", { name: "添加 AI 连接", exact: true })
       .first()
       .click();
+  await customConnection(page);
     await page.getByLabel("配置名称").fill("受保护配置");
     await page.getByLabel("API 地址").fill("https://example.invalid/v1");
     await page.getByLabel("模型名称").fill("fixture");
     await page.getByLabel("API 密钥").fill("must-never-be-plaintext");
-    await page.getByRole("button", { name: "保存模型", exact: true }).click();
+    await page.getByRole("button", { name: "保存连接", exact: true }).click();
     await expect(page.getByRole("alert")).toContainText("密钥");
     expect(
       (await page.evaluate(() => window.novel.snapshot())).profiles,
     ).toHaveLength(0);
     expect(await readFile(observed, "utf8")).toBe("isEncryptionAvailable\n");
     await page.getByLabel("API 密钥").fill("");
-    await page.getByRole("button", { name: "保存模型", exact: true }).click();
+    await page.getByRole("button", { name: "保存连接", exact: true }).click();
     await expect(
       page.getByRole("button", { name: "测试连接", exact: true }),
     ).toBeVisible();
@@ -768,6 +918,7 @@ test("planning edits are guarded across task switch, navigation and close until 
     await expect(page.getByLabel("可编辑的规划建议")).toHaveValue(
       "原始规划建议。",
     );
+    await openLegacyOperations(page);
     await page
       .getByRole("button", { name: "生成规划建议", exact: true })
       .click();
@@ -786,7 +937,7 @@ test("planning edits are guarded across task switch, navigation and close until 
     await expect(page.getByLabel("可编辑的规划建议")).toHaveValue(
       "作者修改：林舟决定留在山城。",
     );
-    await page.getByRole("button", { name: "正文与版本", exact: true }).click();
+    await navigateAuthor(page, "正文与版本");
     await expect(
       page.getByRole("dialog", { name: "尚有未保存的修改" }),
     ).toBeVisible();
@@ -808,7 +959,7 @@ test("planning edits are guarded across task switch, navigation and close until 
     await expect(page.getByLabel("可编辑的规划建议")).toHaveValue(
       "原始规划建议。",
     );
-    await page.getByRole("button", { name: "故事规划", exact: true }).click();
+    await navigateAuthor(page, "故事规划");
     await expect(page.getByLabel("设定标题")).toHaveValue("作者审阅后的故事线");
     await expect(page.getByLabel("设定正文")).toHaveValue(
       "作者修改：林舟决定留在山城。",
@@ -848,6 +999,7 @@ test("every extraction candidate form is guarded without automatically approving
     await expect(page.getByLabel("可编辑的规划建议")).toHaveValue(
       "原始规划建议。",
     );
+    await openLegacyOperations(page);
     await page
       .getByRole("button", { name: "展开上下文与批量设置 ↓", exact: true })
       .click();
@@ -886,7 +1038,7 @@ test("every extraction candidate form is guarded without automatically approving
       page.getByRole("dialog", { name: "尚有未保存的修改" }),
     ).toBeVisible();
     await page.getByRole("button", { name: "返回编辑", exact: true }).click();
-    await page.getByRole("button", { name: "正文与版本", exact: true }).click();
+    await navigateAuthor(page, "正文与版本");
     await expect(
       page.getByRole("dialog", { name: "尚有未保存的修改" }),
     ).toBeVisible();
@@ -992,7 +1144,7 @@ test("malformed valid-checksum task import is atomic and corrupt stored task rev
         filePath: path,
       })) as typeof dialog.showSaveDialog;
     }, backup);
-    await page.getByRole("button", { name: "导出与备份", exact: true }).click();
+    await navigateAuthor(page, "导出与备份");
     await page
       .getByRole("button", { name: "备份完整作品", exact: true })
       .click();
@@ -1045,7 +1197,7 @@ test("malformed valid-checksum task import is atomic and corrupt stored task rev
       },
       { path: join(dir, "works.sqlite"), taskId: originalTaskId },
     );
-    await page.getByRole("button", { name: "任务与审阅", exact: true }).click();
+    await navigateAuthor(page, "任务与审阅");
     await expect(
       page.getByText("任务数据格式异常", { exact: false }),
     ).toBeVisible();
@@ -1060,14 +1212,14 @@ test("malformed valid-checksum task import is atomic and corrupt stored task rev
     await launch();
     await page.getByRole("button", { name: /打开 任务包校验/ }).click();
   await openAuxiliaryTools();
-    await page.getByRole("button", { name: "任务与审阅", exact: true }).click();
+    await navigateAuthor(page, "任务与审阅");
     await expect(
       page.getByText("任务数据格式异常", { exact: false }),
     ).toBeVisible();
     await expect(
       page.getByText("仍保留的作者片段", { exact: true }),
     ).toBeVisible();
-    await page.getByRole("button", { name: "正文与版本", exact: true }).click();
+    await navigateAuthor(page, "正文与版本");
     await expect(
       page.getByRole("button", { name: "新建章节", exact: true }),
     ).toBeVisible();

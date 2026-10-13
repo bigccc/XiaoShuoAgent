@@ -1,0 +1,64 @@
+{
+  "date": "2026-10-12T10:28:50.465Z",
+  "isolated": true,
+  "productionModified": false,
+  "requestLimit": 28,
+  "outputCap": 4000,
+  "tokenBudget": 100000,
+  "model": "deepseek-flash",
+  "result": {
+    "status": "failed",
+    "phase": "checking",
+    "reply": "重大创作变更标记含义不明，不能整理成检查通过",
+    "calls": 9,
+    "usage": {
+      "inputTokens": 10210,
+      "outputTokens": 1950,
+      "totalTokens": 12160,
+      "estimated": false
+    },
+    "budgetUsed": 12160,
+    "chapters": [
+      {
+        "ordinal": 1,
+        "status": "needs-review",
+        "revisionRounds": 2,
+        "words": 274
+      },
+      {
+        "ordinal": 2,
+        "status": "written",
+        "revisionRounds": 0,
+        "words": 236
+      },
+      {
+        "ordinal": 3,
+        "status": "pending",
+        "revisionRounds": 0,
+        "words": 0
+      },
+      {
+        "ordinal": 4,
+        "status": "pending",
+        "revisionRounds": 0,
+        "words": 0
+      },
+      {
+        "ordinal": 5,
+        "status": "pending",
+        "revisionRounds": 0,
+        "words": 0
+      }
+    ],
+    "issues": [
+      {
+        "category": "length",
+        "impact": "local",
+        "reason": "第1章为274字，目标200字（允许±20%）"
+      }
+    ],
+    "warnings": []
+  },
+  "passed": false,
+  "liveCalls": 9
+}

@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { validateTask } from "../shared/validation";
+import { countProse, proseRange } from "../shared/prose";
 import type {
   AppState,
   TaskRecord,
@@ -54,11 +55,18 @@ interface Result {
   materials?: MaterialDraft[];
   connection?: boolean;
   check?: { issues: CheckIssue[]; majorChange: boolean; reason?: string };
+  checkProgress?: {
+    chapterId?: string;
+    completed: number;
+    total: number;
+    checked: { issues: CheckIssue[]; majorChange: boolean; reason?: string };
+  };
 }
 export function AiPanel({
   state,
   projectId,
   chapterId,
+  writingView,
   run,
   flush,
   showTasks,
@@ -67,6 +75,7 @@ export function AiPanel({
   state: AppState;
   projectId: string;
   chapterId?: string;
+  writingView: boolean;
   run: Run;
   flush: Flush;
   showTasks: () => void;
@@ -77,6 +86,9 @@ export function AiPanel({
     [checking, setChecking] = useState(""),
     [step, setStep] = useState<NoteType | "idea">("idea"),
     [budget, setBudget] = useState(20000),
+    [words, setWords] = useState<number | undefined>(),
+    [planningWords, setPlanningWords] = useState(10000),
+    [planningTokens, setPlanningTokens] = useState(8000),
     [instruction, setInstruction] = useState(""),
     [drafts, setDrafts] = useState<string[]>([]),
     [materials, setMaterials] = useState<string[]>([]),
@@ -104,6 +116,10 @@ export function AiPanel({
   const chapters = state.chapters
     .filter((c) => c.projectId === projectId)
     .sort((a, b) => a.ordinal - b.ordinal);
+  const chapterWords =
+    words ??
+    state.projects.find((p) => p.id === projectId)?.chapterWords ??
+    3000;
   async function start(kind: "plan" | "chapter" | "check" | "extract") {
     if (!writing) {
       showProfiles();
@@ -127,7 +143,7 @@ export function AiPanel({
       ...(!allNotes ? { noteIds: notes } : {}),
     };
     let command: Command;
-    if (kind === "plan") command = { type: "ai.plan", step, ...base };
+    if (kind === "plan") command = { type: "ai.plan", step, planningMaxWords: planningWords, maxOutputTokens: planningTokens, ...base };
     else if (kind === "chapter")
       command = {
         type: "ai.chapter",
@@ -139,6 +155,7 @@ export function AiPanel({
               ? [chapters[0].id]
               : [],
         authorizeBatch: authorize,
+        chapterWords,
         ...(checkingProfile ? { checkingProfileId: checkingProfile.id } : {}),
         ...base,
       };
@@ -163,12 +180,50 @@ export function AiPanel({
       <p>建议与候选单独保存，由你决定采用。</p>
       {!state.profiles.length ? (
         <div className="hint">
-          <strong>还没有配置模型</strong>
-          <p>本机编辑随时可用。配置 API 后可以规划、生成与检查。</p>
-          <button onClick={showProfiles}>前往模型设置</button>
+          <strong>还没有连接 AI</strong>
+          <p>本机编辑随时可用。连接 AI 后可以准备故事、写作和检查。</p>
+          <button onClick={showProfiles}>连接 AI</button>
         </div>
       ) : (
         <>
+          <Field label="规划步骤">
+            <select
+              value={step}
+              onChange={(e) => setStep(e.target.value as typeof step)}
+            >
+              <option value="idea">创意与看点</option>
+              {Object.entries(noteNames).map(([id, name]) => (
+                <option key={id} value={id}>
+                  {name}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field label="本次要求">
+            <textarea
+              value={instruction}
+              onChange={(e) => setInstruction(e.target.value)}
+              placeholder="想保留什么、调整哪里？"
+            />
+          </Field>
+          <div className="form-grid">
+            {writingView ? (
+            <Field label="本次章节字数">
+              <input
+                type="number"
+                min="1"
+                max="16000"
+                value={chapterWords}
+                onChange={(e) => setWords(Number(e.target.value))}
+              />
+            </Field>
+            ) : (
+              <Field label="规划建议字数上限">
+                <input type="number" min="1" max="300000" value={planningWords} onChange={(e) => setPlanningWords(Number(e.target.value))} />
+              </Field>
+            )}
+          </div>
+          <details className="ai-advanced"><summary>高级设置</summary>
           <Field label="本次模型">
             <select
               value={writing?.id ?? ""}
@@ -205,38 +260,27 @@ export function AiPanel({
               ))}
             </select>
           </Field>
-          <Field label="规划步骤">
-            <select
-              value={step}
-              onChange={(e) => setStep(e.target.value as typeof step)}
-            >
-              <option value="idea">创意与看点</option>
-              {Object.entries(noteNames).map(([id, name]) => (
-                <option key={id} value={id}>
-                  {name}
-                </option>
-              ))}
-            </select>
-          </Field>
-          <Field label="本次要求">
-            <textarea
-              value={instruction}
-              onChange={(e) => setInstruction(e.target.value)}
-              placeholder="想保留什么、调整哪里？"
-            />
-          </Field>
-          <Field label="Token 预算上限">
-            <input
-              type="number"
-              min="100"
-              max="10000000"
-              value={budget}
-              onChange={(e) => setBudget(Number(e.target.value))}
-            />
-          </Field>
+            <Field label="任务总 Token 预算">
+              <input
+                type="number"
+                min="100"
+                max="10000000"
+                value={budget}
+                onChange={(e) => setBudget(Number(e.target.value))}
+              />
+            </Field>
+          {!writingView && (
+            <>
+              <Field label="规划单次输出上限（Token）">
+                <input type="number" min="1" max="32000" value={planningTokens} onChange={(e) => setPlanningTokens(Number(e.target.value))} />
+              </Field>
+              <p className="muted small">规划字数是累计上限（含标点、不含空白），不是要求写满，也不是小说总字数。单次输出受模型限制；截断后可在任务中继续补全。</p>
+            </>
+          )}
           <p className="muted small">
-            包含生成与检查调用。缺少服务商用量时显示估算；不是金额保证。
+            总预算包含输入、输出、检查、重试与续写；提高总预算不会提高单次输出上限。缺少服务商用量时显示估算；不是金额保证。
           </p>
+          </details>
           <div className="ai-actions">
             <button onClick={() => void start("plan").catch(() => {})}>
               生成规划建议
@@ -497,19 +541,34 @@ function TaskDetail({
         </div>
         <span className="badge">{statusNames[task.status]}</span>
       </div>
-      <div className="task-stats">
+      <details className="task-stats"><summary>技术详情</summary>
         <span>{task.calls} 次调用</span>
         <span>
           Token：{task.usage?.totalTokens ?? "未报告"}
           {task.usage?.estimated ? "（估算／预算预留）" : "（服务商报告）"}
         </span>
-      </div>
+      </details>
       {task.error && (
         <div className="error" role="alert">
           {task.error}
         </div>
       )}
       {r.pauseReason && <div className="hint warn">{r.pauseReason}</div>}
+      {r.checkProgress && (
+        <div className="hint" role="status">
+          <strong>检查覆盖：{r.checkProgress.completed} / {r.checkProgress.total} 段</strong>
+          <p>{r.checkProgress.chapterId ? "当前候选及其来源" : "所选来源快照"}逐段初检并复核，相邻段保留重叠。
+            {r.checkProgress.completed < r.checkProgress.total
+              ? " 检查尚未完成，未覆盖部分不能视为通过；已完成段的结果已保存。"
+              : " 所有分段已检查；远距离跨段矛盾仍需作者通读核对。"}</p>
+          {r.checkProgress.completed < r.checkProgress.total && r.checkProgress.checked.issues.map((issue, i) => (
+            <div key={i}>
+              <strong>{issue.reason}</strong>
+              <Evidence evidence={issue.evidence} state={state} />
+            </div>
+          ))}
+        </div>
+      )}
       <div className="toolbar">
         {["running", "waiting", "awaiting-author"].includes(task.status) && (
           <button
@@ -522,7 +581,7 @@ function TaskDetail({
         )}
         {["failed", "cancelled", "interrupted", "awaiting-author"].includes(
           task.status,
-        ) && (
+        ) && !(task.kind === "planning" && task.status === "awaiting-author" && r.suggestion !== undefined) && (
           <>
             <button
               onClick={() =>
@@ -607,7 +666,7 @@ function TaskDetail({
       <Sources sources={r.sources ?? task.sourceRevisions} state={state} />
       {!!r.disclosures?.length && (
         <div className="hint">
-          <strong>上下文取舍与截断</strong>
+          <strong>上下文、字数与检查记录</strong>
           {r.disclosures.map((d, i) => (
             <p key={i}>{d}</p>
           ))}
@@ -748,6 +807,9 @@ function CandidateResult({
   run: Run;
   flush: Flush;
 }) {
+  const target = (
+    task.requestSnapshot as unknown as { command: { chapterWords?: number } }
+  ).command.chapterWords;
   const chapter = state.chapters.find((x) => x.id === c.chapterId),
     [reviewKey, setReviewKey] = useState<string | null>(null),
     [done, setDone] = useState(false);
@@ -798,6 +860,12 @@ function CandidateResult({
         </span>
         {stale && <span className="badge warn">依据已变化 · 需要复核</span>}
       </div>
+      {target && (
+        <p className="small muted">
+          正文 {countProse(c.text)} 字 · 本次目标 {target} 字（
+          {proseRange(target).join("—")} 字）
+        </p>
+      )}
       <pre>{c.text}</pre>
       {c.check?.reason && <p className="warn">{c.check.reason}</p>}
       {c.check?.issues.map((issue, i) => (

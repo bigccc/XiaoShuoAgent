@@ -8,5 +8,9 @@ test-results/
 playwright-report/
 *.log
 *.sqlite*
+*.novel
+*.pem
+*.p12
+*.pfx
 .env*
 !.env.example

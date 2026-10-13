@@ -91,6 +91,15 @@ app
       trusted(event);
       return services.snapshot();
     });
+    ipcMain.handle("novel:workspace", (event, projectId?: string, since?: number) => {
+      trusted(event);
+      return services.workspaceSnapshot(projectId, since);
+    });
+    ipcMain.handle("novel:chapter", (event, id: string) => { trusted(event); return services.chapter(id); });
+    ipcMain.handle("novel:versions", (event, id: string) => { trusted(event); return services.chapterVersions(id); });
+    ipcMain.handle("novel:conversation", (event, id: string) => { trusted(event); return services.conversation(id); });
+    ipcMain.handle("novel:search", (event, projectId: string, query: string, offset?: number) => { trusted(event); return services.search(projectId, query, offset); });
+    ipcMain.handle("novel:revision", (event, id: string, offset?: number, limit?: number) => { trusted(event); return services.revisionJob(id, offset, limit); });
     ipcMain.handle("novel:close", async (event, ready: boolean) => {
       trusted(event);
       if (!closing) return;

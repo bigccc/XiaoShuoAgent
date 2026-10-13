@@ -24,6 +24,9 @@ export class NativeDmgMaker extends MakerBase {
     try {
       await cp(join(dir, `${appName}.app`), join(staging, `${appName}.app`), {
         recursive: true,
+        // Framework links must stay relative inside the installed app. The cp
+        // default rewrites them to absolute paths into the build directory.
+        verbatimSymlinks: true,
       });
       await symlink("/Applications", join(staging, "Applications"));
       await promisify(execFile)(

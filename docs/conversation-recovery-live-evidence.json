@@ -1,0 +1,121 @@
+{
+  "date": "2026-10-12T09:14:30.457Z",
+  "isolated": true,
+  "productionModified": false,
+  "outputCapPerLiveRequest": 3000,
+  "model": "deepseek-flash",
+  "normalGeneration": {
+    "status": "completed",
+    "error": null,
+    "calls": 1,
+    "usage": {
+      "inputTokens": 1091,
+      "outputTokens": 393,
+      "totalTokens": 1484,
+      "estimated": false
+    },
+    "attempts": [
+      {
+        "phase": "generate",
+        "status": "completed",
+        "startedAt": "2026-10-12T09:14:30.506Z",
+        "usage": {
+          "inputTokens": 1091,
+          "outputTokens": 393,
+          "totalTokens": 1484,
+          "estimated": false
+        },
+        "diagnostics": {
+          "transport": "sse",
+          "finishReason": "stop",
+          "receivedChars": 607,
+          "reasoningChars": 0,
+          "streamCompleted": true
+        },
+        "finishedAt": "2026-10-12T09:14:34.551Z",
+        "rawChars": 607
+      }
+    ]
+  },
+  "injectedRecovery": {
+    "status": "completed",
+    "error": null,
+    "calls": 3,
+    "usage": {
+      "inputTokens": 1269,
+      "outputTokens": 56,
+      "totalTokens": 1325,
+      "estimated": false
+    },
+    "attempts": [
+      {
+        "phase": "generate",
+        "status": "failed",
+        "startedAt": "2026-10-12T09:14:34.786Z",
+        "usage": {
+          "inputTokens": 0,
+          "outputTokens": 0,
+          "totalTokens": 0,
+          "estimated": false
+        },
+        "code": "EMPTY",
+        "error": "模型未返回正文",
+        "diagnostics": {
+          "transport": "json",
+          "finishReason": "stop",
+          "receivedChars": 0,
+          "reasoningChars": 0,
+          "streamCompleted": true
+        },
+        "finishedAt": "2026-10-12T09:14:34.787Z",
+        "rawChars": 0
+      },
+      {
+        "phase": "generate",
+        "status": "failed",
+        "startedAt": "2026-10-12T09:14:35.289Z",
+        "usage": {
+          "inputTokens": 0,
+          "outputTokens": 0,
+          "totalTokens": 0,
+          "estimated": false
+        },
+        "diagnostics": {
+          "transport": "json",
+          "finishReason": "stop",
+          "receivedChars": 127,
+          "reasoningChars": 0,
+          "streamCompleted": true
+        },
+        "finishedAt": "2026-10-12T09:14:35.289Z",
+        "code": "RESPONSE_FORMAT",
+        "error": "创作回复格式不完整，请重试；现有正文未被修改",
+        "rawChars": 127
+      },
+      {
+        "phase": "repair",
+        "status": "completed",
+        "startedAt": "2026-10-12T09:14:35.289Z",
+        "usage": {
+          "inputTokens": 1269,
+          "outputTokens": 56,
+          "totalTokens": 1325,
+          "estimated": false
+        },
+        "diagnostics": {
+          "transport": "sse",
+          "finishReason": "stop",
+          "receivedChars": 126,
+          "reasoningChars": 0,
+          "streamCompleted": true
+        },
+        "finishedAt": "2026-10-12T09:14:36.519Z",
+        "rawChars": 126
+      }
+    ]
+  },
+  "contentPreserved": true,
+  "passed": true,
+  "liveCalls": 2,
+  "injectedResponses": 2
+}

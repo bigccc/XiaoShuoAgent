@@ -2,6 +2,16 @@
   "name": "xiaoshuo-agent",
   "version": "0.1.0",
   "private": true,
+  "description": "小说工坊：本机保存作品、支持长篇阅读与 AI 连续创作的 macOS 桌面应用",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/bigccc/XiaoShuoAgent.git"
+  },
+  "homepage": "https://github.com/bigccc/XiaoShuoAgent#readme",
+  "bugs": {
+    "url": "https://github.com/bigccc/XiaoShuoAgent/issues"
+  },
   "type": "module",
   "engines": {
     "node": ">=22.13.0"
@@ -33,10 +43,13 @@
     "vitest": "4.1.11"
   },
   "dependencies": {
+    "@langchain/core": "1.2.17",
+    "@langchain/langgraph": "1.4.21",
     "fast-xml-parser": "5.11.2",
     "fflate": "0.8.3",
     "react": "19.2.4",
-    "react-dom": "19.2.4"
+    "react-dom": "19.2.4",
+    "zod": "4.6.6"
   },
   "main": "out/main/index.js",
   "productName": "小说工坊",
