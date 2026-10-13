@@ -18,6 +18,7 @@
   },
   "scripts": {
     "test": "vitest run",
+    "benchmark:recall": "node scripts/benchmark-recall.mjs",
     "typecheck": "tsc --noEmit",
     "dev": "electron-vite dev",
     "build": "electron-vite build",
