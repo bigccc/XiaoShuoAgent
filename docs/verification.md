@@ -295,10 +295,10 @@ Apple Silicon arm64 DMG与ZIP已生成于`release/author-ui-20261013/`。DMG校�
 - `release/author-ui-20261013/XiaoShuoAgent-author-ui-20261013-arm64.dmg`，162712904字节，SHA-256 `110afeb776a1e00c222ac54469280d2a645f85b80abfdc26a17b81c1f9d575ef`。
 - `release/author-ui-20261013/XiaoShuoAgent-author-ui-20261013-arm64.zip`，145098137字节，SHA-256 `11d0214db940d81ccfaed60823cced84b3c5b115d40cbe4b22f927fbccea7681`。
 - 同目录`SHA256SUMS.txt`，详细证据见[安装包校验记录](author-ui-package-evidence.json)。
-# 开源发布检查（2026-10-13）
+
+## 开源发布检查（2026-10-13）
 
 - 发布仓库：`https://github.com/bigccc/XiaoShuoAgent`；发布分支 `main`，项目许可证为 MIT。
 - 本次重新执行 `npm run typecheck`：通过；`npm test`：19 个测试文件、435 项测试通过；`npm run e2e`：构建成功，41 项 Electron 桌面测试通过。
 - 扫描待发布文件及 Git 历史中的常见服务商密钥、GitHub Token、AWS 密钥、私钥、凭据字面量与含认证信息的 URL，未检出匹配。模型配置截图不显示密钥；数据库、作品包、构建产物、环境变量文件和签名凭据排除在提交之外。
 - MIT 元数据、许可证文件及 README 本地链接已核对。本次发布为源码发布，安装包与签名公证状态仍以各自验证记录为准。
-
