@@ -1,3 +1,4 @@
+import {validateSceneSource,type SceneSource} from "./scenes";
 import { DomainError, validatePublicJson } from "./validation";
 import type {
   ID,
@@ -30,6 +31,7 @@ export interface RevisionNoteProposal {
   body: string;
 }
 export interface RevisionJob extends RecordMeta {
+  sceneSource?:SceneSource;
   projectId: ID;
   profileId?: ID;
   text: string;
@@ -79,6 +81,7 @@ export interface RevisionJob extends RecordMeta {
 export type RevisionCommand =
   | {
       type: "revision.start";
+      sceneSource?:SceneSource;
       projectId: ID;
       text: string;
       scope: RevisionJob["scope"];
@@ -227,6 +230,7 @@ export function validateRevisionJob(
     "sourceProjectDigest",
     "sourceAuthoringDigest",
     "sourceProfileDigest",
+    "sceneSource",
     "chapterSources",
     "referenceChapterSources",
     "noteSources",
@@ -289,6 +293,7 @@ export function validateRevisionJob(
     )
       bad();
   } else if (value.scope === "selection") bad();
+  if(value.sceneSource!==undefined){validateSceneSource(value.sceneSource);if(value.scope!=="selection")bad();}
   if (value.sourceProjectDigest !== undefined)
     digest(value.sourceProjectDigest);
   if (value.sourceAuthoringDigest !== undefined)

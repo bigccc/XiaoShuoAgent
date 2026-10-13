@@ -1,3 +1,4 @@
+import {SceneService} from "./scenes";
 import {StoryStateService} from "./story-state";
 import {storyContext,storyStampCurrent,type StoryStamp} from "./story-context";
 import type { RecallReference } from "../shared/recall";
@@ -77,7 +78,7 @@ export class WritingRunner {
     return p;
   }
   private assertAvailable(projectId: string, except?: string) {
-    if (this.store.selectByProject("storyJobs",projectId).some(j=>j.status==="running") || this.store.selectByProject("writingJobs", projectId).some(j => j.id !== except && j.status === "running") ||
+    if (this.store.selectByProject("sceneJobs",projectId).some(j=>j.status==="running") || this.store.selectByProject("storyJobs",projectId).some(j=>j.status==="running") || this.store.selectByProject("writingJobs", projectId).some(j => j.id !== except && j.status === "running") ||
       this.store.selectByProject("conversations", projectId).some(j => j.status === "running") ||
       this.store.selectByProject("revisionJobs", projectId).some(j => j.status === "running") ||
       this.store.selectByProject("tasks", projectId).some(j => ["running", "waiting"].includes(j.status)))
@@ -272,15 +273,19 @@ export class WritingRunner {
     }
     const source = this.context(j, progress.ordinal), context = this.bounded(j, source, existing?.content.trim() ? existing.id : undefined);
     this.update(id, { reply: `${revising ? "正在修订" : "正在写作"}第${progress.ordinal}章${revising ? `（第${progress.revisionRounds + 1}/2轮）` : ""}` });
-    const raw = await this.call(id, revising ? "修订" : "生成", this.input(j, context, progress.ordinal),
-      '只返回JSON {"title":"章节标题","content":"本章完整正文","majorChange":false,"reason":""}。可选states最多20项，每项kind=event|location|condition|item|knowledge|relationship|foreshadowing、subject、attribute（knowledge用具体信息主题）、value、statement=fact|plan|guess|lie|recollection、storyTime（没有则空字符串）、quote（本章连续逐字最短原文）；伏笔另带foreshadowingStage=planned|planted|progressing|abandoned，planned须plan，埋设推进须fact。回收先提为event事实候选，不输出resolved；作者将在伏笔页面绑定埋设和回收双证据。只提议候选，不修改已确认记录。不套type/content外壳，不添加其他字段。只完成指定ordinal章节，不输出摘要或其他章节。content严格控制在wordLimit.min到wordLimit.max个字符内，汉字和标点都计数、空白不计；当前字数见wordLimit.current。字数上限较短时只展开本章最必要场景，超过上限的修订应删除冗余描写而非继续增加情节。修订时保留仍有效内容并解决pendingIssues，不擅自推翻已确认人设、主线和结局；必须变更时返回majorChange=true及具体reason，不输出改稿。', Math.min(32000, Math.max(1024, this.project(j.projectId).chapterWords * 3)), signal, false, context.documents.flatMap(d=>d.reference ? [d.reference] : []));
-    const result = parseObject(raw, ["title", "content", "majorChange", "reason", "states"]); this.checkSources(source.sources,source.storyStamp,this.job(id).projectId); this.assertRunning(id, signal);
+    const sceneService=new SceneService(this.store),scenePlan=existing?sceneService.forChapter(existing.id):undefined;
+    if(scenePlan&&!sceneService.current(scenePlan))throw new WritingPause("本章场景依据已改变，请编辑保存或重新规划后继续");
+    const generationInput={...this.input(j,context,progress.ordinal),...(scenePlan?{scenePlan:{targetWords:scenePlan.targetWords,cards:scenePlan.cards}}:{})};
+    const checkScene=()=>{if(scenePlan&&sceneService.record(scenePlan.id).revision!==scenePlan.revision)throw new DomainError("CONFLICT","场景计划在生成期间已改变，旧回复未写入");};
+    const raw = await this.call(id, revising ? "修订" : "生成", generationInput,
+      '先按输入scenePlan组织本章；未提供时先构思2—4张场景卡再写正文，不要求作者逐卡确认。只返回JSON {"scenes":[{"title":"场景名","pov":"视角","goal":"目标","obstacle":"阻力","turn":"转折","reveal":"信息揭示","words":100,"hook":"转场或章末钩子","quote":"本章该场景中连续逐字原文"}],"title":"章节标题","content":"本章完整正文","majorChange":false,"reason":""}。scenes可选，卡片words合计等于chapterWords，其他每字段最多400字符；按篇幅优先删冗余描写或补冲突，衔接场景且不重复揭示同一信息。可选states最多20项，每项kind=event|location|condition|item|knowledge|relationship|foreshadowing、subject、attribute（knowledge用具体信息主题）、value、statement=fact|plan|guess|lie|recollection、storyTime（没有则空字符串）、quote（本章连续逐字最短原文）；伏笔另带foreshadowingStage=planned|planted|progressing|abandoned，planned须plan，埋设推进须fact。回收先提为event事实候选，不输出resolved；作者将在伏笔页面绑定埋设和回收双证据。只提议候选，不修改已确认记录。不套type/content外壳，不添加其他字段。只完成指定ordinal章节，不输出摘要或其他章节。content严格控制在wordLimit.min到wordLimit.max个字符内，汉字和标点都计数、空白不计；当前字数见wordLimit.current。字数上限较短时只展开本章最必要场景，超过上限的修订应删除冗余描写而非继续增加情节。修订时保留仍有效内容并解决pendingIssues，不擅自推翻已确认人设、主线和结局；必须变更时返回majorChange=true及具体reason，不输出改稿。', Math.min(32000, Math.max(1024, this.project(j.projectId).chapterWords * 3)), signal, false, context.documents.flatMap(d=>d.reference ? [d.reference] : []));
+    const result = parseObject(raw, ["title", "content", "majorChange", "reason", "states", "scenes"]); checkScene(); this.checkSources(source.sources,source.storyStamp,this.job(id).projectId); this.assertRunning(id, signal);
     if (result.majorChange) { this.update(id, { status: "awaiting-author", reply: String(result.reason) }); return; }
     if (typeof result.content !== "string" || !result.content.trim() || result.content.length > 200000 || typeof result.title !== "string" || !result.title.trim() || result.title.length > 200)
       throw new ProviderError("FORMAT", "模型未返回完整章节正文和标题，进度已保留");
     const content = result.content, title = result.title;
     this.store.transaction(() => {
-      this.assertRunning(id, signal); this.checkSources(source.sources,source.storyStamp,this.job(id).projectId); j = this.job(id); progress = j.chapters[j.cursor];
+      this.assertRunning(id, signal); checkScene(); this.checkSources(source.sources,source.storyStamp,this.job(id).projectId); j = this.job(id); progress = j.chapters[j.cursor];
       if (progress.existing && existing) {
         const revisionId = this.propose(j, existing.id, title, content, source.sources);
         this.update(id, { revisionJobIds: [...j.revisionJobIds, revisionId], chapters: j.chapters.map((c, i) => i === j.cursor ? { ...c, status: "needs-review", revisionRounds: c.revisionRounds + 1, checkedRevision: existing.revision } : c) });
@@ -298,6 +303,7 @@ export class WritingRunner {
       }
       const p = this.project(j.projectId), workflow = readAuthoring(this.store.snapshot(), p);
       if (!workflow.writingStarted || workflow.activeStage !== "writing") this.store.put("projects", { ...p, revision: p.revision + 1, updatedAt: new Date().toISOString(), authoring: { ...workflow, writingStarted: true, activeStage: "writing" } });
+      if(result.scenes!==undefined){const warnings=sceneService.capture(this.store.get("chapters",chapterId)!,result.scenes,p.chapterWords);this.update(id,{warnings:[...new Set([...this.job(id).warnings,...warnings])].slice(-100)});}
       this.update(id, { phase: "checking", reviewCursor: 0,
         chapters: j.chapters.map((c, i) => i === j.cursor ? { ...c, chapterId, savedRevision: saved.revision, status: "written", revisionRounds: c.revisionRounds + (revising ? 1 : 0), checkedRevision: undefined } : c),
         issues: j.issues.filter(i => !i.evidence.some(e => e.source.kind === "chapter" && e.source.id === chapterId)),

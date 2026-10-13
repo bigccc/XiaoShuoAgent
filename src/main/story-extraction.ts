@@ -35,7 +35,7 @@ export class StoryExtractionRunner {
         const p = this.store.get("projects", projectId);
         if (!p || p.archived)
             throw new DomainError("NOT_FOUND", "作品不存在或已归档");
-        if (this.store.selectByProject("storyJobs", projectId).some(j => j.id !== except && j.status === "running") || this.store.selectByProject("writingJobs", projectId).some(j => j.status === "running") || this.store.selectByProject("conversations", projectId).some(j => j.status === "running") || this.store.selectByProject("revisionJobs", projectId).some(j => j.status === "running") || this.store.selectByProject("tasks", projectId).some(j => ["running", "waiting"].includes(j.status)) || this.store.selectByProject("syncJobs", projectId).some(j => j.status === "running"))
+        if (this.store.selectByProject("sceneJobs",projectId).some(j=>j.status==="running") || this.store.selectByProject("storyJobs", projectId).some(j => j.id !== except && j.status === "running") || this.store.selectByProject("writingJobs", projectId).some(j => j.status === "running") || this.store.selectByProject("conversations", projectId).some(j => j.status === "running") || this.store.selectByProject("revisionJobs", projectId).some(j => j.status === "running") || this.store.selectByProject("tasks", projectId).some(j => ["running", "waiting"].includes(j.status)) || this.store.selectByProject("syncJobs", projectId).some(j => j.status === "running"))
             throw new DomainError("CONFLICT", "这部作品已有AI任务运行，请先完成或暂停后提取状态");
     }
     start(c: StoryJobStart) {

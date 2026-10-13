@@ -1,3 +1,4 @@
+import {validateScenePlan,validateSceneJob} from "../shared/scenes";
 import { validateStoryRecord, validateStoryJob } from "../shared/story-state";
 import { chapterDigest,storyContext,storyStampCurrent } from "./story-context";
 import { randomUUID, createHash } from "node:crypto";
@@ -154,7 +155,7 @@ const tables = [
   "syncBatches",
   "readingWorkspaces",
   "revisionJobs",
-  "writingJobs", "storyRecords", "storyJobs",
+  "writingJobs", "storyRecords", "storyJobs", "scenePlans", "sceneJobs",
 ] as const;
 type Portable = Required<Pick<AppState, (typeof tables)[number]>>;
 export class ProjectFiles {
@@ -218,6 +219,8 @@ export class ProjectFiles {
       readingWorkspaces: (s.readingWorkspaces ?? []).filter(w => w.projectId === id),
       revisionJobs: (s.revisionJobs ?? []).filter(j => j.projectId === id).map(({ profileId, ...job }) => job),
       writingJobs: (s.writingJobs ?? []).filter(j => j.projectId === id).map(({ profileId, checkingProfileId, ...job }) => job),
+      scenePlans:(s.scenePlans??[]).filter(p=>p.projectId===id),
+      sceneJobs:(s.sceneJobs??[]).filter(j=>j.projectId===id).map(({profileId,...j})=>j),
       storyRecords: (s.storyRecords ?? []).filter(r=>r.projectId===id),
       storyJobs: (s.storyJobs ?? []).filter(j=>j.projectId===id).map(({profileId,...j})=>j),
       materials: s.materials
@@ -237,7 +240,7 @@ export class ProjectFiles {
       path,
       JSON.stringify({
         format: "xiaoshuo-project",
-        version: 6,
+        version: 7,
         sha256: digest(payload),
         payload,
       }),
@@ -256,7 +259,7 @@ export class ProjectFiles {
     if (
       !pack ||
       !["xiaoshuo-project", "xiaoshuo-recovery"].includes(pack.format) ||
-      ![1, 2, 3, 4, 5, 6].includes(pack.version) ||
+      ![1, 2, 3, 4, 5, 6, 7].includes(pack.version) ||
       !pack.payload ||
       pack.sha256 !== digest(pack.payload)
     )
@@ -290,6 +293,7 @@ export class ProjectFiles {
     }
     const s = pack.payload as Portable;
     if(pack.version<6){pack.payload.storyRecords=[];pack.payload.storyJobs=[];if(pack.format==="xiaoshuo-recovery")pack.payload.schemaVersion=6;}
+    if(pack.version<7){pack.payload.scenePlans=[];pack.payload.sceneJobs=[];if(pack.format==="xiaoshuo-recovery")pack.payload.schemaVersion=7;}
     if (pack.format === "xiaoshuo-recovery") validateRecovery(s);
     else validatePortable(s);
     return this.importPayload(s);
@@ -297,13 +301,21 @@ export class ProjectFiles {
   private importPayload(s: Portable): string {
     const ids = new Map<string, string>();
     // Preserve the source validity decision before identity remapping.
-    const sourceState={...s,schemaVersion:6,profiles:[]} as AppState;
+    const sourceState={...s,schemaVersion:7,profiles:[]} as AppState;
     const currentStoryTasks=new Set(s.tasks.filter(t=>{
       const stamp=(t.requestSnapshot as any)?.context?.storyStamp;
       return stamp&&storyStampCurrent(sourceState,t.projectId,stamp);
     }).map(t=>t.id));
+    const currentSceneStamps=new Set<string>();
+    for(const p of s.scenePlans)for(const f of [p,...p.history])if(storyStampCurrent(sourceState,f.projectId,f.storyStamp))currentSceneStamps.add(`${p.id}:${f.revision}`);
+    const currentSceneRevisions=new Set(s.revisionJobs.filter(j=>j.sceneSource?.storyStamp&&s.scenePlans.some(p=>p.id===j.sceneSource!.id&&p.revision===j.sceneSource!.revision)&&storyStampCurrent(sourceState,j.projectId,j.sceneSource.storyStamp)).map(j=>j.id));
+    const currentSceneJobs=new Set(s.sceneJobs.filter(j=>storyStampCurrent(sourceState,j.projectId,j.storyStamp)).map(j=>j.id));
     for (const table of tables)
       for (const r of s[table]) ids.set(r.id, randomUUID());
+    for(const p of s.scenePlans)for(const f of [p,...p.history])for(const c of f.cards)if(!ids.has(c.id))ids.set(c.id,randomUUID());
+    for(const p of [...s.scenePlans,...s.sceneJobs])for(const f of "history" in p?[p,...p.history]:[p]){
+      for(const ref of f.sources)if(!ids.has(ref.id))ids.set(ref.id,randomUUID());
+    }
     for (const w of s.readingWorkspaces) {
       w.annotations.forEach(a => { remapReadingId(a.id); });
       w.volumes.forEach(v => { remapReadingId(v.id); });
@@ -473,12 +485,27 @@ export class ProjectFiles {
         const { profileId, checkingProfileId, reviewSourceDigest, checkCursor, checkSourceDigest, checkIssues, ...job } = j;
         this.store.put("writingJobs", { ...nested(job), status: j.status === "running" ? "interrupted" : j.status });
       }
+      for(const p of s.scenePlans)this.store.put("scenePlans",nested(p));
+      for(const j of s.sceneJobs){const {profileId,...job}=j;this.store.put("sceneJobs",{...nested(job),status:j.status==="running"?"interrupted":j.status});}
       for(const r of s.storyRecords)this.store.put("storyRecords",nested(r));
       for(const j of s.storyJobs){const {profileId,...job}=j;this.store.put("storyJobs",{...nested(job),status:j.status==="running"?"interrupted":j.status});}
       for (const original of s.projects) this.reprojectImportedProject(remap(original.id), original.title);
       // All records and evidence now have their final imported identities.
       // Refresh only previously current stamps; stale tasks must remain blocked.
       const importedState=this.store.snapshot();
+      for(const original of s.scenePlans){
+        const imported=this.store.get("scenePlans",remap(original.id))!;
+        for(const frame of [imported,...imported.history])if(currentSceneStamps.has(`${original.id}:${frame.revision}`))frame.storyStamp=storyContext(importedState,imported.projectId,frame.storyStamp.beforeOrdinal,frame.storyStamp.writingJobId).stamp;
+        this.store.put("scenePlans",imported);
+      }
+      for(const original of s.sceneJobs)if(currentSceneJobs.has(original.id)){
+        const j=this.store.get("sceneJobs",remap(original.id))!;this.store.put("sceneJobs",{...j,storyStamp:storyContext(importedState,j.projectId,j.storyStamp.beforeOrdinal,j.storyStamp.writingJobId).stamp});
+      }
+
+      for(const original of s.revisionJobs)if(currentSceneRevisions.has(original.id)){
+        const imported=this.store.get("revisionJobs",remap(original.id))!,stamp=imported.sceneSource!.storyStamp!;
+        this.store.put("revisionJobs",{...imported,sceneSource:{...imported.sceneSource!,storyStamp:storyContext(importedState,imported.projectId,stamp.beforeOrdinal,stamp.writingJobId).stamp}});
+      }
       for(const original of s.tasks){
         if(!currentStoryTasks.has(original.id))continue;
         const imported=this.store.get("tasks",remap(original.id))!;
@@ -653,6 +680,7 @@ function validatePortable(s: any): asserts s is Portable {
     if ([...t.chapterIds, ...(t.chapterId ? [t.chapterId] : []), ...(t.proposal?.chapterIds ?? []), ...(t.response?.proposal?.chapterIds ?? []), ...(t.response?.chapters ?? []).flatMap((c: any) => c.id ? [c.id] : [])].some(id => !chapters.has(id)) || (t.proposalTurnId && !turns.has(t.proposalTurnId))) fail("作品包对话引用不正确");
   }
   validateStoryOwnership(s);
+  validateSceneOwnership(s);
   validateReadingPayload(s);
   validateWritingPayload(s);
 }
@@ -661,7 +689,7 @@ function validateRecovery(s: any): void {
   validatePublicJson(s);
   if (
     !s ||
-    s.schemaVersion !== 6 ||
+    s.schemaVersion !== 7 ||
     Object.keys(s).sort().join(",") !==
       ["schemaVersion", ...tables].sort().join(",")
   )
@@ -696,6 +724,7 @@ function validateRecovery(s: any): void {
   }
   validateRecallOwnership(s);
   validateStoryOwnership(s);
+  validateSceneOwnership(s);
   for (const project of s.projects) {
     const pid = project.id;
     validatePortable({
@@ -711,6 +740,8 @@ function validateRecovery(s: any): void {
       readingWorkspaces: s.readingWorkspaces.filter((r: any) => r.projectId === pid),
       revisionJobs: s.revisionJobs.filter((r: any) => r.projectId === pid),
       writingJobs: s.writingJobs.filter((r: any) => r.projectId === pid),
+      scenePlans:s.scenePlans.filter((r:any)=>r.projectId===pid),
+      sceneJobs:s.sceneJobs.filter((r:any)=>r.projectId===pid),
       storyRecords:s.storyRecords.filter((r:any)=>r.projectId===pid),
       storyJobs:s.storyJobs.filter((r:any)=>r.projectId===pid),
       materials: s.materials
@@ -1085,4 +1116,15 @@ function validateStoryOwnership(s:Portable):void {
     for(const e of j.sources){const c=chapters.get(e.chapterId);if(c&&(c.projectId!==j.projectId||e.revision>c.revision))fail("状态提取任务来源跨作品或版本不正确");if(c&&c.revision===e.revision&&(chapterDigest(c)!==e.contentHash||c.content.length!==e.length))fail("状态提取任务来源与原文不一致");}
     for(const id of j.candidateIds){const r=records.get(id);if(r&&r.projectId!==j.projectId)fail("状态提取候选跨作品引用");}
   }
+}
+
+function validateSceneOwnership(s:Portable):void{
+  const chapters=new Map(s.chapters.map(c=>[c.id,c])),plans=new Map(s.scenePlans.map(p=>[p.id,p]));
+  const owners=new Map<string,string>();
+  const references=(value:{projectId:string;sources:SourceRevision[]})=>{for(const ref of value.sources){const record=ref.kind==="chapter"?chapters.get(ref.id):ref.kind==="project"?s.projects.find(p=>p.id===ref.id):ref.kind==="note"?s.notes.find(n=>n.id===ref.id):undefined;if(record&&(ref.kind==="project"?record.id!==value.projectId:(record as any).projectId!==value.projectId))fail("场景来源跨作品");}};
+  for(const p of s.scenePlans){validateScenePlan(p);const ch=chapters.get(p.chapterId);if(!ch||ch.projectId!==p.projectId)fail("场景章节归属不正确");
+    for(const f of [p,...p.history]){references(f);for(const card of f.cards){const owner=owners.get(card.id);if(owner&&owner!==p.id)fail("场景卡身份重复");owners.set(card.id,p.id);const a=card.anchor;if(a&&(a.chapterId!==ch.id||a.revision===ch.revision&&(a.end>ch.content.length||ch.content.slice(a.start,a.end)!==a.quote)))fail("场景绑定原文不正确");}}
+  }
+  for(const j of s.revisionJobs)if(j.sceneSource){const p=plans.get(j.sceneSource.id);if(!p||p.projectId!==j.projectId||!j.chapterIds.includes(p.chapterId)||![p,...p.history].some(f=>f.cards.some(c=>c.id===j.sceneSource!.cardId)))fail("定向场景改稿引用不正确");}
+  for(const j of s.sceneJobs){validateSceneJob(j);const ch=chapters.get(j.chapterId);if(!ch||ch.projectId!==j.projectId)fail("场景任务章节不正确");references(j);const p=j.basePlanId?plans.get(j.basePlanId):undefined;if(j.basePlanId&&(!p||p.projectId!==j.projectId||p.chapterId!==j.chapterId))fail("场景任务原计划引用不正确");}
 }

@@ -405,3 +405,18 @@ it("a rejected check envelope cannot enter repair and lose its nested decision",
   const job = await done(app, await start(app, projectId, "写完前一章"));
   expect(job.status).toBe("failed");
 });
+it("scenes: same generation response saves two scene cards without an extra request",async()=>{
+  const cards=Array.from({length:2},(_,i)=>({title:`雨夜${i}`,pov:"阿宁",goal:"查信",obstacle:"锁门",turn:"解暗号",reveal:"旧城",words:60,hook:"脚步",quote:"雨落在窗前。"}));
+  const f=await setup((phase,input,res)=>{if(phase.includes("连续写作·生成")){reply(res,{title:"雨夜",content:"雨落在窗前。".repeat(20),majorChange:false,reason:"",scenes:cards});return true;}});
+  const j=await done(f.app,await start(f.app,f.projectId,"写完前一章"));expect(j.status,j.reply).toBe("completed");expect(f.calls).toHaveLength(4);expect(f.app.snapshot().scenePlans).toHaveLength(1);expect(f.app.snapshot().scenePlans![0].cards).toHaveLength(2);
+});
+it("scenes: malformed optional cards warn while preserving complete generated prose",async()=>{
+  const f=await setup((phase,_input,res)=>{if(phase.includes("连续写作·生成")){reply(res,{title:"雨夜",content:"雨落在窗前。".repeat(20),majorChange:false,reason:"",scenes:[{title:"坏卡"}]});return true;}});
+  const j=await done(f.app,await start(f.app,f.projectId,"写完前一章"));expect(j.status,j.reply).toBe("completed");expect(f.app.snapshot().chapters[0].content.length).toBe(120);expect(f.app.snapshot().scenePlans).toEqual([]);expect(j.warnings.join(" ")).toContain("场景");
+});
+it("scenes: an author plan reaches the generation input and cannot be replaced by returned cards",async()=>{
+  const f=await setup((phase,input,res)=>{if(phase.includes("连续写作·生成")){reply(res,{title:"雨夜",content:"雨落在窗前。".repeat(20),majorChange:false,reason:"",scenes:Array.from({length:2},(_,i)=>({title:`模型卡${i}`,pov:"老周",goal:"模型新目标",obstacle:"雨",turn:"门开",reveal:"信",words:60,hook:"下一章"}))});return true;}});
+  const ch=id(await f.app.dispatch({type:"chapter.create",projectId:f.projectId,ordinal:1,title:"开篇"}));
+  id(await f.app.dispatch({type:"scene.save",projectId:f.projectId,chapterId:ch,targetWords:120,cards:Array.from({length:2},(_,i)=>({title:`作者卡${i}`,pov:"阿宁",goal:"作者保留目标",obstacle:"锁门",turn:"解锁",reveal:"信",words:60,hook:"脚步"}))}));
+  const j=await done(f.app,await start(f.app,f.projectId,"写完前一章"));expect(j.status,j.reply).toBe("completed");expect(f.calls.find(c=>c.phase.includes("连续写作·生成"))!.input.scenePlan.cards[0].goal).toBe("作者保留目标");expect(f.app.snapshot().scenePlans![0].cards[0].goal).toBe("作者保留目标");
+});

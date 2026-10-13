@@ -1,3 +1,5 @@
+import {SceneService} from "./scenes";
+import {validateSceneSource} from "../shared/scenes";
 import { createHash, randomUUID } from "node:crypto";
 import type {
   AsyncCommand,
@@ -302,6 +304,7 @@ export class RevisionRunner {
             "annotationIds",
             "profileId",
             "tokenBudget",
+            "sceneSource",
           ].includes(k),
       ) ||
       !idValue(c.projectId) ||
@@ -312,6 +315,7 @@ export class RevisionRunner {
       (c.profileId !== undefined && !idValue(c.profileId))
     )
       fail("改稿请求格式不正确");
+    if(c.sceneSource!==undefined){validateSceneSource(c.sceneSource);if(c.scope!=="selection")fail("场景改稿须限定原文片段");new SceneService(this.store).assertSource(c.sceneSource,c.projectId);}
     const tokenBudget = budget(c.tokenBudget),
       p = this.project(c.projectId);
     if (
@@ -359,6 +363,7 @@ export class RevisionRunner {
       chapterIds,
       annotationIds,
       ...(c.selection ? { selection: c.selection } : {}),
+      ...(c.sceneSource?{sceneSource:c.sceneSource}:{}),
       status: "running",
       tokenBudget,
       usage: null,
@@ -408,6 +413,7 @@ export class RevisionRunner {
     return p;
   }
   private sourceCheck(j: RevisionJob, chapterId?: string) {
+    if(j.sceneSource)new SceneService(this.store).assertSource(j.sceneSource,j.projectId);
     const p = this.project(j.projectId);
     if (!j.sourceProjectDigest || projectHash(p) !== j.sourceProjectDigest)
       fail("作品设定已修改，改稿来源发生变化", "CONFLICT");
@@ -736,7 +742,7 @@ export class RevisionRunner {
           selection = j.selection;
         const scopedSystem = selection
           ? `${SYSTEM}
-本轮唯一允许回写的 chapter.id = ${ch.id}。这是选段任务，只能替换提供的 selection.quote。严格返回 message 和 replacement，禁止返回 chapters 或整章正文；选段之外的文本由应用保留。`
+本轮唯一允许回写的 chapter.id = ${ch.id}。这是选段任务，只能替换提供的 selection.quote。严格返回 message 和 replacement，禁止返回 chapters 或整章正文；选段之外的文本由应用保留。${j.sceneSource?"场景卡是计划而非原文。只调整作者指明的视角/目标/阻力/转折/篇幅。重大方向变更须只返回message、majorChange:true和reason，不返回replacement，等作者决定。":""}`
           : `${SYSTEM}
 本轮唯一允许回写的 chapter.id = ${ch.id}。这是应用逐章推进的当前批次，即使作者要求多章或全书，也只能返回当前 chapter.id 的完整改稿或 chapters: []。adjacentContext 仅供参考，不得返回相邻章节；plannedChanges 里的其他章节也没有本轮回写授权。绝对禁止返回当前 id 以外的 chapters 项。`;
         const fullNotes: Note[] = [],
@@ -762,6 +768,7 @@ export class RevisionRunner {
             content: selection ? selection.quote : ch.content,
           },
           ...(selection ? { selection } : {}),
+          ...(j.sceneSource?{scene:new SceneService(this.store).record(j.sceneSource.id).cards.find(c=>c.id===j.sceneSource!.cardId)}:{}),
           plannedChanges: { project: j.projectPatch ?? {}, notes: j.notes },
           annotations: this.annotations(j, ch.id, true).map((a) => ({
             text: a.text,
@@ -963,7 +970,7 @@ export class RevisionRunner {
             typeof raw !== "object" ||
             Array.isArray(raw) ||
             Object.keys(raw).some(
-              (k) => !["message", "replacement"].includes(k),
+              (k) => !(j.sceneSource?["message","replacement","majorChange","reason"]:["message", "replacement"]).includes(k),
             ) ||
             typeof raw.message !== "string" ||
             !raw.message.trim() ||
@@ -974,6 +981,10 @@ export class RevisionRunner {
           )
             fail("选段改稿只能返回说明与替换片段");
           message = raw.message;
+          if(j.sceneSource){
+            if(raw.majorChange!==undefined&&typeof raw.majorChange!=="boolean"||raw.reason!==undefined&&(typeof raw.reason!=="string"||raw.reason.length>2000))fail("场景方向变更标记不正确");
+            if(raw.majorChange){if(!raw.reason?.trim())fail("重大方向变更缺少作者决定说明");this.update(id,{status:"awaiting-author",reply:raw.reason});return;}
+          }
           if (raw.replacement === undefined) {
             this.update(id, { status: "awaiting-author", reply: message });
             return;
@@ -1136,7 +1147,7 @@ export class RevisionRunner {
         };
         this.store.transaction(() => {
           this.sourceCheck(j, nextId);
-          if (j.scope === "selection" || j.scope === "chapter") {
+          if ((j.scope === "selection" || j.scope === "chapter") && !j.sceneSource) {
             const accepted = next.candidates.map((c) =>
               c.status === "pending" ? this.applyCandidate(j, c) : c,
             );

@@ -1,3 +1,4 @@
+import type {ScenePlan,SceneJob,SceneCommand} from "./scenes";
 import type { ReaderCommand, ReadingWorkspace, TextSelection } from "./reader";
 import type { RevisionCommand, RevisionJob } from "./revision";
 import type { WritingCommand, WritingJob } from "./writing";
@@ -382,6 +383,7 @@ export interface AppState {
   writingJobs?: WritingJob[];
   storyRecords?: StoryRecord[];
   storyJobs?: StoryExtractionJob[];
+  scenePlans?:ScenePlan[];sceneJobs?:SceneJob[];
 }
 type Existing = { id: ID; revision: number };
 type Saving = { id?: ID; revision?: number };
@@ -522,7 +524,7 @@ export type AsyncCommand =
     }
   | { type: "file.backup"; projectId: ID }
   | { type: "file.importBackup" };
-export type Command = DomainCommand | AsyncCommand | ReaderCommand | RevisionCommand | WritingCommand | StoryCommand | StoryJobCommand;
+export type Command = DomainCommand | AsyncCommand | ReaderCommand | RevisionCommand | WritingCommand | StoryCommand | StoryJobCommand | SceneCommand;
 export type ErrorCode =
   | "VALIDATION"
   | "NOT_FOUND"

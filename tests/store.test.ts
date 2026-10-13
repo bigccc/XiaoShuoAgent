@@ -235,7 +235,7 @@ it("backs up the complete v2 database before adding persistent synchronization t
   legacy.exec("DROP TABLE IF EXISTS syncJobs; DROP TABLE IF EXISTS syncBatches; PRAGMA user_version=2;");
   legacy.close();
   const upgraded = new Store(path);
-  expect(upgraded.snapshot()).toMatchObject({ schemaVersion: 6, syncJobs: [], syncBatches: [], readingWorkspaces: [], revisionJobs: [], writingJobs: [] });
+  expect(upgraded.snapshot()).toMatchObject({ schemaVersion: 7, syncJobs: [], syncBatches: [], readingWorkspaces: [], revisionJobs: [], writingJobs: [] });
   const backups = readdirSync(paths.at(-1)!).filter(f => f.includes("before-v3"));
   expect(backups).toHaveLength(1);
   const original = new DatabaseSync(join(paths.at(-1)!, backups[0]));

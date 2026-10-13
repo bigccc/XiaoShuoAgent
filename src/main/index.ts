@@ -100,6 +100,8 @@ app
     ipcMain.handle("novel:conversation", (event, id: string) => { trusted(event); return services.conversation(id); });
     ipcMain.handle("novel:search", (event, projectId: string, query: string, offset?: number) => { trusted(event); return services.search(projectId, query, offset); });
     ipcMain.handle("novel:revision", (event, id: string, offset?: number, limit?: number) => { trusted(event); return services.revisionJob(id, offset, limit); });
+    ipcMain.handle("novel:scene-workspace",(event,id:string)=>{trusted(event);return services.sceneWorkspace(id);});
+    ipcMain.handle("novel:scene-plan",(event,id:string)=>{trusted(event);return services.scenePlan(id);});
     ipcMain.handle("novel:story-workspace",(event,query)=>{trusted(event);return services.storyWorkspace(query);});
     ipcMain.handle("novel:story-record",(event,id:string)=>{trusted(event);return services.storyRecord(id);});
     ipcMain.handle("novel:close", async (event, ready: boolean) => {

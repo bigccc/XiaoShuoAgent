@@ -10,6 +10,8 @@ contextBridge.exposeInMainWorld("novel", {
   search: (projectId: string, query: string, offset?: number) => ipcRenderer.invoke("novel:search", projectId, query, offset),
   revisionJob: (id: string, offset?: number, limit?: number) => ipcRenderer.invoke("novel:revision", id, offset, limit),
   storyWorkspace:(query:unknown)=>ipcRenderer.invoke("novel:story-workspace",query),
+  sceneWorkspace:(chapterId:string)=>ipcRenderer.invoke("novel:scene-workspace",chapterId),
+  scenePlan:(id:string)=>ipcRenderer.invoke("novel:scene-plan",id),
   storyRecord:(id:string)=>ipcRenderer.invoke("novel:story-record",id),
   onBeforeClose: (handler: () => void) => {
     const listener = () => handler();
