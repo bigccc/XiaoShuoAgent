@@ -1682,3 +1682,16 @@ blockquote {
   .conversation-pane, .manuscript-pane { min-width: 0; min-height: 0; }
   .work-actions { padding-inline: 15px; }
 }
+
+.story-state-page { height:100%; overflow:auto; padding:20px; display:flex; flex-direction:column; gap:16px; min-width:0; }
+.story-state-layout { display:grid; grid-template-columns:minmax(300px,0.9fr) minmax(360px,1.2fr); gap:18px; align-items:start; }
+.story-state-form { display:flex; flex-direction:column; gap:12px; }
+.story-state-form label { display:flex; flex-direction:column; gap:5px; }
+.story-state-form textarea { min-height:80px; }
+.story-state-form fieldset { display:flex; flex-direction:column; gap:10px; min-width:0; }
+.story-source { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+.story-record { border-bottom:1px solid #d9ded3; padding:14px 0; overflow-wrap:anywhere; }
+.story-record blockquote { white-space:pre-wrap; }
+.story-state-cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:12px; }
+.story-state-cards article { background:#eef2e8; border-radius:10px; padding:12px; overflow-wrap:anywhere; }
+@media(max-width:1100px){ .story-state-layout { grid-template-columns:minmax(0,1fr); } .story-state-page { padding:12px; } }
