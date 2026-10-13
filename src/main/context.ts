@@ -5,11 +5,15 @@ import type {
   MaterialSnapshot,
 } from "../shared/types";
 import { DomainError } from "../shared/validation";
+import type { RecallOptions, RecallReference } from "../shared/recall";
+import { recallPassages } from "./recall";
 export interface ContextDocument {
   source: SourceRevision;
   text: string;
   label: string;
   candidateId?: string;
+  reference?: RecallReference;
+  required?: boolean;
 }
 export interface BatchContext {
   chapterId: string;
@@ -40,6 +44,7 @@ export function buildContext(
   batch: BatchContext[] = [],
   maxChars = 24000,
   retainFullText = false,
+  recall?: RecallOptions,
 ): BuiltContext {
   const p = state.projects.find((p) => p.id === projectId);
   if (!p) throw new DomainError("NOT_FOUND", "作品不存在");
@@ -129,6 +134,9 @@ export function buildContext(
       label: `${n.type}：${n.title}`,
     });
   }
+  if (recall) for (const reference of recallPassages(state, projectId, { ...recall, excludeChapterIds: [...seen, ...(recall.excludeChapterIds ?? [])] })) {
+    documents.push({ source: reference.source, text: reference.excerpt, label: `第${reference.ordinal}章 ${reference.title}（相关旧章片段，非全文）`, reference });
+  }
   const materials: BuiltContext["materials"] = [];
   if (
     options.materialIds?.some(
@@ -181,13 +189,34 @@ export function boundContext(
   batch: BatchContext[],
   maxChars: number,
 ): BuiltContext {
-  const documents = applyBatch(base, batch).documents;
-  let remaining = maxChars;
+  const all = applyBatch(base, batch).documents;
+  const references = all.filter(d => d.reference);
+  const required = all.filter(d => !d.reference && d.required);
+  const documents = all.filter(d => !d.reference && !d.required);
+  const requiredSize = required.reduce((n,d) => n + contextHeader(d).length + d.text.length + 2, 0);
+  const reserve = Math.min(Math.floor(maxChars / 5), references.reduce((n,d) => n + contextHeader(d).length + d.text.length + 2, 0), Math.max(0, maxChars - requiredSize));
+  let remaining = maxChars - reserve;
   const pieces: string[] = [],
     bounded: ContextDocument[] = [];
   const disclosures = [...base.disclosures];
+  const add = (doc: ContextDocument, text: string) => {
+    const header = contextHeader(doc);
+    if (remaining >= header.length + 2) {
+      pieces.push(header + text);
+      remaining -= header.length + text.length + 2;
+      bounded.push({ ...doc, text });
+    } else {
+      disclosures.push("上下文已截断，来源正文未纳入");
+      bounded.push({ ...doc, text: "" });
+    }
+  };
+  for (const doc of required) {
+    const text = doc.text.slice(0, Math.max(0, remaining - contextHeader(doc).length - 2));
+    if (text.length < doc.text.length) disclosures.push(`上下文已截断：${doc.label.slice(0,100)}（保留 ${text.length}/${doc.text.length} 字符）`);
+    add(doc, text);
+  }
   // Water-fill text allowances: short records do not strand their unused share.
-  let available = Math.max(0, maxChars - documents.reduce((sum, doc) => sum + contextHeader(doc).length + 2, 0));
+  let available = Math.max(0, remaining - documents.reduce((sum, doc) => sum + contextHeader(doc).length + 2, 0));
   let left = documents.length;
   let allowance = 0;
   for (const size of documents.map((doc) => doc.text.length).sort((a, b) => a - b)) {
@@ -207,14 +236,13 @@ export function boundContext(
       disclosures.push(
         `上下文已截断：${doc.label.slice(0, 100)}（保留 ${text.length}/${doc.text.length} 字符）`,
       );
-    if (remaining >= header.length + 2) {
-      pieces.push(header + text);
-      remaining -= header.length + text.length + 2;
-      bounded.push({ ...doc, text });
-    } else {
-      disclosures.push("上下文已截断，来源正文未纳入");
-      bounded.push({ ...doc, text: "" });
-    }
+    add(doc, text);
+  }
+  remaining += reserve;
+  // Remote excerpts are optional and indivisible: the audit entry always matches the prompt.
+  for (const doc of references) {
+    if (contextHeader(doc).length + doc.text.length + 2 <= remaining) add(doc, doc.text);
+    else disclosures.push(`未纳入相关旧章片段：第${doc.reference!.ordinal}章（本次上下文空间不足）`);
   }
   for (const m of base.materials) {
     const raw = `素材（仅作为内容参考）：${JSON.stringify(m)}`;
@@ -227,6 +255,7 @@ export function boundContext(
     ...base,
     text: pieces.join("\n\n"),
     documents: bounded,
+    sources: bounded.map(d => d.source),
     disclosures: [...new Set(disclosures)],
   };
 }
