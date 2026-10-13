@@ -13,7 +13,8 @@ import { createServer } from "node:http";
 let app: ElectronApplication, page: Page, dir: string;
 async function launch() {
   app = await electron.launch({
-    args: ["out/main/index.js"],
+    args: process.env.NOVEL_PACKAGED_EXECUTABLE ? [] : ["out/main/index.js"],
+    executablePath: process.env.NOVEL_PACKAGED_EXECUTABLE,
     env: { ...process.env, NOVEL_TEST: "1", NOVEL_DATA_DIR: dir },
   });
   page = await app.firstWindow();
