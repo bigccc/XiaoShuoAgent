@@ -682,6 +682,7 @@ export function Conversation({
             />
           ) : chapter ? (
             <ChapterEditor
+              flush={flush}
               key={chapter.id}
               chapter={chapter}
               state={state}

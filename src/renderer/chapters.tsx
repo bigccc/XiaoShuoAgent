@@ -1,3 +1,4 @@
+import {ScenePanel} from "./scenes";
 import { useEffect, useState } from "react";
 import type { AppState, Chapter, ChapterVersion } from "../shared/types";
 import type { Run } from "./api";
@@ -71,6 +72,7 @@ export function Chapters({
           state={state}
           run={run}
           register={register}
+          flush={flush}
         />
       ) : (
         <Empty title="开始写第一章">
@@ -86,6 +88,7 @@ export function ChapterEditor(props: {
   run: Run;
   register: Register;
   conversational?: boolean;
+  flush?:Flush;
 }) {
   const [chapter, setChapter] = useState<Chapter | undefined>(() =>
     props.chapter.contentLoaded === false ? undefined : props.chapter,
@@ -122,13 +125,16 @@ function HydratedChapterEditor({
   run,
   register,
   conversational = false,
+  flush,
 }: {
   chapter: Chapter;
   state: AppState;
   run: Run;
   register: Register;
   conversational?: boolean;
+  flush?:Flush;
 }) {
+  const [scenesOpen,setScenesOpen]=useState(false);
   const [loadedVersions, setLoadedVersions] = useState<ChapterVersion[]>([]);
   const [history, setHistory] = useState(false),
     [chosen, setChosen] = useState("");
@@ -256,6 +262,8 @@ function HydratedChapterEditor({
           placeholder="从一句话开始。文字会自动保存在本机。"
         />
       </Field>
+      <button type="button" className="scene-toggle" aria-expanded={scenesOpen} onClick={()=>void (flush??editor.flush)().then(ok=>ok&&setScenesOpen(!scenesOpen))}>本章场景</button>
+      {scenesOpen&&<ScenePanel key={chapter.id} state={state} chapter={chapter} run={run} register={register} flush={flush??editor.flush} flushChapter={editor.flush}/>}
       {history && (
         <section className="history card">
           <h2>历史版本对比</h2>

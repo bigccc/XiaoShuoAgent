@@ -46,13 +46,15 @@ export class ScenePlanningRunner {
         if (c.type === "scene.resume") {
             if (!["paused", "interrupted", "failed", "awaiting-author"].includes(j.status) || this.active.has(j.id))
                 throw new DomainError("CONFLICT", "场景任务正在停止或不能继续");
+            if(j.status==="awaiting-author"&&!c.text?.trim())throw new DomainError("VALIDATION","请先填写作者对场景方向的决定，再继续规划");
+            if(c.text&&j.text.length+c.text.length+10>10000)throw new DomainError("VALIDATION","作者决定与原要求合计过长，请缩短补充决定");
             this.available(j.projectId, j.id);
             this.scenes.chapter(j.chapterId, j.projectId);
             this.current(j);
             if (c.tokenBudget !== undefined && c.tokenBudget < j.tokenBudget)
                 throw new DomainError("VALIDATION", "总预算不能低于原预算");
             const profile = this.profile(c.profileId ?? (j.profileId && this.store.get("profiles", j.profileId) ? j.profileId : undefined));
-            this.update(j.id, { profileId: profile.id, tokenBudget: c.tokenBudget ?? j.tokenBudget, ...(c.text ? { text: (j.text + "\n作者决定：" + c.text).slice(-10000) } : {}), status: "running", reply: "正在继续场景规划" });
+            this.update(j.id, { profileId: profile.id, tokenBudget: c.tokenBudget ?? j.tokenBudget, ...(c.text ? { text: j.text + "\n作者决定：" + c.text } : {}), status: "running", reply: "正在继续场景规划" });
             this.launch(j.id);
         }
         else if (!["completed", "cancelled"].includes(j.status)) {

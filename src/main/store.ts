@@ -242,7 +242,7 @@ export class Store {
       profiles: this.list("profiles").map(p => ({ ...p, hasKey: this.hasProfileKey(p.id) })),
       tasks: scoped("tasks"), issues: projectId ? scoped("issues") : [],
       conversations: [], syncJobs: [], syncBatches: [],
-      readingWorkspaces: projectId ? scoped("readingWorkspaces") : [], revisionJobs: [], writingJobs: [], storyRecords:[], storyJobs:projectId?scoped("storyJobs"):[],scenePlans:[],sceneJobs:projectId?scoped("sceneJobs"):[],
+      readingWorkspaces: projectId ? scoped("readingWorkspaces") : [], revisionJobs: [], writingJobs: [], storyRecords:[], storyJobs:projectId?scoped("storyJobs"):[],scenePlans:[],sceneJobs:[],
     };
     // Projections happen inside SQLite so discarded full-text JSON never crosses IPC.
     if (projectId) {
