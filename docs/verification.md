@@ -312,3 +312,5 @@ Apple Silicon arm64 DMG与ZIP已生成于`release/author-ui-20261013/`。DMG校�
 首轮公开包构建后，`codesign --verify --deep --strict` 返回 `code has no resources but signature indicates they must be present`：重命名后的应用保留 Electron 的 linker 临时签名，但没有完整资源封装。使用当前 `@electron/osx-sign` 对整个 bundle 以 `-` 身份重新签名后，同一严格验证通过。Forge 现默认执行这个临时签名，并在使用真实 Developer ID 时保留原有 hardened runtime 配置。临时签名不证明开发者身份、没有 Apple 公证，首次下载仍需用户允许。发现问题的首轮安装包未发布；最终包需重新构建和验证。
 
 随后启动回归发现当前 osx-sign 2.x 只从 `optionsForFile` 读取 runtime 参数；仅设置顶层参数会继续启用 hardened runtime，使临时签名主程序与 Framework 因 Team ID 校验冲突而无法加载。逐文件显式设置 `hardenedRuntime: false` 后，签名 flags 为 adhoc，严格签名校验和新作品桌面流程通过。最终公开包使用此配置重新构建，真实 Developer ID 路径仍使用 hardened runtime。
+
+最终签名包首轮安装回归39项通过、1项开发专用测试跳过，连接表单的测试密钥保存停在系统钥匙串访问。临时签名变化后 macOS 可能重新要求权限，Electron官方也记录了未稳定签名时的重复授权和测试挂起：[safeStorage](https://www.electronjs.org/docs/latest/api/safe-storage)、[测试隔离说明](https://releases.electronjs.org/pr/53790)。`author-ui.spec.ts` 的假密钥表单测试现使用 `--use-mock-keychain`，避免访问作者真实 Safe Storage 项；这是UI及业务流程验证，不能作为真实系统钥匙串授权或凭据保护的验收。生产应用继续使用真实safeStorage，未加入模拟或明文密钥存储。

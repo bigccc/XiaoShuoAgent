@@ -19,6 +19,8 @@
 2. 推出磁盘镜像，在「应用程序」中打开小说工坊。
 3. 本预览版尚无 Developer ID 签名或 Apple 公证。如果系统提示无法验证开发者，在确认下载来自本项目且文件完整后，先尝试打开应用，再到「系统设置 → 隐私与安全性」选择「仍要打开」，按提示确认。操作依据 [Apple 官方说明](https://support.apple.com/zh-cn/102445)。受管理的电脑可能由管理员限制这项操作。
 
+保存或使用 API 密钥时，macOS 可能要求允许小说工坊访问钥匙串。请在系统对话框中自行确认，需要密码时仅在系统对话框输入自己的 Mac 登录密码。临时签名在更新后可能再次触发授权，详见 [Electron safeStorage 说明](https://www.electronjs.org/docs/latest/api/safe-storage)。离线编辑不主动访问钥匙串。
+
 若显示文件损坏，请重新下载并核对 SHA-256；仍有问题时，在 [Issues](https://github.com/bigccc/XiaoShuoAgent/issues) 附上 macOS 版本、芯片类型、包名和提示截图。
 
 可以使用 `shasum -a 256 下载文件路径` 计算下载包的 SHA-256，与发布页 `SHA256SUMS.txt` 中同名文件那一行对照。

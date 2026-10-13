@@ -8,7 +8,8 @@ let app: ElectronApplication, page: Page, dir: string;
 test.beforeEach(async () => {
   dir = await mkdtemp(join(tmpdir(), "novel-author-ui-"));
   app = await electron.launch({
-    args: process.env.NOVEL_PACKAGED_EXECUTABLE ? [] : ["out/main/index.js"],
+    // UI fixtures must not request access to the author's real Safe Storage key.
+    args: [...(process.env.NOVEL_PACKAGED_EXECUTABLE ? [] : ["out/main/index.js"]), "--use-mock-keychain"],
     executablePath: process.env.NOVEL_PACKAGED_EXECUTABLE,
     env: { ...process.env, NOVEL_TEST: "1", NOVEL_DATA_DIR: dir },
   });
