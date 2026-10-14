@@ -221,7 +221,7 @@ export class AppServices {
               : command.type === "authoring.retrySync" ? this.store.get("syncJobs", command.id)?.projectId : undefined
         : undefined;
       const busyProject = "projectId" in command ? command.projectId : resumeProject;
-      const writesWithAI = command.type === "conversation.send" || command.type === "revision.start" || command.type === "scene.revise" || command.type.startsWith("ai.") || command.type === "authoring.sync" || !!resumeProject;
+      const writesWithAI = command.type === "structure.revise" || command.type === "conversation.send" || command.type === "revision.start" || command.type === "scene.revise" || command.type.startsWith("ai.") || command.type === "authoring.sync" || !!resumeProject;
       if(writesWithAI&&busyProject&&this.store.selectByProject("voiceJobs",busyProject).some(j=>j.status==="running"))throw new DomainError("CONFLICT","文风提取正在运行，请先暂停后再创作");
       if(writesWithAI&&busyProject&&this.store.selectByProject("sceneJobs",busyProject).some(j=>j.status==="running"))throw new DomainError("CONFLICT","场景规划正在运行，请先暂停后再创作");
       if(writesWithAI && busyProject && this.store.selectByProject("storyJobs",busyProject).some(j=>j.status==="running"))throw new DomainError("CONFLICT","故事状态提取正在运行，请先暂停再创作");

@@ -743,7 +743,7 @@ test("isolated renderer rejects a second window sender and has no Node or creden
     })),
   ).toEqual({
     node: "undefined",
-    keys: ["chapter", "chapterVersions", "closeReady", "conversation", "invoke", "onBeforeClose", "revisionJob", "scenePlan", "sceneWorkspace", "search", "snapshot", "storyRecord", "storyWorkspace", "voiceRecord", "voiceWorkspace", "workspaceSnapshot"],
+    keys: ["chapter", "chapterVersions", "closeReady", "conversation", "invoke", "onBeforeClose", "revisionJob", "scenePlan", "sceneWorkspace", "search", "snapshot", "storyRecord", "storyWorkspace", "structureConfig", "structureQuery", "voiceRecord", "voiceWorkspace", "workspaceSnapshot"],
   });
   expect(
     await app.evaluate(async ({ BrowserWindow }) => {
@@ -761,7 +761,7 @@ test("isolated renderer rejects a second window sender and has no Node or creden
       });
       await rogue.loadURL(main.webContents.getURL());
       const rejected = await rogue.webContents.executeJavaScript(
-        "Promise.all([window.novel.snapshot(),window.novel.conversation('untrusted')].map(p=>p.then(()=>false,e=>String(e).includes('拒绝未授权的窗口请求')))).then(results=>results.every(Boolean))",
+        "Promise.all([window.novel.snapshot(),window.novel.conversation('untrusted'),window.novel.structureConfig('untrusted'),window.novel.structureQuery({projectId:'untrusted',view:'scenes'})].map(p=>p.then(()=>false,e=>String(e).includes('拒绝未授权的窗口请求')))).then(results=>results.every(Boolean))",
       );
       rogue.destroy();
       return rejected;
