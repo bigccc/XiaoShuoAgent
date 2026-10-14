@@ -1,3 +1,4 @@
+import {validateVoiceStamp,type VoiceStamp} from "./voice";
 import {validateSceneSource,validateSceneReplacement,type SceneSource} from "./scenes";
 import { DomainError, validatePublicJson } from "./validation";
 import type {
@@ -12,6 +13,7 @@ import type { TextSelection } from "./reader";
 export const MAX_REVISION_TOKEN_BUDGET = 1_000_000_000;
 
 export interface RevisionCandidate {
+  voiceStamp?:VoiceStamp;
   chapterId: ID;
   sourceRevision: number;
   title: string;
@@ -31,6 +33,7 @@ export interface RevisionNoteProposal {
   body: string;
 }
 export interface RevisionJob extends RecordMeta {
+  voiceStamp?:VoiceStamp;
   sceneSource?:SceneSource;
   projectId: ID;
   profileId?: ID;
@@ -230,7 +233,7 @@ export function validateRevisionJob(
     "sourceProjectDigest",
     "sourceAuthoringDigest",
     "sourceProfileDigest",
-    "sceneSource",
+    "sceneSource", "voiceStamp",
     "chapterSources",
     "referenceChapterSources",
     "noteSources",
@@ -293,6 +296,7 @@ export function validateRevisionJob(
     )
       bad();
   } else if (value.scope === "selection") bad();
+  if(value.voiceStamp!==undefined)validateVoiceStamp(value.voiceStamp);
   if(value.sceneSource!==undefined){validateSceneSource(value.sceneSource);if(value.scope!=="selection")bad();}
   if (value.sourceProjectDigest !== undefined)
     digest(value.sourceProjectDigest);
@@ -345,7 +349,7 @@ export function validateRevisionJob(
       "content",
       "status",
       "appliedRevision",
-      "dependsOnChapterIds",
+      "dependsOnChapterIds", "voiceStamp",
     ]);
     string(c.chapterId);
     integer(c.sourceRevision, 1);
@@ -374,6 +378,7 @@ export function validateRevisionJob(
       )
         bad();
     }
+    if(c.voiceStamp!==undefined)validateVoiceStamp(c.voiceStamp);
     if(value.sceneSource)validateSceneReplacement(value.selection,c as unknown as RevisionCandidate);
     candidateIds.push(c.chapterId);
   }

@@ -35,7 +35,7 @@ function payload(f: ReturnType<typeof fixture>) { const { profiles, schemaVersio
 it("exports v3 sync data without private profiles and remaps every active and historical identity on import", async () => {
   const f = fixture(); await f.files.backup(f.id, f.path);
   const pack = JSON.parse(readFileSync(f.path, "utf8"));
-  expect(pack.version).toBe(7); expect(pack.payload.syncJobs).toHaveLength(1); expect(pack.payload.syncBatches).toHaveLength(1);
+  expect(pack.version).toBe(8); expect(pack.payload.syncJobs).toHaveLength(1); expect(pack.payload.syncBatches).toHaveLength(1);
   expect(readFileSync(f.path, "utf8")).not.toContain("DO-NOT-EXPORT-PROFILE");
   const copy = await f.files.importBackup(f.path), s = f.store.snapshot();
   const note = s.notes.find(n => n.projectId === copy && !n.archived)!, historical = s.notes.find(n => n.projectId === copy && n.archived)!;

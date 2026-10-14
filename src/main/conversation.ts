@@ -1,3 +1,5 @@
+import {voiceContext,voiceStampCurrent} from "./voice-context";
+import type {VoiceStamp} from "../shared/voice";
 import {storyContext,storyStampCurrent,type StoryStamp} from "./story-context";
 import { createHash, randomUUID } from "node:crypto";
 import { recallPassages } from "./recall";
@@ -406,7 +408,10 @@ export class ConversationRunner {
       fullNotes = new Set<string>();
     const fullArtifacts = new Set<string>();
     const pieces: string[] = [];
-    let remaining = this.maxChars;
+    const voiceQuery=[turn.text.slice(0,1500),...chapters.filter(c=>authorized.ids.has(c.id)||c.id===turn.chapterId).map(c=>c.content.slice(0,1200))].join("\n");
+    const voices=voiceContext(state,p.id,voiceQuery,Math.min(8000,Math.floor(this.maxChars/4)));
+    let remaining = this.maxChars-(voices.text?voices.text.length+2:0);
+    if(voices.text)pieces.push(voices.text);warnings.push(...voices.warnings);
     const add = (label: string, text: string) => {
       const available = Math.max(0, remaining - label.length - 4);
       const part = text.slice(0, available);
@@ -517,7 +522,7 @@ export class ConversationRunner {
       role: "user",
       content: `当前选中章节：${turn.chapterId ?? "尚无章节"}。本轮允许直接修改的已有章节id：${JSON.stringify([...authorized.ids])}。本轮最多新增${authorized.count}章。${warnings.length ? `覆盖提醒：${warnings.join("；")}` : ""}\n作者说：${turn.text}`,
     });
-    return { messages, full, fullNotes, fullProject, fullArtifacts, warnings, references, storyStamp:story.stamp };
+    return { messages, full, fullNotes, fullProject, fullArtifacts, warnings, references, storyStamp:story.stamp,voiceStamp:voices.stamp };
   }
   private async run(
     turn: ConversationTurn,
@@ -720,7 +725,7 @@ export class ConversationRunner {
       full: Set<string>;
       fullNotes: Set<string>;
       fullProject: boolean;
-      fullArtifacts: Set<string>; storyStamp?:StoryStamp;
+      fullArtifacts: Set<string>; storyStamp?:StoryStamp;voiceStamp?:VoiceStamp;
     },
     prepared?: Awaited<ReturnType<StageSyncService["prepareGenerated"]>>,
   ) {
@@ -835,6 +840,7 @@ export class ConversationRunner {
         );
     this.store.transaction(() => {
       const current = this.store.snapshot();
+      if(coverage.voiceStamp&&!voiceStampCurrent(current,turn.projectId,coverage.voiceStamp))throw new DomainError("CONFLICT","文风参考已改变，旧回复未写入，请重新发送");
       if(coverage.storyStamp && !storyStampCurrent(current,turn.projectId,coverage.storyStamp))throw new DomainError("CONFLICT","故事状态已改变，旧回复未写入，请重新发送");
       for (const table of ["projects", "notes", "chapters"] as const) {
         const relevant = (s: AppState) =>

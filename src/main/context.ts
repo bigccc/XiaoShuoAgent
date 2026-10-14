@@ -1,3 +1,5 @@
+import {voiceContext} from "./voice-context";
+import type {VoiceStamp} from "../shared/voice";
 import type {
   AiContextOptions,
   AppState,
@@ -29,6 +31,7 @@ export interface BuiltContext {
   disclosures: string[];
   materials: { id: string; snapshot: MaterialSnapshot }[];
   storyStamp?:StoryStamp;
+  voiceText?:string;voiceStamp?:VoiceStamp;
 }
 export function sourceCurrent(state: AppState, ref: SourceRevision): boolean {
   return (
@@ -48,6 +51,7 @@ export function buildContext(
   maxChars = 24000,
   retainFullText = false,
   recall?: RecallOptions,
+  voiceQuery?:string,
 ): BuiltContext {
   const p = state.projects.find((p) => p.id === projectId);
   if (!p) throw new DomainError("NOT_FOUND", "作品不存在");
@@ -171,14 +175,15 @@ export function buildContext(
     };
     materials.push({ id: m.id, snapshot });
   }
+  const voices=voiceContext(state,projectId,voiceQuery??targetChapters.map(c=>c.content.slice(0,1200)).join("\n"),Math.min(8000,Math.floor(maxChars/4)));
   const bounded = boundContext(
     {
       text: "",
       documents,
       sources: documents.map((d) => d.source),
-      disclosures,
+      disclosures:[...disclosures,...voices.warnings],
       materials,
-      storyStamp:story.stamp,
+      storyStamp:story.stamp,voiceText:voices.text,voiceStamp:voices.stamp,
     },
     [],
     maxChars,
@@ -199,6 +204,8 @@ export function boundContext(
   batch: BatchContext[],
   maxChars: number,
 ): BuiltContext {
+  const prefix=base.voiceText?base.voiceText+"\n\n":"";
+  maxChars=Math.max(0,maxChars-prefix.length);
   const all = applyBatch(base, batch).documents;
   const references = all.filter(d => d.reference);
   const required = all.filter(d => !d.reference && d.required);
@@ -263,7 +270,7 @@ export function boundContext(
   }
   return {
     ...base,
-    text: pieces.join("\n\n"),
+    text: prefix+pieces.join("\n\n"),
     documents: bounded,
     sources: bounded.map(d => d.source),
     disclosures: [...new Set(disclosures)],

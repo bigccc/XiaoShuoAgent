@@ -10,6 +10,8 @@ contextBridge.exposeInMainWorld("novel", {
   search: (projectId: string, query: string, offset?: number) => ipcRenderer.invoke("novel:search", projectId, query, offset),
   revisionJob: (id: string, offset?: number, limit?: number) => ipcRenderer.invoke("novel:revision", id, offset, limit),
   storyWorkspace:(query:unknown)=>ipcRenderer.invoke("novel:story-workspace",query),
+  voiceWorkspace:(query:unknown)=>ipcRenderer.invoke("novel:voice-workspace",query),
+  voiceRecord:(id:string)=>ipcRenderer.invoke("novel:voice-record",id),
   sceneWorkspace:(chapterId:string)=>ipcRenderer.invoke("novel:scene-workspace",chapterId),
   scenePlan:(id:string)=>ipcRenderer.invoke("novel:scene-plan",id),
   storyRecord:(id:string)=>ipcRenderer.invoke("novel:story-record",id),

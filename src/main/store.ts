@@ -1,3 +1,4 @@
+import {validateVoiceRecord,validateVoiceJob} from "../shared/voice-validation";
 import {validateScenePlan,validateSceneJob} from "../shared/scenes";
 import { isDeepStrictEqual } from "node:util";
 import { createHash } from "node:crypto";
@@ -43,7 +44,7 @@ const collections: Collection[] = [
   "readingWorkspaces",
   "revisionJobs",
   "writingJobs",
-  "storyRecords", "storyJobs", "scenePlans", "sceneJobs",
+  "storyRecords", "storyJobs", "scenePlans", "sceneJobs", "voiceRecords", "voiceJobs",
 ];
 export class Store {
   private db: DatabaseSync;
@@ -66,7 +67,7 @@ export class Store {
       const version = Number(
         this.db.prepare("PRAGMA user_version").get()?.user_version,
       );
-      if (version > 7)
+      if (version > 8)
         throw new DomainError(
           "STORAGE",
           "数据库版本较新，请使用更新版本的应用",
@@ -74,7 +75,7 @@ export class Store {
       if (version < 1) {
         if (existing) this.backup(`${path}.before-v1-${Date.now()}.sqlite`);
         this.transaction(() => {
-          for (const table of collections.filter(t => !["syncJobs", "syncBatches", "readingWorkspaces", "revisionJobs", "writingJobs", "storyRecords", "storyJobs", "scenePlans", "sceneJobs"].includes(t)))
+          for (const table of collections.filter(t => !["syncJobs", "syncBatches", "readingWorkspaces", "revisionJobs", "writingJobs", "storyRecords", "storyJobs", "scenePlans", "sceneJobs", "voiceRecords", "voiceJobs"].includes(t)))
             this.db.exec(
               `CREATE TABLE IF NOT EXISTS ${table}(id TEXT PRIMARY KEY, json TEXT NOT NULL)`,
             );
@@ -117,6 +118,7 @@ export class Store {
         if(existing&&version>=6)this.backup(`${path}.before-v7-${Date.now()}.sqlite`);
         this.transaction(()=>this.db.exec("CREATE TABLE IF NOT EXISTS scenePlans(id TEXT PRIMARY KEY,json TEXT NOT NULL);CREATE TABLE IF NOT EXISTS sceneJobs(id TEXT PRIMARY KEY,json TEXT NOT NULL);PRAGMA user_version=7;"));
       }
+      if(version<8){if(existing&&version>=7)this.backup(`${path}.before-v8-${Date.now()}.sqlite`);this.transaction(()=>this.db.exec("CREATE TABLE IF NOT EXISTS voiceRecords(id TEXT PRIMARY KEY,json TEXT NOT NULL);CREATE TABLE IF NOT EXISTS voiceJobs(id TEXT PRIMARY KEY,json TEXT NOT NULL);PRAGMA user_version=8;"));}
       for (const table of collections.filter(t => t !== "profiles"))
         this.db.exec(`CREATE INDEX IF NOT EXISTS ${table}_project ON ${table}(json_extract(json,'$.projectId'));`);
       this.db.exec("PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL;");
@@ -164,6 +166,7 @@ export class Store {
     if (table === "writingJobs") validateWritingJob(entity);
     if(table==="storyRecords")validateStoryRecord(entity);
     if(table==="storyJobs")validateStoryJob(entity);
+    if(table==="voiceRecords")validateVoiceRecord(entity);if(table==="voiceJobs")validateVoiceJob(entity);
     if(table==="scenePlans")validateScenePlan(entity);if(table==="sceneJobs")validateSceneJob(entity);
     if (table === "chapters") {
       const chapter = entity as Chapter;
@@ -188,7 +191,7 @@ export class Store {
     if (table === "chapters") this.chapterGeneration = this.generation;
   }
   snapshot(): AppState {
-    const state = { schemaVersion: 7 } as AppState;
+    const state = { schemaVersion: 8 } as AppState;
     for (const table of collections)
       (state[table] as unknown[]) = this.list(table);
     state.profiles = state.profiles.map((p) => ({
@@ -235,14 +238,14 @@ export class Store {
     const projects = this.list("projects");
     const chaptersUnchanged = since !== undefined && since >= this.chapterGeneration;
     const state: AppState = {
-      schemaVersion: 7, projects,
+      schemaVersion: 8, projects,
       chapters: chaptersUnchanged ? [] : this.chapterMetadata(), versions: [],
       notes: projectId ? scoped("notes") : [],
       materials: this.list("materials"),
       profiles: this.list("profiles").map(p => ({ ...p, hasKey: this.hasProfileKey(p.id) })),
       tasks: scoped("tasks"), issues: projectId ? scoped("issues") : [],
       conversations: [], syncJobs: [], syncBatches: [],
-      readingWorkspaces: projectId ? scoped("readingWorkspaces") : [], revisionJobs: [], writingJobs: [], storyRecords:[], storyJobs:projectId?scoped("storyJobs"):[],scenePlans:[],sceneJobs:[],
+      readingWorkspaces: projectId ? scoped("readingWorkspaces") : [], revisionJobs: [], writingJobs: [], storyRecords:[], storyJobs:projectId?scoped("storyJobs"):[],scenePlans:[],sceneJobs:[],voiceRecords:[],voiceJobs:[],
     };
     // Projections happen inside SQLite so discarded full-text JSON never crosses IPC.
     if (projectId) {

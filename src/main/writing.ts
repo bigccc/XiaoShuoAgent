@@ -1,3 +1,5 @@
+import {voiceStampCurrent} from "./voice-context";
+import type {VoiceStamp} from "../shared/voice";
 import {SceneService} from "./scenes";
 import {StoryStateService} from "./story-state";
 import {storyContext,storyStampCurrent,type StoryStamp} from "./story-context";
@@ -78,7 +80,7 @@ export class WritingRunner {
     return p;
   }
   private assertAvailable(projectId: string, except?: string) {
-    if (this.store.selectByProject("sceneJobs",projectId).some(j=>j.status==="running") || this.store.selectByProject("storyJobs",projectId).some(j=>j.status==="running") || this.store.selectByProject("writingJobs", projectId).some(j => j.id !== except && j.status === "running") ||
+    if (this.store.selectByProject("voiceJobs",projectId).some(j=>j.status==="running") || this.store.selectByProject("sceneJobs",projectId).some(j=>j.status==="running") || this.store.selectByProject("storyJobs",projectId).some(j=>j.status==="running") || this.store.selectByProject("writingJobs", projectId).some(j => j.id !== except && j.status === "running") ||
       this.store.selectByProject("conversations", projectId).some(j => j.status === "running") ||
       this.store.selectByProject("revisionJobs", projectId).some(j => j.status === "running") ||
       this.store.selectByProject("tasks", projectId).some(j => ["running", "waiting"].includes(j.status)))
@@ -161,8 +163,9 @@ export class WritingRunner {
     }).finally(() => this.active.delete(id));
     this.active.set(id, { controller, promise });
   }
-  private checkSources(sources: SourceRevision[], stamp?:StoryStamp, projectId?:string) {
+  private checkSources(sources: SourceRevision[], stamp?:StoryStamp, projectId?:string,voiceStamp?:VoiceStamp,voiceText?:string) {
     const state = this.store.snapshot();
+    if(voiceStamp&&projectId&&!voiceStampCurrent(state,projectId,voiceStamp,voiceText))throw new DomainError("CONFLICT","文风或角色表达参考已改变，旧回复未写入，请重新读取后继续");
     if(stamp && projectId && !storyStampCurrent(state,projectId,stamp))throw new DomainError("CONFLICT","故事状态已改变，旧回复未写入，请重新读取后继续");
     if (sources.some(s => !sourceCurrent(state, s))) throw new DomainError("CONFLICT", "创作资料或正文在生成期间发生变化，旧回复未写入，请继续任务重新读取");
   }
@@ -174,7 +177,9 @@ export class WritingRunner {
     const recall = ordinal && !full ? {
       query:[j.text,j.plan,...all.filter(c=>c.ordinal<=ordinal).slice(-2).map(c=>c.content.slice(0,1200))].join("\n"), beforeOrdinal:ordinal,
     } : undefined;
-    const built = buildContext(state,j.projectId,{includeDraftIds:selected.map(c=>c.id)},selected.map(c=>c.id),[],this.maxChars,true,recall);
+    const scene=ordinal?state.scenePlans?.find(p=>p.projectId===j.projectId&&all.find(c=>c.id===p.chapterId)?.ordinal===ordinal):undefined;
+    const voiceQuery=[...(scene?.cards.map(c=>c.pov)??[]),j.text.slice(0,1500),all.find(c=>c.ordinal===ordinal)?.content.slice(0,1200)??"",j.plan.slice(0,1000)].join("\n");
+    const built = buildContext(state,j.projectId,{includeDraftIds:selected.map(c=>c.id)},selected.map(c=>c.id),[],this.maxChars,true,recall,voiceQuery);
     for (const doc of built.documents) if (doc.source.kind === "chapter" && !doc.storyRecordId) {
       const chapter = all.find(c => c.id === doc.source.id)!;
       // Display metadata is not manuscript evidence. Avoid duplicating an ordinal
@@ -253,7 +258,7 @@ export class WritingRunner {
     const j = this.job(id), source = this.context(j), context = this.bounded(j, source);
     const raw = await this.call(id, "规划", this.input(j, context),
       '只返回JSON {"plan":"本任务逐章计划及必要补充设定","majorChange":false,"reason":""}。沿用已确认的人设、主线、结局与现有正文；缺少普通细节自主补全。若必须推翻已确认方向，majorChange=true并给出需作者决定的问题，不自行执行。计划需足以完成目标章节，不能仅提出建议让作者逐步确认。', 4000, signal);
-    const result = parseObject(raw, ["plan", "majorChange", "reason"]); this.checkSources(source.sources,source.storyStamp,this.job(id).projectId);
+    const result = parseObject(raw, ["plan", "majorChange", "reason"]); this.checkSources(source.sources,source.storyStamp,this.job(id).projectId,source.voiceStamp,source.voiceText);
     if (result.majorChange) { this.update(id, { status: "awaiting-author", reply: String(result.reason) }); return; }
     if (typeof result.plan !== "string" || !result.plan.trim() || result.plan.length > 20000) throw new ProviderError("FORMAT", "模型没有给出有效写作计划");
     this.update(id, { plan: result.plan, planningDone: true, phase: "writing", reply: "写作计划已准备，开始逐章执行" });
@@ -282,15 +287,15 @@ export class WritingRunner {
     const checkScene=()=>{const current=planAtTarget();if(current?.id!==scenePlan?.id||current?.revision!==scenePlan?.revision)throw new DomainError("CONFLICT","场景计划在生成期间已改变，旧回复未写入");};
     const raw = await this.call(id, revising ? "修订" : "生成", generationInput,
       '先按输入scenePlan组织本章；未提供时先构思2—4张场景卡再写正文，不要求作者逐卡确认。只返回JSON {"scenes":[{"title":"场景名","pov":"视角","goal":"目标","obstacle":"阻力","turn":"转折","reveal":"信息揭示","words":100,"hook":"转场或章末钩子","quote":"本章该场景中连续逐字原文"}],"title":"章节标题","content":"本章完整正文","majorChange":false,"reason":""}。scenes可选，卡片words合计等于chapterWords，其他每字段最多400字符；按篇幅优先删冗余描写或补冲突，衔接场景且不重复揭示同一信息。可选states最多20项，每项kind=event|location|condition|item|knowledge|relationship|foreshadowing、subject、attribute（knowledge用具体信息主题）、value、statement=fact|plan|guess|lie|recollection、storyTime（没有则空字符串）、quote（本章连续逐字最短原文）；伏笔另带foreshadowingStage=planned|planted|progressing|abandoned，planned须plan，埋设推进须fact。回收先提为event事实候选，不输出resolved；作者将在伏笔页面绑定埋设和回收双证据。只提议候选，不修改已确认记录。不套type/content外壳，不添加其他字段。只完成指定ordinal章节，不输出摘要或其他章节。content严格控制在wordLimit.min到wordLimit.max个字符内，汉字和标点都计数、空白不计；当前字数见wordLimit.current。字数上限较短时只展开本章最必要场景，超过上限的修订应删除冗余描写而非继续增加情节。修订时保留仍有效内容并解决pendingIssues，不擅自推翻已确认人设、主线和结局；必须变更时返回majorChange=true及具体reason，不输出改稿。', Math.min(32000, Math.max(1024, generationInput.chapterWords * 3)), signal, false, context.documents.flatMap(d=>d.reference ? [d.reference] : []));
-    const result = parseObject(raw, ["title", "content", "majorChange", "reason", "states", "scenes"]); checkScene(); this.checkSources(source.sources,source.storyStamp,this.job(id).projectId); this.assertRunning(id, signal);
+    const result = parseObject(raw, ["title", "content", "majorChange", "reason", "states", "scenes"]); checkScene(); this.checkSources(source.sources,source.storyStamp,this.job(id).projectId,source.voiceStamp,source.voiceText); this.assertRunning(id, signal);
     if (result.majorChange) { this.update(id, { status: "awaiting-author", reply: String(result.reason) }); return; }
     if (typeof result.content !== "string" || !result.content.trim() || result.content.length > 200000 || typeof result.title !== "string" || !result.title.trim() || result.title.length > 200)
       throw new ProviderError("FORMAT", "模型未返回完整章节正文和标题，进度已保留");
     const content = result.content, title = result.title;
     this.store.transaction(() => {
-      this.assertRunning(id, signal); checkScene(); this.checkSources(source.sources,source.storyStamp,this.job(id).projectId); j = this.job(id); progress = j.chapters[j.cursor];
+      this.assertRunning(id, signal); checkScene(); this.checkSources(source.sources,source.storyStamp,this.job(id).projectId,source.voiceStamp,source.voiceText); j = this.job(id); progress = j.chapters[j.cursor];
       if (progress.existing && existing) {
-        const revisionId = this.propose(j, existing.id, title, content, source.sources);
+        const revisionId = this.propose(j, existing.id, title, content, source.sources,source.voiceStamp);
         this.update(id, { revisionJobIds: [...j.revisionJobIds, revisionId], chapters: j.chapters.map((c, i) => i === j.cursor ? { ...c, status: "needs-review", revisionRounds: c.revisionRounds + 1, checkedRevision: existing.revision } : c) });
         if (j.issues.some(i => i.impact === "blocking")) { this.update(id, { status: "awaiting-author", reply: "已有正文的修改已生成待审稿，影响后文的冲突需要先采纳或作出决定" }); return; }
         this.advance(id, true); return;
@@ -313,12 +318,12 @@ export class WritingRunner {
         reply: `第${progress.ordinal}章已保存，正在检查` });
     });
   }
-  private propose(j: WritingJob, chapterId: string, title: string, content: string, sources: SourceRevision[]) {
+  private propose(j: WritingJob, chapterId: string, title: string, content: string, sources: SourceRevision[],voiceStamp?:VoiceStamp) {
     const ch = this.store.get("chapters", chapterId)!, p = this.project(j.projectId);
     const chapterSources = sources.filter(s => s.kind === "chapter").map(s => { const c = this.store.get("chapters", s.id)!; return { chapterId: c.id, revision: c.revision, digest: hash([c.content, c.title, c.style, c.pace]) }; });
-    const candidate: RevisionJob = { ...meta(), projectId: j.projectId, profileId: j.profileId, text: j.text,
+    const candidate: RevisionJob = { ...meta(),...(voiceStamp?{voiceStamp}:{}), projectId: j.projectId, profileId: j.profileId, text: j.text,
       scope: "chapters", chapterIds: [chapterId], annotationIds: [], status: "awaiting-author", tokenBudget: j.tokenBudget, usage: null, calls: 0,
-      checkedChapterIds: [chapterId], candidates: [{ chapterId, sourceRevision: ch.revision, title, baseTitle: ch.title, baseContent: ch.content, content, status: "pending" }],
+      checkedChapterIds: [chapterId], candidates: [{ chapterId, sourceRevision: ch.revision, title, baseTitle: ch.title, baseContent: ch.content, content, status: "pending",...(voiceStamp?{voiceStamp}:{}) }],
       notes: [], sourceProjectRevision: p.revision, sourceProjectDigest: hash([p.title, p.background, p.genre, p.style, p.pace]), sourceAuthoringDigest: authoringDigest(p),
       chapterSources: chapterSources.filter(s => s.chapterId === chapterId), referenceChapterSources: chapterSources.filter(s => s.chapterId !== chapterId),
       noteSources: this.store.selectByProject("notes", j.projectId).filter(n => !n.archived).map(n => ({ id: n.id, revision: n.revision, digest: hash([n.type, n.title, n.body, n.archived]) })),
@@ -336,7 +341,7 @@ export class WritingRunner {
     const input = { instruction: j.text, ordinal: final ? undefined : j.chapters[j.cursor]?.ordinal, context: context.text };
     const instruction = writingReviewInstruction + "\n将需要修改的本章/后出现章节的证据放在最后。方括号来源标记及紧接其后的章节索引说明是程序元数据，不是正文，不得作为quote或格式/文风问题；只引用下一行开始的正文。只依据context中带来源标记的原文独立检查，不引用计划或作者指令作为已发生事实，不依赖此前检查结论。篇幅由程序单独核验，不在这里输出length问题。";
     const raw = await this.call(id, final ? "跨章复核" : "检查", input, instruction, 3000, signal, true, [...new Map(references.map(r=>[r.source.id,r])).values()]);
-    this.checkSources(context.sources,context.storyStamp,this.job(id).projectId);
+    this.checkSources(context.sources,context.storyStamp,this.job(id).projectId,context.voiceStamp,context.voiceText);
     try { return parseWritingReview(raw, context.documents); }
     catch (error) {
       if (!(error instanceof ProviderError) || error.code !== "FORMAT") throw error;
@@ -347,7 +352,7 @@ export class WritingRunner {
       this.update(id, { warnings: [...new Set([...this.job(id).warnings, "检查回复格式或证据引用需要整理；最多一次，仍严格核验原文，不清空疑点"])] });
       const repaired = parseWritingReview(await this.call(id, "检查整理", { ...input, originalReply: raw, validationError: error.message },
         instruction + "\n上次回复未通过校验。保留每个原始疑点的category、impact和reason（逐字不变），只修正JSON结构、来源ID/实际revision，以及从context逐字抄录支持疑点的quote。不得删除疑点、降级严重度、改写疑点含义或靠清空issues取得通过。无法找到支持疑点的原文时明确说明，应用会停止交给作者，不把无依据结果当通过。", 3000, signal, true), context.documents);
-      this.checkSources(context.sources,context.storyStamp,this.job(id).projectId);
+      this.checkSources(context.sources,context.storyStamp,this.job(id).projectId,context.voiceStamp,context.voiceText);
       const originalIssues = original?.issues;
       if (!Array.isArray(originalIssues) || repaired.issues.length !== originalIssues.length ||
         originalIssues.some((issue: any, index: number) => !issue || ["category", "impact", "reason"].some(k => issue[k] !== (repaired.issues[index] as any)?.[k])) ||
@@ -370,11 +375,11 @@ export class WritingRunner {
       const result = await this.inspect(id, windows[windowIndex], signal, false);
       if (result.majorChange) { this.update(id, { status: "awaiting-author", reply: result.reason }); return; }
       found.push(...result.issues);
-      this.checkSources(source.sources,source.storyStamp,this.job(id).projectId); this.assertRunning(id, signal);
+      this.checkSources(source.sources,source.storyStamp,this.job(id).projectId,source.voiceStamp,source.voiceText); this.assertRunning(id, signal);
       this.update(id, { checkCursor: windowIndex + 1, checkIssues: found });
       if (windowIndex + 1 < windows.length) return;
     }
-    this.checkSources(source.sources,source.storyStamp,this.job(id).projectId); this.assertRunning(id, signal);
+    this.checkSources(source.sources,source.storyStamp,this.job(id).projectId,source.voiceStamp,source.voiceText); this.assertRunning(id, signal);
     found.push(...this.lengthIssue(j, progress.chapterId));
     const issues = [...j.issues.filter(i => i.chapterId !== progress.chapterId), ...found];
     this.update(id, { issues, chapters: j.chapters.map((c, i) => i === j.cursor ? { ...c, checkedRevision: this.store.get("chapters", progress.chapterId!)!.revision } : c) });
@@ -395,7 +400,7 @@ export class WritingRunner {
     if (j.reviewCursor >= windows.length) { this.update(id, { phase: "done" }); return; }
     this.update(id, { reply: `正在跨章复核：${j.reviewCursor + 1}/${windows.length}段` });
     const result = await this.inspect(id, windows[j.reviewCursor], signal, true);
-    this.checkSources(source.sources,source.storyStamp,this.job(id).projectId); this.assertRunning(id, signal);
+    this.checkSources(source.sources,source.storyStamp,this.job(id).projectId,source.voiceStamp,source.voiceText); this.assertRunning(id, signal);
     if (result.majorChange) { this.update(id, { status: "awaiting-author", reply: result.reason }); return; }
     const previous = j.issues.filter(i => i.evidence.every(e => sourceCurrent(this.store.snapshot(), e.source)));
     const issues = [...new Map([...previous, ...result.issues].map(i => [JSON.stringify(i), i])).values()];

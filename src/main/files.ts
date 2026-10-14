@@ -1,3 +1,5 @@
+import {validateVoiceRecord,validateVoiceJob} from "../shared/voice-validation";
+import {voiceSourceDigest,voiceContext,voiceStampCurrent,voiceSourcesCurrent} from "./voice-context";
 import {validateScenePlan,validateSceneJob,validateSceneSelection,validateSceneReplacement} from "../shared/scenes";
 import { validateStoryRecord, validateStoryJob } from "../shared/story-state";
 import { chapterDigest,storyContext,storyStampCurrent } from "./story-context";
@@ -155,7 +157,7 @@ const tables = [
   "syncBatches",
   "readingWorkspaces",
   "revisionJobs",
-  "writingJobs", "storyRecords", "storyJobs", "scenePlans", "sceneJobs",
+  "writingJobs", "storyRecords", "storyJobs", "scenePlans", "sceneJobs", "voiceRecords", "voiceJobs",
 ] as const;
 type Portable = Required<Pick<AppState, (typeof tables)[number]>>;
 export class ProjectFiles {
@@ -219,6 +221,8 @@ export class ProjectFiles {
       readingWorkspaces: (s.readingWorkspaces ?? []).filter(w => w.projectId === id),
       revisionJobs: (s.revisionJobs ?? []).filter(j => j.projectId === id).map(({ profileId, ...job }) => job),
       writingJobs: (s.writingJobs ?? []).filter(j => j.projectId === id).map(({ profileId, checkingProfileId, ...job }) => job),
+      voiceRecords:(s.voiceRecords??[]).filter(r=>r.projectId===id),
+      voiceJobs:(s.voiceJobs??[]).filter(j=>j.projectId===id).map(({profileId,...j})=>j),
       scenePlans:(s.scenePlans??[]).filter(p=>p.projectId===id),
       sceneJobs:(s.sceneJobs??[]).filter(j=>j.projectId===id).map(({profileId,...j})=>j),
       storyRecords: (s.storyRecords ?? []).filter(r=>r.projectId===id),
@@ -240,7 +244,7 @@ export class ProjectFiles {
       path,
       JSON.stringify({
         format: "xiaoshuo-project",
-        version: 7,
+        version: 8,
         sha256: digest(payload),
         payload,
       }),
@@ -259,7 +263,7 @@ export class ProjectFiles {
     if (
       !pack ||
       !["xiaoshuo-project", "xiaoshuo-recovery"].includes(pack.format) ||
-      ![1, 2, 3, 4, 5, 6, 7].includes(pack.version) ||
+      ![1, 2, 3, 4, 5, 6, 7, 8].includes(pack.version) ||
       !pack.payload ||
       pack.sha256 !== digest(pack.payload)
     )
@@ -294,6 +298,7 @@ export class ProjectFiles {
     const s = pack.payload as Portable;
     if(pack.version<6){pack.payload.storyRecords=[];pack.payload.storyJobs=[];if(pack.format==="xiaoshuo-recovery")pack.payload.schemaVersion=6;}
     if(pack.version<7){pack.payload.scenePlans=[];pack.payload.sceneJobs=[];if(pack.format==="xiaoshuo-recovery")pack.payload.schemaVersion=7;}
+    if(pack.version<8){pack.payload.voiceRecords=[];pack.payload.voiceJobs=[];if(pack.format==="xiaoshuo-recovery")pack.payload.schemaVersion=8;}
     if (pack.format === "xiaoshuo-recovery") validateRecovery(s);
     else validatePortable(s);
     return this.importPayload(s);
@@ -301,11 +306,15 @@ export class ProjectFiles {
   private importPayload(s: Portable): string {
     const ids = new Map<string, string>();
     // Preserve the source validity decision before identity remapping.
-    const sourceState={...s,schemaVersion:7,profiles:[]} as AppState;
+    const sourceState={...s,schemaVersion:8,profiles:[]} as AppState;
     const currentStoryTasks=new Set(s.tasks.filter(t=>{
       const stamp=(t.requestSnapshot as any)?.context?.storyStamp;
       return stamp&&storyStampCurrent(sourceState,t.projectId,stamp);
     }).map(t=>t.id));
+    const currentVoiceJobs=new Set(s.voiceJobs.filter(j=>{const r=s.voiceRecords.find(r=>r.id===j.recordId);return r&&r.revision===j.recordRevision&&voiceSourceDigest(r)===j.sourceDigest&&voiceSourcesCurrent(r,sourceState)&&r.samples.every(s=>s.approved&&sourceState.chapters.find(c=>c.id===s.chapterId)?.status==="confirmed"&&!sourceState.chapters.find(c=>c.id===s.chapterId)?.needsReview);}).map(j=>j.id));
+    const currentVoiceTasks=new Set(s.tasks.filter(t=>{const ctx=(t.requestSnapshot as any)?.context;return ctx?.voiceStamp&&voiceStampCurrent(sourceState,t.projectId,ctx.voiceStamp,ctx.voiceText);}).map(t=>t.id));
+    const currentVoiceRevisions=new Set(s.revisionJobs.filter(j=>j.voiceStamp&&voiceStampCurrent(sourceState,j.projectId,j.voiceStamp)).map(j=>j.id));
+    const currentVoiceCandidates=new Set(s.revisionJobs.flatMap(j=>j.candidates.filter(c=>c.voiceStamp&&voiceStampCurrent(sourceState,j.projectId,c.voiceStamp)).map(c=>`${j.id}:${c.chapterId}`)));
     const currentSceneStamps=new Set<string>();
     for(const p of s.scenePlans)for(const f of [p,...p.history])if(storyStampCurrent(sourceState,f.projectId,f.storyStamp))currentSceneStamps.add(`${p.id}:${f.revision}`);
     const currentSceneRevisions=new Set(s.revisionJobs.filter(j=>j.sceneSource?.storyStamp&&s.scenePlans.some(p=>p.id===j.sceneSource!.id&&p.revision===j.sceneSource!.revision)&&storyStampCurrent(sourceState,j.projectId,j.sceneSource.storyStamp)).map(j=>j.id));
@@ -335,6 +344,10 @@ export class ProjectFiles {
       for(const e of frame!.evidence)if(!ids.has(e.chapterId))ids.set(e.chapterId,randomUUID());
       if(frame!.entityNoteId&&!ids.has(frame!.entityNoteId))ids.set(frame!.entityNoteId,randomUUID());
       if(frame!.origin.id&&!ids.has(frame!.origin.id))ids.set(frame!.origin.id,randomUUID());
+    }
+    for(const r of s.voiceRecords)for(const f of [r,r.accepted,...r.history,...r.history.map(h=>h.accepted)].filter(Boolean)){
+      for(const sample of f!.samples){if(!ids.has(sample.id))ids.set(sample.id,randomUUID());if(!ids.has(sample.chapterId))ids.set(sample.chapterId,randomUUID());}
+      if(f!.entityNoteId&&!ids.has(f!.entityNoteId))ids.set(f!.entityNoteId,randomUUID());if(f!.origin.id&&!ids.has(f!.origin.id))ids.set(f!.origin.id,randomUUID());
     }
     const remap = (id: string) => {
       if (!ids.has(id)) ids.set(id, randomUUID());
@@ -485,6 +498,8 @@ export class ProjectFiles {
         const { profileId, checkingProfileId, reviewSourceDigest, checkCursor, checkSourceDigest, checkIssues, ...job } = j;
         this.store.put("writingJobs", { ...nested(job), status: j.status === "running" ? "interrupted" : j.status });
       }
+      for(const r of s.voiceRecords)this.store.put("voiceRecords",nested(r));
+      for(const j of s.voiceJobs){const {profileId,...job}=j;this.store.put("voiceJobs",{...nested(job),status:j.status==="running"?"interrupted":j.status});}
       for(const p of s.scenePlans)this.store.put("scenePlans",nested(p));
       for(const j of s.sceneJobs){const {profileId,...job}=j;this.store.put("sceneJobs",{...nested(job),status:j.status==="running"?"interrupted":j.status});}
       for(const r of s.storyRecords)this.store.put("storyRecords",nested(r));
@@ -493,6 +508,8 @@ export class ProjectFiles {
       // All records and evidence now have their final imported identities.
       // Refresh only previously current stamps; stale tasks must remain blocked.
       const importedState=this.store.snapshot();
+      for(const original of s.voiceJobs)if(currentVoiceJobs.has(original.id)){const j=this.store.get("voiceJobs",remap(original.id))!,r=this.store.get("voiceRecords",j.recordId)!;this.store.put("voiceJobs",{...j,sourceDigest:voiceSourceDigest(r)});}
+
       for(const original of s.scenePlans){
         const imported=this.store.get("scenePlans",remap(original.id))!;
         for(const frame of [imported,...imported.history])if(currentSceneStamps.has(`${original.id}:${frame.revision}`))frame.storyStamp=storyContext(importedState,imported.projectId,frame.storyStamp.beforeOrdinal,frame.storyStamp.writingJobId).stamp;
@@ -505,6 +522,19 @@ export class ProjectFiles {
       for(const original of s.revisionJobs)if(currentSceneRevisions.has(original.id)){
         const imported=this.store.get("revisionJobs",remap(original.id))!,stamp=imported.sceneSource!.storyStamp!;
         this.store.put("revisionJobs",{...imported,sceneSource:{...imported.sceneSource!,storyStamp:storyContext(importedState,imported.projectId,stamp.beforeOrdinal,stamp.writingJobId).stamp}});
+      }
+      for(const original of s.tasks)if(currentVoiceTasks.has(original.id)){
+        const task=this.store.get("tasks",remap(original.id))!,request=structuredClone(task.requestSnapshot) as any,ctx=request.context,oldText=ctx.voiceText??"";
+        const v=voiceContext(importedState,task.projectId,ctx.voiceStamp.query,ctx.voiceStamp.limit);
+        ctx.voiceStamp=v.stamp;ctx.voiceText=v.text;
+        if(oldText&&ctx.text.startsWith(oldText))ctx.text=v.text+ctx.text.slice(oldText.length);
+        this.store.put("tasks",{...task,requestSnapshot:request});
+      }
+      for(const original of s.revisionJobs){
+        const imported=this.store.get("revisionJobs",remap(original.id))!;
+        if(currentVoiceRevisions.has(original.id))imported.voiceStamp=voiceContext(importedState,imported.projectId,imported.voiceStamp!.query,imported.voiceStamp!.limit).stamp;
+        for(const c of imported.candidates){const originalChapter=original.candidates.find(x=>remap(x.chapterId)===c.chapterId)!;if(currentVoiceCandidates.has(`${original.id}:${originalChapter.chapterId}`))c.voiceStamp=voiceContext(importedState,imported.projectId,c.voiceStamp!.query,c.voiceStamp!.limit).stamp;}
+        this.store.put("revisionJobs",imported);
       }
       for(const original of s.tasks){
         if(!currentStoryTasks.has(original.id))continue;
@@ -681,6 +711,7 @@ function validatePortable(s: any): asserts s is Portable {
   }
   validateStoryOwnership(s);
   validateSceneOwnership(s);
+  validateVoiceOwnership(s);
   validateReadingPayload(s);
   validateWritingPayload(s);
 }
@@ -689,7 +720,7 @@ function validateRecovery(s: any): void {
   validatePublicJson(s);
   if (
     !s ||
-    s.schemaVersion !== 7 ||
+    s.schemaVersion !== 8 ||
     Object.keys(s).sort().join(",") !==
       ["schemaVersion", ...tables].sort().join(",")
   )
@@ -725,6 +756,7 @@ function validateRecovery(s: any): void {
   validateRecallOwnership(s);
   validateStoryOwnership(s);
   validateSceneOwnership(s);
+  validateVoiceOwnership(s);
   for (const project of s.projects) {
     const pid = project.id;
     validatePortable({
@@ -740,6 +772,8 @@ function validateRecovery(s: any): void {
       readingWorkspaces: s.readingWorkspaces.filter((r: any) => r.projectId === pid),
       revisionJobs: s.revisionJobs.filter((r: any) => r.projectId === pid),
       writingJobs: s.writingJobs.filter((r: any) => r.projectId === pid),
+      voiceRecords:s.voiceRecords.filter((r:any)=>r.projectId===pid),
+      voiceJobs:s.voiceJobs.filter((r:any)=>r.projectId===pid),
       scenePlans:s.scenePlans.filter((r:any)=>r.projectId===pid),
       sceneJobs:s.sceneJobs.filter((r:any)=>r.projectId===pid),
       storyRecords:s.storyRecords.filter((r:any)=>r.projectId===pid),
@@ -1133,4 +1167,17 @@ function validateSceneOwnership(s:Portable):void{
     for(const c of j.candidates)validateSceneReplacement(j.selection,c);
   }
   for(const j of s.sceneJobs){validateSceneJob(j);const ch=chapters.get(j.chapterId);if(!ch||ch.projectId!==j.projectId)fail("场景任务章节不正确");references(j);const p=j.basePlanId?plans.get(j.basePlanId):undefined;if(j.basePlanId&&(!p||p.projectId!==j.projectId||p.chapterId!==j.chapterId))fail("场景任务原计划引用不正确");}
+}
+
+function validateVoiceOwnership(s:Portable):void {
+  const state={...s,schemaVersion:8,profiles:[]} as AppState;
+  for(const t of s.tasks){const ctx=(t.requestSnapshot as any)?.context;if(ctx?.voiceStamp&&voiceStampCurrent(state,t.projectId,ctx.voiceStamp)&&ctx.voiceText!==undefined&&voiceContext(state,t.projectId,ctx.voiceStamp.query,ctx.voiceStamp.limit).text!==ctx.voiceText)fail("任务文风参考与已采纳档案不一致");}
+  const chapters=new Map(s.chapters.map(c=>[c.id,c])),notes=new Map(s.notes.map(n=>[n.id,n])),records=new Map(s.voiceRecords.map(r=>[r.id,r])),sampleOwners=new Map<string,string>();
+  for(const r of s.voiceRecords){validateVoiceRecord(r);
+    for(const f of [r,r.accepted,...r.history,...r.history.map(h=>h.accepted)].filter(Boolean)){
+      const note=f!.entityNoteId?notes.get(f!.entityNoteId):undefined;if(note&&(note.projectId!==r.projectId||note.type!=="character"))fail("文风角色跨作品或类型不正确");
+      for(const sample of f!.samples){const owner=sampleOwners.get(sample.id);if(owner&&owner!==r.id)fail("文风样本身份重复");sampleOwners.set(sample.id,r.id);const ch=chapters.get(sample.chapterId);if(ch&&ch.projectId!==r.projectId)fail("文风样本跨作品");if(ch&&ch.revision===sample.revision&&(chapterDigest(ch)!==sample.contentHash||ch.ordinal!==sample.ordinal||ch.content.slice(sample.start,sample.end)!==sample.quote))fail("文风样本原文不正确");}
+    }
+  }
+  for(const j of s.voiceJobs){validateVoiceJob(j);const r=records.get(j.recordId);if(!r||r.projectId!==j.projectId)fail("文风提取任务引用不正确");}
 }

@@ -26,7 +26,7 @@ export class ScenePlanningRunner {
     private job(id: string) { const j = this.store.get("sceneJobs", id); if (!j)
         throw new DomainError("NOT_FOUND", "场景规划任务不存在"); return j; }
     private update(id: string, patch: Partial<SceneJob>) { const j = this.job(id), next: SceneJob = JSON.parse(JSON.stringify({ ...j, ...patch, revision: j.revision + 1, updatedAt: new Date().toISOString() })); this.store.put("sceneJobs", next); return next; }
-    private available(projectId: string, except?: string) { for (const table of ["sceneJobs", "storyJobs", "writingJobs", "revisionJobs", "conversations", "tasks", "syncJobs"] as const)
+    private available(projectId: string, except?: string) { for (const table of ["voiceJobs", "sceneJobs", "storyJobs", "writingJobs", "revisionJobs", "conversations", "tasks", "syncJobs"] as const)
         if (this.store.selectByProject(table, projectId).some(j => j.id !== except && ["running", "waiting"].includes(j.status)))
             throw new DomainError("CONFLICT", "作品已有AI任务运行，请先暂停或完成后规划场景"); }
     private current(j: SceneJob) { const state = this.store.snapshot(), p = this.scenes.forChapter(j.chapterId); if (j.sources.some(s => !sourceCurrent(state, s)) || !storyStampCurrent(state, j.projectId, j.storyStamp))

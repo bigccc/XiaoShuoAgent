@@ -13,7 +13,7 @@ function fixture(){const dir=mkdtempSync(join(tmpdir(),"story-pack-"));dirs.push
 function write(path:string,pack:any){pack.sha256=createHash("sha256").update(JSON.stringify(pack.payload)).digest("hex");writeFileSync(path,JSON.stringify(pack));}
 it("round-trips accepted state and historical evidence using new identities",async()=>{
   const f=fixture(),path=join(f.dir,"book.novel");await f.files.backup(f.projectId,path);
-  const pack=JSON.parse(readFileSync(path,"utf8"));expect(pack.version).toBe(7);expect(pack.payload.storyRecords).toHaveLength(1);
+  const pack=JSON.parse(readFileSync(path,"utf8"));expect(pack.version).toBe(8);expect(pack.payload.storyRecords).toHaveLength(1);
   const imported=await f.files.importBackup(path),record=f.store.selectByProject("storyRecords",imported)[0];
   expect(record.id).not.toBe(f.recordId);expect(record.evidence[0].chapterId).not.toBe(f.chapterId);
   expect(record.accepted?.evidence[0].chapterId).toBe(record.evidence[0].chapterId);
@@ -29,7 +29,7 @@ it("rejects forged current evidence and foreign evidence atomically",async()=>{
   const f=fixture(),path=join(f.dir,"bad.novel");await f.files.backup(f.projectId,path);const original=JSON.parse(readFileSync(path,"utf8"));
   const pack=JSON.parse(JSON.stringify(original));pack.payload.storyRecords[0].evidence[0].quote="铜钥匙在阿宁手中。";write(path,pack);
   await expect(f.files.importBackup(path)).rejects.toThrow(/来源|原文|状态/);expect(f.store.list("projects")).toHaveLength(1);
-  const foreign=JSON.parse(JSON.stringify(original));foreign.format="xiaoshuo-recovery";foreign.payload.schemaVersion=7;
+  const foreign=JSON.parse(JSON.stringify(original));foreign.format="xiaoshuo-recovery";foreign.payload.schemaVersion=8;
   foreign.payload.projects.push({...foreign.payload.projects[0],id:"other"});foreign.payload.chapters.push({...foreign.payload.chapters[0],id:"foreign",projectId:"other"});foreign.payload.storyRecords[0].evidence[0].chapterId="foreign";write(path,foreign);
   await expect(f.files.importBackup(path)).rejects.toThrow(/来源|跨作品|归属/);expect(f.store.list("projects")).toHaveLength(1);
 });

@@ -1,3 +1,6 @@
+import {VoiceExtractionRunner} from "./voice-extraction";
+import {VoiceService} from "./voice";
+import type {VoiceQuery} from "../shared/voice";
 import {ScenePlanningRunner} from "./scene-writing";
 import {SceneService} from "./scenes";
 import {validateSceneCommand} from "../shared/scenes";
@@ -63,6 +66,8 @@ export class AppServices {
   private writing: WritingRunner;
   private story:StoryStateService;
   private scenes:SceneService;
+  private voices:VoiceService;
+  private voiceExtraction:VoiceExtractionRunner;
   private scenePlanning:ScenePlanningRunner;
   private storyExtraction:StoryExtractionRunner;
   private timer: ReturnType<typeof setInterval>;
@@ -86,6 +91,8 @@ export class AppServices {
     });
     this.files = new ProjectFiles(this.store);
     this.scenes=new SceneService(this.store);
+    this.voices=new VoiceService(this.store);
+    this.voiceExtraction=new VoiceExtractionRunner(this.store,this.voices,new ChatProvider({...options.provider,fetch:options.fetch}),options.credentials);
     this.scenePlanning=new ScenePlanningRunner(this.store,this.scenes,new ChatProvider({...options.provider,fetch:options.fetch}),options.credentials,options.maxContextChars??48000);
     this.story=new StoryStateService(this.store);
     this.storyExtraction=new StoryExtractionRunner(this.store,this.story,new ChatProvider({...options.provider,fetch:options.fetch}),options.credentials);
@@ -107,6 +114,7 @@ export class AppServices {
           .list("conversations")
           .some((t) => t.projectId === id && t.status === "running") ||
         this.store.selectByProject("writingJobs", id).some(j => j.status === "running") ||
+        this.store.selectByProject("voiceJobs",id).some(j=>j.status==="running") ||
         this.store.selectByProject("sceneJobs",id).some(j=>j.status==="running") ||
         this.store.selectByProject("storyJobs",id).some(j=>j.status==="running") ||
         this.store
@@ -168,6 +176,8 @@ export class AppServices {
     if (!Number.isSafeInteger(offset) || offset < 0 || !Number.isSafeInteger(limit) || limit < 1 || limit > 40) throw new DomainError("VALIDATION", "待审稿分页参数不正确");
     return this.store.revisionDetails(id, offset, limit);
   }
+  voiceWorkspace(query:VoiceQuery){return this.voices.workspace(query);}
+  voiceRecord(id:string){if(typeof id!=="string"||!id)throw new DomainError("VALIDATION","文风编号不正确");return this.voices.record(id);}
   sceneWorkspace(chapterId:string){return this.scenes.workspace(chapterId);}
   scenePlan(id:string){if(typeof id!=="string"||!id)throw new DomainError("VALIDATION","场景编号不正确");return this.scenes.record(id);}
   storyWorkspace(query:StoryQuery){return this.story.workspace(query);}
@@ -182,6 +192,9 @@ export class AppServices {
         typeof command.type !== "string"
       )
         throw new DomainError("VALIDATION", "请求格式不正确");
+      if(command.type==="voice.extract")return{ok:true,entityId:this.voiceExtraction.start(command)};
+      if(command.type==="voice.resume"||command.type==="voice.pause"||command.type==="voice.cancel")return{ok:true,entityId:this.voiceExtraction.command(command)};
+      if(command.type.startsWith("voice.")&&!["voice.extract","voice.pause","voice.cancel","voice.resume"].includes(command.type)){const r=command.type==="voice.save"?this.voices.save(command):this.voices.command(command as any);return{ok:true,entityId:r.id,revision:r.revision};}
       if(command.type==="scene.plan"){await this.sync.barrier(command.projectId);return{ok:true,entityId:this.scenePlanning.start(command)};}
       if(command.type==="scene.pause"||command.type==="scene.cancel"||command.type==="scene.resume")return{ok:true,entityId:this.scenePlanning.command(command)};
       if(command.type==="scene.save"){const p=this.scenes.save(command);return{ok:true,entityId:p.id,revision:p.revision};}
@@ -205,6 +218,7 @@ export class AppServices {
         : undefined;
       const busyProject = "projectId" in command ? command.projectId : resumeProject;
       const writesWithAI = command.type === "conversation.send" || command.type === "revision.start" || command.type === "scene.revise" || command.type.startsWith("ai.") || command.type === "authoring.sync" || !!resumeProject;
+      if(writesWithAI&&busyProject&&this.store.selectByProject("voiceJobs",busyProject).some(j=>j.status==="running"))throw new DomainError("CONFLICT","文风提取正在运行，请先暂停后再创作");
       if(writesWithAI&&busyProject&&this.store.selectByProject("sceneJobs",busyProject).some(j=>j.status==="running"))throw new DomainError("CONFLICT","场景规划正在运行，请先暂停后再创作");
       if(writesWithAI && busyProject && this.store.selectByProject("storyJobs",busyProject).some(j=>j.status==="running"))throw new DomainError("CONFLICT","故事状态提取正在运行，请先暂停再创作");
       if (writesWithAI && busyProject && this.store.selectByProject("writingJobs", busyProject).some(j => j.status === "running"))
@@ -475,6 +489,7 @@ export class AppServices {
         readingWorkspaces: state.readingWorkspaces ?? [],
         revisionJobs: (state.revisionJobs ?? []).map(({ profileId, ...job }) => job),
         writingJobs: (state.writingJobs ?? []).map(({ profileId, checkingProfileId, ...job }) => job),
+        voiceRecords:state.voiceRecords??[],voiceJobs:(state.voiceJobs??[]).map(({profileId,...j})=>j),
         scenePlans:state.scenePlans??[],sceneJobs:(state.sceneJobs??[]).map(({profileId,...j})=>j),
         storyRecords:state.storyRecords??[],storyJobs:(state.storyJobs??[]).map(({profileId,...j})=>j),
       };
@@ -493,7 +508,7 @@ export class AppServices {
         file,
         JSON.stringify({
           format: "xiaoshuo-recovery",
-          version: 7,
+          version: 8,
           sha256,
           payload,
         }),
@@ -515,6 +530,7 @@ export class AppServices {
     this.disposed = true;
     clearInterval(this.timer);
     this.disposePromise = (async () => {
+      await this.voiceExtraction.dispose();
       await this.scenePlanning.dispose();
       await this.storyExtraction.dispose();
       await this.writing.dispose();

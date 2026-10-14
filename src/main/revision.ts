@@ -1,3 +1,4 @@
+import {voiceContext,voiceStampCurrent} from "./voice-context";
 import {SceneService} from "./scenes";
 import {validateSceneSource,validateSceneReplacement} from "../shared/scenes";
 import { createHash, randomUUID } from "node:crypto";
@@ -373,6 +374,7 @@ export class RevisionRunner {
       candidates: [],
       notes: [],
       chapterSources,
+      voiceStamp:voiceContext(this.store.snapshot(),p.id,[c.text,...chapterIds.map(id=>this.chapter(id,p.id).content.slice(0,1200))].join("\n"),Math.min(8000,Math.floor(this.maxChars/4))).stamp,
       noteSources: this.store
         .selectByProject("notes", p.id)
         .filter((n) => !n.archived)
@@ -413,6 +415,8 @@ export class RevisionRunner {
     return p;
   }
   private sourceCheck(j: RevisionJob, chapterId?: string) {
+    const voiceState=this.store.snapshot();
+    if(j.voiceStamp&&!voiceStampCurrent(voiceState,j.projectId,j.voiceStamp)||j.candidates.some(c=>c.status==="pending"&&c.voiceStamp&&!voiceStampCurrent(voiceState,j.projectId,c.voiceStamp)))fail("文风或角色表达参考已改变，请重新生成候选稿","CONFLICT");
     if(j.sceneSource)new SceneService(this.store).assertSource(j.sceneSource,j.projectId,j.selection);
     const p = this.project(j.projectId);
     if (!j.sourceProjectDigest || projectHash(p) !== j.sourceProjectDigest)
@@ -536,7 +540,7 @@ export class RevisionRunner {
       this.update(j.id, {
         status: "running",
         tokenBudget,
-        ...(c.text ? { text: `${j.text}\n作者补充：${c.text.trim()}` } : {}),
+        ...(c.text ? { text: `${j.text}\n作者补充：${c.text.trim()}`,voiceStamp:voiceContext(this.store.snapshot(),j.projectId,[j.text,c.text,...j.chapterIds.map(id=>this.chapter(id,j.projectId).content.slice(0,1200))].join("\n"),Math.min(8000,Math.floor(this.maxChars/4))).stamp } : {}),
         error: undefined,
       });
       this.launch(j.id);
@@ -771,6 +775,7 @@ export class RevisionRunner {
           ...(selection ? { selection } : {}),
           ...(j.sceneSource?{scene:new SceneService(this.store).record(j.sceneSource.id).cards.find(c=>c.id===j.sceneSource!.cardId)}:{}),
           plannedChanges: { project: j.projectPatch ?? {}, notes: j.notes },
+          ...(j.voiceStamp?{expressionReference:voiceContext(this.store.snapshot(),j.projectId,j.voiceStamp.query,j.voiceStamp.limit).text}:{}),
           annotations: this.annotations(j, ch.id, true).map((a) => ({
             text: a.text,
             anchor: a.anchor,
@@ -1069,6 +1074,7 @@ export class RevisionRunner {
             content,
             title,
             status: "pending",
+            ...(j.voiceStamp?{voiceStamp:j.voiceStamp}:{}),
             ...(dependsOnChapterIds.length ? { dependsOnChapterIds } : {}),
           });
         const notes = [...j.notes];

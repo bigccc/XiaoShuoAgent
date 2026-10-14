@@ -91,7 +91,7 @@ it("rejects foreign evidence, stale offsets and a late update without partially 
 it("migrates v5 only after a readable backup preserving the older database",()=>{
   const dir=mkdtempSync(join(tmpdir(),"story-migrate-"));dirs.push(dir);const path=join(dir,"works.sqlite");
   const old=new Store(path);old.close();const db=new DatabaseSync(path);db.exec("DROP TABLE IF EXISTS storyRecords; DROP TABLE IF EXISTS storyJobs; PRAGMA user_version=5;");db.close();
-  const upgraded=new Store(path);stores.push(upgraded);expect(upgraded.snapshot().schemaVersion).toBe(7);
+  const upgraded=new Store(path);stores.push(upgraded);expect(upgraded.snapshot().schemaVersion).toBe(8);
   const backup=readdirSync(dir).find(p=>p.includes("before-v6"));expect(backup).toBeTruthy();
   const saved=new DatabaseSync(join(dir,backup!),{readOnly:true});expect(saved.prepare("PRAGMA user_version").get()?.user_version).toBe(5);saved.close();
 });

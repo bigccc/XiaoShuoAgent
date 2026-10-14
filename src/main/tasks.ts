@@ -1,3 +1,4 @@
+import {voiceStampCurrent} from "./voice-context";
 import {storyStampCurrent} from "./story-context";
 import { randomUUID } from "node:crypto";
 import type {
@@ -258,6 +259,8 @@ export class TaskRunner {
             [],
             this.maxContextChars,
             true,
+            undefined,
+            [command.instruction??"",...targets.map(id=>state.chapters.find(c=>c.id===id)?.content.slice(0,1200)??"")].join("\n"),
           );
     // The legacy task format allows one original document per source. State
     // excerpts share the same chapter, so retain its original full snapshot.
@@ -338,6 +341,7 @@ export class TaskRunner {
         "来源已修改，请使用当前依据新建任务；旧结果仍保留",
       );
     const snapshot = t.requestSnapshot as unknown as RequestSnapshot;
+    if(snapshot.context.voiceStamp&&!voiceStampCurrent(this.store.snapshot(),t.projectId,snapshot.context.voiceStamp,snapshot.context.voiceText))throw new DomainError("CONFLICT","文风参考已改变，请按当前档案新建任务");
     if(snapshot.context.storyStamp && !storyStampCurrent(this.store.snapshot(),t.projectId,snapshot.context.storyStamp))throw new DomainError("CONFLICT","故事状态已改变，请按当前依据新建任务");
     this.key(snapshot.profile);
     this.key(snapshot.checkingProfile);
@@ -439,6 +443,7 @@ export class TaskRunner {
       keys = [key ?? "", checkKey ?? ""];
     const saveResult = () => this.update(id, { result: asJson(result) });
     const stale = () =>
+      !!snapshot.context.voiceStamp&&!voiceStampCurrent(this.store.snapshot(),initial.projectId,snapshot.context.voiceStamp,snapshot.context.voiceText) ||
       !!snapshot.context.storyStamp && !storyStampCurrent(this.store.snapshot(),initial.projectId,snapshot.context.storyStamp) || initial.sourceRevisions.some(
         (ref) => !sourceCurrent(this.domain.snapshot(), ref),
       );

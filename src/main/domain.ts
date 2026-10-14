@@ -1,3 +1,4 @@
+import {voiceStampCurrent} from "./voice-context";
 import {storyStampCurrent} from "./story-context";
 import { randomUUID } from "node:crypto";
 import type {
@@ -52,6 +53,8 @@ export class DomainService {
         const chapter = this.read("chapters", input.chapterId);
         this.checkSources(input.sourceRevisions);
         const task=this.store.get("tasks",input.taskId),stamp=(task?.requestSnapshot as any)?.context?.storyStamp;
+        const voice=(task?.requestSnapshot as any)?.context;
+        if(voice?.voiceStamp&&!voiceStampCurrent(this.store.snapshot(),chapter.projectId,voice.voiceStamp,voice.voiceText))throw new DomainError("CONFLICT","文风参考已改变，旧候选未写入");
         if(stamp&&!storyStampCurrent(this.store.snapshot(),chapter.projectId,stamp))throw new DomainError("CONFLICT","故事状态已改变，旧候选未写入");
         if (
           !input.sourceRevisions.some(

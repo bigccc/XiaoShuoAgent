@@ -54,7 +54,7 @@ it("includes durable writing jobs in a new database snapshot", () => {
   const store = new Store(":memory:");
   stores.push(store);
   expect((store.snapshot() as any).writingJobs).toEqual([]);
-  expect(store.snapshot().schemaVersion).toBe(7);
+  expect(store.snapshot().schemaVersion).toBe(8);
 });
 
 it.each([
@@ -157,7 +157,7 @@ it("round-trips jobs with new identities, no model ids and no running state", as
   const files = new ProjectFiles(store);
   await files.backup(projectId, path);
   const pack = JSON.parse(readFileSync(path, "utf8"));
-  expect(pack.version).toBe(7);
+  expect(pack.version).toBe(8);
   expect(pack.payload.writingJobs[0].profileId).toBeUndefined();
   expect(pack.payload.writingJobs[0].checkingProfileId).toBeUndefined();
   const importedId = await files.importBackup(path);
@@ -304,7 +304,7 @@ it("round-trips a full recovery snapshot and rejects cross-project evidence refe
   const { profiles, schemaVersion, ...payload } = store.snapshot();
   for (const value of payload.writingJobs ?? []) { delete value.profileId; delete value.checkingProfileId; }
   const path = join(directory(), "recovery.novel");
-  const pack = { format: "xiaoshuo-recovery", version: 7, payload: { ...payload, schemaVersion }, sha256: "" };
+  const pack = { format: "xiaoshuo-recovery", version: 8, payload: { ...payload, schemaVersion }, sha256: "" };
   writePack(path, pack);
   const files = new ProjectFiles(store);
   const importedId = await files.importBackup(path);
