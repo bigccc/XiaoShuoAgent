@@ -1,4 +1,4 @@
-import {CheckCache,issueIdentity} from "./check-cache";
+import {CheckCache,issueIdentity,CHECK_CACHE_PROTOCOL} from "./check-cache";
 import {voiceStampCurrent} from "./voice-context";
 import type {VoiceStamp} from "../shared/voice";
 import {SceneService} from "./scenes";
@@ -47,6 +47,7 @@ function parseObject(raw: string, allowed: string[]): Record<string, unknown> {
   if (value.majorChange === true && !value.reason?.trim()) throw new ProviderError("FORMAT", "重大创作变更缺少说明");
   return value;
 }
+const writingInspectionInstruction = writingReviewInstruction + "\n将需要修改的本章/后出现章节的证据放在最后。方括号来源标记及紧接其后的章节索引说明是程序元数据，不是正文，不得作为quote或格式/文风问题；只引用下一行开始的正文。只依据context中带来源标记的原文独立检查，不引用计划或作者指令作为已发生事实，不依赖此前检查结论。篇幅由程序单独核验，不在这里输出length问题。";
 class WritingPause extends Error {}
 
 /** StateGraph routes bounded capabilities; SQLite commits are the recovery checkpoints. */
@@ -343,7 +344,7 @@ export class WritingRunner {
     const j = this.job(id);
     const references = context.documents.flatMap(d=>d.reference ? [d.reference] : []);
     const input = { instruction: j.text, ordinal: final ? undefined : j.chapters[j.cursor]?.ordinal, context: context.text };
-    const instruction = writingReviewInstruction + "\n将需要修改的本章/后出现章节的证据放在最后。方括号来源标记及紧接其后的章节索引说明是程序元数据，不是正文，不得作为quote或格式/文风问题；只引用下一行开始的正文。只依据context中带来源标记的原文独立检查，不引用计划或作者指令作为已发生事实，不依赖此前检查结论。篇幅由程序单独核验，不在这里输出length问题。";
+    const instruction = writingInspectionInstruction;
     this.assertRunning(id,signal);
     this.checkSources(context.sources,context.storyStamp,j.projectId,context.voiceStamp,context.voiceText);
     const cache=new CheckCache(this.store),profile=this.profile(j,true);
@@ -351,7 +352,7 @@ export class WritingRunner {
     const cached=cache.get(j.projectId,key);
     if(cached){try{const result=parseWritingReview(cached,context.documents);if(result.majorChange)throw Error("major change");this.update(id,{checkCacheHits:(this.job(id).checkCacheHits??0)+1});return result;}catch{cache.remove(j.projectId,key);}}
     this.update(id,{checkCacheMisses:(this.job(id).checkCacheMisses??0)+1});
-    const remember=(result:ReturnType<typeof parseWritingReview>)=>{this.assertRunning(id,signal);this.checkSources(context.sources,context.storyStamp,j.projectId,context.voiceStamp,context.voiceText);if(!result.majorChange)cache.put(j.projectId,key,JSON.stringify(result));return result;};
+    const remember=(result:ReturnType<typeof parseWritingReview>)=>{this.assertRunning(id,signal);this.checkSources(context.sources,context.storyStamp,j.projectId,context.voiceStamp,context.voiceText);if(!result.majorChange)cache.put(j.projectId,key,JSON.stringify({...result,issues:result.issues.map(({chapterId,...issue})=>issue)}));return result;};
     const raw = await this.call(id, final ? "跨章复核" : "检查", input, instruction, 3000, signal, true, [...new Map(references.map(r=>[r.source.id,r])).values()]);
     this.checkSources(context.sources,context.storyStamp,this.job(id).projectId,context.voiceStamp,context.voiceText);
     try { return remember(parseWritingReview(raw, context.documents)); }
@@ -373,13 +374,17 @@ export class WritingRunner {
       return remember(repaired);
     }
   }
+  private checkDependencyDigest(j:WritingJob,source:BuiltContext,ordinal?:number) {
+    const profile=this.profile(j,true);
+    return hash([CHECK_CACHE_PROTOCOL,writingInspectionInstruction,{id:profile.id,revision:profile.revision,baseUrl:profile.baseUrl,model:profile.model,purpose:profile.purpose},j.text,ordinal,source.documents,source.storyStamp,source.voiceStamp,Math.min(this.maxChars,24000)]);
+  }
   private async checkChapter(id: string, signal: AbortSignal) {
     let j = this.job(id);
     if(j.mode==="quick"){this.update(id,{status:"awaiting-author",reply:"快速试写草稿已保存，尚未一致性检查；可编辑后继续认真定稿。"});return;}
     const progress = j.chapters[j.cursor];
     if (!progress?.chapterId) throw new DomainError("CONFLICT", "章节尚未保存，无法检查");
     const source = this.context(j, progress.ordinal), windows = checkWindows(source, Math.min(this.maxChars, 24000));
-    const digest = hash([progress.ordinal, source.sources]);
+    const digest = this.checkDependencyDigest(j,source,progress.ordinal);
     if (j.checkSourceDigest !== digest) j = this.update(id, { checkSourceDigest: digest, checkCursor: 0, checkIssues: [] });
     const windowIndex = j.checkCursor ?? 0;
     const found: WritingIssue[] = [...(j.checkIssues ?? [])];
@@ -408,7 +413,7 @@ export class WritingRunner {
   private async review(id: string, signal: AbortSignal) {
     let j = this.job(id);
     const source = this.context(j, undefined, true), windows = checkWindows(source, Math.min(this.maxChars, 24000));
-    const digest = hash(source.sources);
+    const digest = this.checkDependencyDigest(j,source);
     if (j.reviewSourceDigest !== digest) j = this.update(id, { reviewSourceDigest: digest, reviewCursor: 0 });
     if (j.reviewCursor >= windows.length) { this.update(id, { phase: "done" }); return; }
     this.update(id, { reply: `正在跨章复核：${j.reviewCursor + 1}/${windows.length}段` });
@@ -434,7 +439,7 @@ export class WritingRunner {
     if (incomplete) throw new DomainError("CONFLICT", "仍有目标章节未保存，任务不能标记完成");
     const stale = j.chapters.findIndex(c => c.chapterId && this.store.get("chapters", c.chapterId)!.revision !== c.checkedRevision);
     if (stale >= 0) { this.update(id, { cursor: stale, phase: "checking", reviewCursor: 0 }); return; }
-    if (j.reviewSourceDigest !== hash(this.context(j, undefined, true).sources)) { this.update(id, { phase: "reviewing", reviewCursor: 0 }); return; }
+    if (j.reviewSourceDigest !== this.checkDependencyDigest(j,this.context(j, undefined, true))) { this.update(id, { phase: "reviewing", reviewCursor: 0 }); return; }
     const pending = j.revisionJobIds.some(r => this.store.get("revisionJobs", r)?.candidates.some(c => c.status === "pending"));
     const issues = j.issues.filter(i => i.evidence.every(e => sourceCurrent(this.store.snapshot(), e.source)));
     this.update(id, { status: issues.length || pending ? "awaiting-author" : "completed", phase: "done", issues,

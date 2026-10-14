@@ -4,7 +4,7 @@ import type {Store} from "./store";
 
 export const CHECK_CACHE_PROTOCOL = "verified-evidence-v1";
 export function issueIdentity(issue: {type?:string;category?:string;reason?:string;impact?:string;chapterId?:string;evidence:unknown[]}) {
-  const evidence = issue.evidence.map(e => JSON.stringify(e)).sort();
+  const evidence = [...new Set(issue.evidence.map(e => JSON.stringify(e)))].sort();
   return JSON.stringify([issue.type ?? issue.category, issue.impact, issue.chapterId, evidence]);
 }
 /** Derived, local results. Callers must re-parse evidence and check live sources. */
