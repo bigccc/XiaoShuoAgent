@@ -1,3 +1,4 @@
+import type {StructureWorkspace,StructureCommand} from "./structure";
 import type {VoiceRecord,VoiceJob,VoiceCommand} from "./voice";
 import type {ScenePlan,SceneJob,SceneCommand} from "./scenes";
 import type { ReaderCommand, ReadingWorkspace, TextSelection } from "./reader";
@@ -385,7 +386,7 @@ export interface AppState {
   storyRecords?: StoryRecord[];
   storyJobs?: StoryExtractionJob[];
   scenePlans?:ScenePlan[];sceneJobs?:SceneJob[];
-  voiceRecords?:VoiceRecord[];voiceJobs?:VoiceJob[];
+  voiceRecords?:VoiceRecord[];voiceJobs?:VoiceJob[];structureWorkspaces?:StructureWorkspace[];
 }
 type Existing = { id: ID; revision: number };
 type Saving = { id?: ID; revision?: number };
@@ -526,7 +527,7 @@ export type AsyncCommand =
     }
   | { type: "file.backup"; projectId: ID }
   | { type: "file.importBackup" };
-export type Command = DomainCommand | AsyncCommand | ReaderCommand | RevisionCommand | WritingCommand | StoryCommand | StoryJobCommand | SceneCommand | VoiceCommand;
+export type Command = DomainCommand | AsyncCommand | ReaderCommand | RevisionCommand | WritingCommand | StoryCommand | StoryJobCommand | SceneCommand | VoiceCommand | StructureCommand;
 export type ErrorCode =
   | "VALIDATION"
   | "NOT_FOUND"

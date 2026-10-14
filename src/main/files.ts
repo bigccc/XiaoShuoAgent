@@ -1,3 +1,4 @@
+import {validateStructureWorkspace} from "../shared/structure";
 import {validateVoiceRecord,validateVoiceJob} from "../shared/voice-validation";
 import {voiceSourceDigest,voiceContext,voiceStampCurrent,voiceSourcesCurrent} from "./voice-context";
 import {validateScenePlan,validateSceneJob,validateSceneSelection,validateSceneReplacement} from "../shared/scenes";
@@ -157,7 +158,7 @@ const tables = [
   "syncBatches",
   "readingWorkspaces",
   "revisionJobs",
-  "writingJobs", "storyRecords", "storyJobs", "scenePlans", "sceneJobs", "voiceRecords", "voiceJobs",
+  "writingJobs", "storyRecords", "storyJobs", "scenePlans", "sceneJobs", "voiceRecords", "voiceJobs", "structureWorkspaces",
 ] as const;
 type Portable = Required<Pick<AppState, (typeof tables)[number]>>;
 export class ProjectFiles {
@@ -221,6 +222,7 @@ export class ProjectFiles {
       readingWorkspaces: (s.readingWorkspaces ?? []).filter(w => w.projectId === id),
       revisionJobs: (s.revisionJobs ?? []).filter(j => j.projectId === id).map(({ profileId, ...job }) => job),
       writingJobs: (s.writingJobs ?? []).filter(j => j.projectId === id).map(({ profileId, checkingProfileId, ...job }) => job),
+      structureWorkspaces:(s.structureWorkspaces??[]).filter(w=>w.projectId===id),
       voiceRecords:(s.voiceRecords??[]).filter(r=>r.projectId===id),
       voiceJobs:(s.voiceJobs??[]).filter(j=>j.projectId===id).map(({profileId,...j})=>j),
       scenePlans:(s.scenePlans??[]).filter(p=>p.projectId===id),
@@ -244,7 +246,7 @@ export class ProjectFiles {
       path,
       JSON.stringify({
         format: "xiaoshuo-project",
-        version: 8,
+        version: 9,
         sha256: digest(payload),
         payload,
       }),
@@ -263,7 +265,7 @@ export class ProjectFiles {
     if (
       !pack ||
       !["xiaoshuo-project", "xiaoshuo-recovery"].includes(pack.format) ||
-      ![1, 2, 3, 4, 5, 6, 7, 8].includes(pack.version) ||
+      ![1, 2, 3, 4, 5, 6, 7, 8, 9].includes(pack.version) ||
       !pack.payload ||
       pack.sha256 !== digest(pack.payload)
     )
@@ -299,6 +301,7 @@ export class ProjectFiles {
     if(pack.version<6){pack.payload.storyRecords=[];pack.payload.storyJobs=[];if(pack.format==="xiaoshuo-recovery")pack.payload.schemaVersion=6;}
     if(pack.version<7){pack.payload.scenePlans=[];pack.payload.sceneJobs=[];if(pack.format==="xiaoshuo-recovery")pack.payload.schemaVersion=7;}
     if(pack.version<8){pack.payload.voiceRecords=[];pack.payload.voiceJobs=[];if(pack.format==="xiaoshuo-recovery")pack.payload.schemaVersion=8;}
+    if(pack.version<9){pack.payload.structureWorkspaces=[];if(pack.format==="xiaoshuo-recovery")pack.payload.schemaVersion=9;}
     if (pack.format === "xiaoshuo-recovery") validateRecovery(s);
     else validatePortable(s);
     return this.importPayload(s);
@@ -306,7 +309,7 @@ export class ProjectFiles {
   private importPayload(s: Portable): string {
     const ids = new Map<string, string>();
     // Preserve the source validity decision before identity remapping.
-    const sourceState={...s,schemaVersion:8,profiles:[]} as AppState;
+    const sourceState={...s,schemaVersion:9,profiles:[]} as AppState;
     const currentStoryTasks=new Set(s.tasks.filter(t=>{
       const stamp=(t.requestSnapshot as any)?.context?.storyStamp;
       return stamp&&storyStampCurrent(sourceState,t.projectId,stamp);
@@ -321,6 +324,7 @@ export class ProjectFiles {
     const currentSceneJobs=new Set(s.sceneJobs.filter(j=>storyStampCurrent(sourceState,j.projectId,j.storyStamp)).map(j=>j.id));
     for (const table of tables)
       for (const r of s[table]) ids.set(r.id, randomUUID());
+    for(const w of s.structureWorkspaces)for(const f of [w,...w.history]){for(const t of f.threads){remapReadingId(t.id);for(const l of t.links){remapReadingId(l.planId);remapReadingId(l.cardId);remapReadingId(l.chapterId);}}for(const t of f.dismissed){remapReadingId(t.id);if(t.cardId)remapReadingId(t.cardId);if(t.threadId)remapReadingId(t.threadId);}}
     for(const p of s.scenePlans)for(const f of [p,...p.history])for(const c of f.cards)if(!ids.has(c.id))ids.set(c.id,randomUUID());
     for(const p of [...s.scenePlans,...s.sceneJobs])for(const f of "history" in p?[p,...p.history]:[p]){
       for(const ref of f.sources)if(!ids.has(ref.id))ids.set(ref.id,randomUUID());
@@ -498,6 +502,7 @@ export class ProjectFiles {
         const { profileId, checkingProfileId, reviewSourceDigest, checkCursor, checkSourceDigest, checkIssues, ...job } = j;
         this.store.put("writingJobs", { ...nested(job), status: j.status === "running" ? "interrupted" : j.status });
       }
+      for(const w of s.structureWorkspaces)this.store.put("structureWorkspaces",nested(w));
       for(const r of s.voiceRecords)this.store.put("voiceRecords",nested(r));
       for(const j of s.voiceJobs){const {profileId,...job}=j;this.store.put("voiceJobs",{...nested(job),status:j.status==="running"?"interrupted":j.status});}
       for(const p of s.scenePlans)this.store.put("scenePlans",nested(p));
@@ -712,6 +717,7 @@ function validatePortable(s: any): asserts s is Portable {
   validateStoryOwnership(s);
   validateSceneOwnership(s);
   validateVoiceOwnership(s);
+  validateStructureOwnership(s);
   validateReadingPayload(s);
   validateWritingPayload(s);
 }
@@ -720,7 +726,7 @@ function validateRecovery(s: any): void {
   validatePublicJson(s);
   if (
     !s ||
-    s.schemaVersion !== 8 ||
+    s.schemaVersion !== 9 ||
     Object.keys(s).sort().join(",") !==
       ["schemaVersion", ...tables].sort().join(",")
   )
@@ -757,6 +763,7 @@ function validateRecovery(s: any): void {
   validateStoryOwnership(s);
   validateSceneOwnership(s);
   validateVoiceOwnership(s);
+  validateStructureOwnership(s);
   for (const project of s.projects) {
     const pid = project.id;
     validatePortable({
@@ -772,6 +779,7 @@ function validateRecovery(s: any): void {
       readingWorkspaces: s.readingWorkspaces.filter((r: any) => r.projectId === pid),
       revisionJobs: s.revisionJobs.filter((r: any) => r.projectId === pid),
       writingJobs: s.writingJobs.filter((r: any) => r.projectId === pid),
+      structureWorkspaces:s.structureWorkspaces.filter((w:any)=>w.projectId===pid),
       voiceRecords:s.voiceRecords.filter((r:any)=>r.projectId===pid),
       voiceJobs:s.voiceJobs.filter((r:any)=>r.projectId===pid),
       scenePlans:s.scenePlans.filter((r:any)=>r.projectId===pid),
@@ -1170,7 +1178,7 @@ function validateSceneOwnership(s:Portable):void{
 }
 
 function validateVoiceOwnership(s:Portable):void {
-  const state={...s,schemaVersion:8,profiles:[]} as AppState;
+  const state={...s,schemaVersion:9,profiles:[]} as AppState;
   for(const t of s.tasks){const ctx=(t.requestSnapshot as any)?.context;if(ctx?.voiceStamp&&voiceStampCurrent(state,t.projectId,ctx.voiceStamp)&&ctx.voiceText!==undefined&&voiceContext(state,t.projectId,ctx.voiceStamp.query,ctx.voiceStamp.limit).text!==ctx.voiceText)fail("任务文风参考与已采纳档案不一致");}
   const chapters=new Map(s.chapters.map(c=>[c.id,c])),notes=new Map(s.notes.map(n=>[n.id,n])),records=new Map(s.voiceRecords.map(r=>[r.id,r])),sampleOwners=new Map<string,string>();
   for(const r of s.voiceRecords){validateVoiceRecord(r);
@@ -1181,3 +1189,5 @@ function validateVoiceOwnership(s:Portable):void {
   }
   for(const j of s.voiceJobs){validateVoiceJob(j);const r=records.get(j.recordId);if(!r||r.projectId!==j.projectId)fail("文风提取任务引用不正确");}
 }
+
+function validateStructureOwnership(s:Portable){const seen=new Set<string>();for(const w of s.structureWorkspaces){validateStructureWorkspace(w);if(seen.has(w.projectId))fail("结构工作区重复");seen.add(w.projectId);for(const f of [w,...w.history]){for(const t of f.threads)for(const l of t.links){const p=s.scenePlans.find(p=>p.id===l.planId),ch=s.chapters.find(c=>c.id===l.chapterId);if(p&&(p.projectId!==w.projectId||p.chapterId!==l.chapterId)||ch&&ch.projectId!==w.projectId||p&&p.cards.some(c=>c.id===l.cardId&&c.revision<l.revision))fail("结构关联不属于本作品或版本伪造");}for(const t of f.dismissed){const r=t.kind==="scene"?s.scenePlans.find(p=>p.id===t.id):s.storyRecords.find(r=>r.id===t.id);if(r&&r.projectId!==w.projectId)fail("结构提醒不属于本作品");}}}}

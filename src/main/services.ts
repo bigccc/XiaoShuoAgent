@@ -1,3 +1,5 @@
+import {StructureService} from "./structure";
+import type {StructureCommand,StructureQuery} from "../shared/structure";
 import {VoiceExtractionRunner} from "./voice-extraction";
 import {VoiceService} from "./voice";
 import type {VoiceQuery} from "../shared/voice";
@@ -157,6 +159,8 @@ export class AppServices {
     if (result.state) result.state.persistence = { ...this.persistence };
     return result;
   }
+  structureConfig(projectId:string,history=false){return new StructureService(this.store).config(projectId,history);}
+  structureQuery(q:StructureQuery){return new StructureService(this.store).query(q);}
   chapter(id: string) {
     if (typeof id !== "string" || !id) throw new DomainError("VALIDATION", "章节编号不正确");
     const chapter = this.store.get("chapters", id);
@@ -223,6 +227,7 @@ export class AppServices {
       if(writesWithAI && busyProject && this.store.selectByProject("storyJobs",busyProject).some(j=>j.status==="running"))throw new DomainError("CONFLICT","故事状态提取正在运行，请先暂停再创作");
       if (writesWithAI && busyProject && this.store.selectByProject("writingJobs", busyProject).some(j => j.status === "running"))
         throw new DomainError("CONFLICT", "连续写作任务正在执行，请先暂停后再发起其他 AI 任务");
+      if(command.type.startsWith("structure.")){const c=command as StructureCommand,service=new StructureService(this.store);if(c.type==="structure.revise"){await this.sync.barrier(c.projectId);return {ok:true,entityId:this.revisions.start(service.revision(c))};}const saved=service.command(c);return {ok:true,entityId:saved.id,revision:saved.revision};}
       if (command.type.startsWith("reading.")) return this.reading.dispatch(command as ReaderCommand);
       if(command.type==="scene.revise"){const c=this.scenes.revisionStart(command);await this.sync.barrier(c.projectId);return{ok:true,entityId:this.revisions.start(c)};}
       if (command.type.startsWith("revision.")) {
@@ -489,7 +494,7 @@ export class AppServices {
         readingWorkspaces: state.readingWorkspaces ?? [],
         revisionJobs: (state.revisionJobs ?? []).map(({ profileId, ...job }) => job),
         writingJobs: (state.writingJobs ?? []).map(({ profileId, checkingProfileId, ...job }) => job),
-        voiceRecords:state.voiceRecords??[],voiceJobs:(state.voiceJobs??[]).map(({profileId,...j})=>j),
+        structureWorkspaces:state.structureWorkspaces??[],voiceRecords:state.voiceRecords??[],voiceJobs:(state.voiceJobs??[]).map(({profileId,...j})=>j),
         scenePlans:state.scenePlans??[],sceneJobs:(state.sceneJobs??[]).map(({profileId,...j})=>j),
         storyRecords:state.storyRecords??[],storyJobs:(state.storyJobs??[]).map(({profileId,...j})=>j),
       };
@@ -508,7 +513,7 @@ export class AppServices {
         file,
         JSON.stringify({
           format: "xiaoshuo-recovery",
-          version: 8,
+          version: 9,
           sha256,
           payload,
         }),

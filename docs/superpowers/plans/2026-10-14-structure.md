@@ -30,7 +30,7 @@
 
 ### Task 2: 有界投影与提醒
 **Files:** Modify main/structure.ts、main/store.ts；Create tests/structure-query.test.ts、scripts/benchmark-structure.mjs。
-**Interfaces:** StructureService.query(q):StructurePage；Store分页场景/人物匹配/伏笔投影/源元信息方法。Row含标题/来源版本/显式类别/最多两项提醒，无正文全文。
+**Interfaces:** StructureService.query(q):StructurePage；Store分页场景/人物匹配/伏笔投影/源元信息方法。Row含标题/来源版本/显式类别/最多3项提醒，无正文全文。
 - [ ] 失败测试：五视图、筛选/范围/40分页、人物姓名/别名、候选与采纳伏笔、逾期/忽略与来源改变、5000章不读全文snapshot。
 - [ ] 实现SQLite筛选/排序、按页来源检查与可解释提醒，固定性能/响应基准、目标+全套/types通过提交。
 

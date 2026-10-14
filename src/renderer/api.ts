@@ -1,3 +1,4 @@
+import type {StructureWorkspace,StructureQuery,StructurePage} from "../shared/structure";
 import type {VoiceRecord,VoiceWorkspace,VoiceQuery} from "../shared/voice";
 import type {ScenePlan,SceneWorkspace} from "../shared/scenes";
 import type {StoryRecord,StoryQuery,StoryWorkspace} from "../shared/story-state";
@@ -16,6 +17,8 @@ declare global {
       search(projectId: string, query: string, offset?: number): Promise<SearchResult>;
       revisionJob(id: string, offset?: number, limit?: number): Promise<RevisionJob>;
       storyWorkspace(query:StoryQuery):Promise<StoryWorkspace>;
+      structureQuery(q:StructureQuery):Promise<StructurePage>;
+      structureConfig(id:string,history?:boolean):Promise<StructureWorkspace>;
       voiceWorkspace(query:VoiceQuery):Promise<VoiceWorkspace>;
       voiceRecord(id:string):Promise<VoiceRecord>;
       sceneWorkspace(chapterId:string):Promise<SceneWorkspace>;

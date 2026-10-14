@@ -39,7 +39,7 @@ it("rejects cross-project references in recovery data instead of displaying anot
   const file=join(dir,"book.novel"); await files.backup("p",file);
   const pack=JSON.parse(readFileSync(file,"utf8"));
   pack.format="xiaoshuo-recovery";
-  pack.payload.schemaVersion=8;
+  pack.payload.schemaVersion=9;
   pack.payload.projects.push({...pack.payload.projects[0],id:"other"});
   pack.payload.chapters.push(chapter("foreign",8,"别人的稿件。",{projectId:"other"}));
   pack.payload.conversations[0].contextReferences[0].source.id="foreign";
