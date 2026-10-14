@@ -44,6 +44,7 @@ export async function navigateAuthor(page: Page, name: string) {
     await page.getByRole("button", { name: renamed[name] ?? name, exact: true }).click();
   }
   if (await page.getByRole("dialog").isVisible()) return;
+  if (name === "创作对话") await expect(page.getByRole("region", { name: "对话创作工作区" })).toBeVisible();
   await openLegacyOperations(page);
 }
 

@@ -19,7 +19,7 @@ export class VoiceService {
         throw new DomainError("VALIDATION", "样本合计最多12000字符"); return result; }
     save(c: VoiceSave, origin: VoiceRecord["origin"] = { kind: "manual" }) { validateVoiceCommand(c); return this.store.transaction(() => { this.project(c.projectId); const old = c.id ? this.record(c.id) : undefined; if (!!c.id !== (c.revision !== undefined) || old && (old.projectId !== c.projectId || old.revision !== c.revision))
         throw new DomainError("CONFLICT", "文风档案已改变，请重新读取"); const n = c.entityNoteId ? this.store.get("notes", c.entityNoteId) : undefined; if (c.kind === "character" ? (!n || n.projectId !== c.projectId || n.type !== "character" || n.archived) : !!c.entityNoteId)
-        throw new DomainError("VALIDATION", "请绑定本作品有效人物资料"); const samples = this.samples(c.projectId, c.samples, old), trusted = !old?.accepted || old.accepted.samples.every(s => samples.some(next => next.approved && sameVoiceSample(s, next))); const now = new Date().toISOString(), { history, ...frame } = old ?? ({ history: [] } as any); const r: VoiceRecord = JSON.parse(JSON.stringify({ id: old?.id ?? randomUUID(), revision: (old?.revision ?? 0) + 1, createdAt: old?.createdAt ?? now, updatedAt: now, projectId: c.projectId, kind: c.kind, ...(n ? { entityNoteId: n.id, entityRevision: n.revision } : {}), fields: c.fields, samples, status: "candidate", enabled: !!old?.enabled && trusted, archived: old?.archived ?? false, origin, history: old ? [...history, frame].slice(-50) : [], ...(old?.accepted ? { accepted: old.accepted } : {}) })); validateVoiceRecord(r); this.store.put("voiceRecords", r); return r; }); }
+        throw new DomainError("VALIDATION", "请绑定本作品有效人物资料"); const samples = this.samples(c.projectId, c.samples, old), trusted = !old?.accepted || old.accepted.samples.every(s => samples.some(next => next.approved && sameVoiceSample(s, next))); const now = new Date().toISOString(), { history, ...frame } = old ?? ({ history: [] } as any); const r: VoiceRecord = JSON.parse(JSON.stringify({ id: old?.id ?? randomUUID(), revision: (old?.revision ?? 0) + 1, createdAt: old?.createdAt ?? now, updatedAt: now, projectId: c.projectId, kind: c.kind, ...(n ? { entityNoteId: n.id, entityRevision: n.revision } : {}), fields: c.fields, samples, status: "candidate", enabled: !!old?.enabled && trusted, archived: old?.archived ?? false, ...(old?.selectionOrder ? { selectionOrder: old.selectionOrder } : {}), origin, history: old ? [...history, frame].slice(-50) : [], ...(old?.accepted ? { accepted: old.accepted } : {}) })); validateVoiceRecord(r); this.store.put("voiceRecords", r); return r; }); }
     command(c: Exclude<VoiceCommand, VoiceSave>) {
         validateVoiceCommand(c);
         if (!("revision" in c))
@@ -33,8 +33,15 @@ export class VoiceService {
                 const h = old.history.find(h => h.revision === c.historyRevision);
                 if (!h)
                     throw new DomainError("NOT_FOUND", "文风历史不存在");
-                const samples = h.samples.map(s => { const current = old.samples.find(v => sameVoiceSample(v, s)); return { id: s.id, chapterId: s.chapterId, revision: s.revision, start: s.start, end: s.end, approved: !!current?.approved }; });
-                return this.save({ type: "voice.save", id: old.id, revision: old.revision, projectId: old.projectId, kind: h.kind, ...(h.entityNoteId ? { entityNoteId: h.entityNoteId } : {}), fields: h.fields, samples });
+                const { history, ...frame } = old;
+                // Restoring fields retains their original evidence; recognition must be granted again.
+                const restored: VoiceRecord = { ...old, revision: old.revision + 1, updatedAt: new Date().toISOString(), kind: h.kind, fields: { ...h.fields }, samples: h.samples.map(s => ({ ...s, approved: false })), status: "candidate", enabled: false, origin: { kind: "manual" }, history: [...history, frame].slice(-50) };
+                delete restored.entityNoteId;
+                delete restored.entityRevision;
+                if (h.entityNoteId) { restored.entityNoteId = h.entityNoteId; restored.entityRevision = h.entityRevision; }
+                validateVoiceRecord(restored);
+                this.store.put("voiceRecords", restored);
+                return restored;
             }
             if (c.type === "voice.recheck") {
                 const samples = old.samples.map(s => { const ch = this.store.get("chapters", s.chapterId); if (!ch || ch.projectId !== old.projectId)
@@ -52,8 +59,8 @@ export class VoiceService {
                 const rebound = { ...old, samples };
                 if (!this.current(rebound))
                     throw new DomainError("CONFLICT", "人物资料或样本来源已改变，请复核");
-                const order = Math.max(0, ...this.store.selectByProject("voiceRecords", old.projectId).map(r => r.accepted?.confirmationOrder ?? 0)) + 1;
-                next = { ...next, status: "confirmed", samples, enabled: true, confirmationOrder: order };
+                const order = Math.max(0, ...this.store.selectByProject("voiceRecords", old.projectId).map(r => r.selectionOrder ?? r.accepted?.confirmationOrder ?? 0)) + 1;
+                next = { ...next, status: "confirmed", samples, enabled: true, confirmationOrder: order, selectionOrder: order };
                 const { accepted, history, ...snapshot } = next;
                 next.accepted = snapshot;
             }
@@ -65,6 +72,7 @@ export class VoiceService {
                 if (c.enabled && !voiceAccepted({ ...old, enabled: true }, this.store.snapshot())?.stable)
                     throw new DomainError("CONFLICT", "请先认可、确认并复核档案，才能启用");
                 next.enabled = c.enabled;
+                if (c.enabled) next.selectionOrder = Math.max(0, ...this.store.selectByProject("voiceRecords", old.projectId).map(r => r.selectionOrder ?? r.accepted?.confirmationOrder ?? 0)) + 1;
             }
             else
                 throw new DomainError("VALIDATION", "文风操作不正确");

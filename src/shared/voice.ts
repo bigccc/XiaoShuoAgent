@@ -33,6 +33,7 @@ export interface VoiceRecord extends RecordMeta {
     enabled: boolean;
     archived: boolean;
     confirmationOrder?: number;
+    selectionOrder?: number;
     origin: {
         kind: "manual" | "extraction";
         id?: ID;

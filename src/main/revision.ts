@@ -745,6 +745,10 @@ export class RevisionRunner {
         const ch = this.chapter(nextId, j.projectId),
           p = this.project(j.projectId),
           selection = j.selection;
+        const scene = j.sceneSource ? new SceneService(this.store).record(j.sceneSource.id).cards.find(c => c.id === j.sceneSource!.cardId) : undefined;
+        const voices = voiceContext(this.store.snapshot(), j.projectId, [scene?.pov ?? "", j.text.slice(0, 1500), (selection?.quote ?? ch.content).slice(0, 2000)].join("\n"), Math.min(8000, Math.floor(this.maxChars / 4)));
+        // Each request and candidate keeps the reference actually used for its own chapter.
+        j = this.update(id, { voiceStamp: voices.stamp, warnings: [...new Set([...j.warnings, ...voices.warnings])] });
         const scopedSystem = selection
           ? `${SYSTEM}
 本轮唯一允许回写的 chapter.id = ${ch.id}。这是选段任务，只能替换提供的 selection.quote。严格返回 message 和 replacement，禁止返回 chapters 或整章正文；选段之外的文本由应用保留。${j.sceneSource?"场景卡是计划而非原文。只调整作者指明的视角/目标/阻力/转折/篇幅。重大方向变更须只返回message、majorChange:true和reason，不返回replacement，等作者决定。":""}`
@@ -773,9 +777,9 @@ export class RevisionRunner {
             content: selection ? selection.quote : ch.content,
           },
           ...(selection ? { selection } : {}),
-          ...(j.sceneSource?{scene:new SceneService(this.store).record(j.sceneSource.id).cards.find(c=>c.id===j.sceneSource!.cardId)}:{}),
+          ...(scene ? { scene } : {}),
           plannedChanges: { project: j.projectPatch ?? {}, notes: j.notes },
-          ...(j.voiceStamp?{expressionReference:voiceContext(this.store.snapshot(),j.projectId,j.voiceStamp.query,j.voiceStamp.limit).text}:{}),
+          expressionReference: voices.text,
           annotations: this.annotations(j, ch.id, true).map((a) => ({
             text: a.text,
             anchor: a.anchor,

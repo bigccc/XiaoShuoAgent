@@ -539,7 +539,7 @@ function validateTaskPayload(task: Record<string, any>): void {
     "materials", "storyStamp", "voiceText", "voiceStamp",
   ]);
   if(context.storyStamp!==undefined){const stamp=taskObject(context.storyStamp);taskFields(stamp,["beforeOrdinal","digest","writingJobId"]);if(!Number.isSafeInteger(stamp.beforeOrdinal)||stamp.beforeOrdinal<1||typeof stamp.digest!=="string"||!/^[a-f0-9]{64}$/.test(stamp.digest))invalid("任务状态依据格式不正确");if(stamp.writingJobId!==undefined)text(stamp.writingJobId,true);}
-if(context.voiceStamp!==undefined)validateVoiceStamp(context.voiceStamp);
+  if(context.voiceStamp!==undefined){validateVoiceStamp(context.voiceStamp);if(typeof context.voiceText!=="string")invalid("任务文风参考缺少实际元信息");}
   if(context.voiceText!==undefined&&(typeof context.voiceText!=="string"||!context.voiceStamp||context.voiceText.length>context.voiceStamp.limit))invalid("任务文风参考格式不正确");
   text(context.text);
   validateSources(context.sources);
