@@ -1,3 +1,4 @@
+import {issueIdentity} from "./check-cache";
 import {validateVoiceRecord,validateVoiceJob} from "../shared/voice-validation";
 import {validateScenePlan,validateSceneJob} from "../shared/scenes";
 import { isDeepStrictEqual } from "node:util";
@@ -369,6 +370,7 @@ export class Store {
       )
         throw new DomainError("CONFLICT", "检查问题已被修改，请刷新后重试");
       validateIssue(issue);
+      if(!old&&expectedRevision===undefined){const prior=this.selectByProject("issues",issue.projectId).find(v=>issueIdentity(v)===issueIdentity(issue));if(prior)return prior;}
       const next = { ...issue, revision: old ? old.revision + 1 : 1 };
       this.put("issues", next);
       return next;

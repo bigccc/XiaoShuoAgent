@@ -46,6 +46,8 @@ interface Candidate {
   check?: { issues: CheckIssue[]; majorChange: boolean; reason?: string };
 }
 interface Result {
+  checkCacheHits?:number;
+  checkCacheMisses?:number;
   suggestion?: string;
   step?: NoteType | "idea";
   sources?: SourceRevision[];
@@ -554,6 +556,7 @@ function TaskDetail({
         </div>
       )}
       {r.pauseReason && <div className="hint warn">{r.pauseReason}</div>}
+      {(r.checkCacheHits!==undefined||r.checkCacheMisses!==undefined)&&<p className="hint">复用已验证窗口 {r.checkCacheHits??0} 段；本次新检查 {r.checkCacheMisses??0} 段。</p>}
       {r.checkProgress && (
         <div className="hint" role="status">
           <strong>检查覆盖：{r.checkProgress.completed} / {r.checkProgress.total} 段</strong>

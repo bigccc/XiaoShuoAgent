@@ -615,8 +615,9 @@ function validateTaskPayload(task: Record<string, any>): void {
     "connection",
     "pauseReason",
     "phase",
-    "checkProgress",
+    "checkProgress", "checkCacheHits", "checkCacheMisses",
   ]);
+  for(const field of ["checkCacheHits","checkCacheMisses"])if(result[field]!==undefined&&(!Number.isSafeInteger(result[field])||result[field]<0))invalid("检查复用统计不正确");
   if (result.disclosures !== undefined)
     taskStrings(result.disclosures, 1000000);
   if (result.pauseReason !== undefined) text(result.pauseReason);

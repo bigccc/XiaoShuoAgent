@@ -89,6 +89,8 @@ export function Conversation({
   const [startMode, setStartMode] = useState<"idea" | "inspiration">();
   const [genre, setGenre] = useState("玄幻");
   const [chapterCount, setChapterCount] = useState(1);
+  const [writingMode,setWritingMode]=useState<"quick"|"thorough">("thorough");
+  const [writingError,setWritingError]=useState("");
   const [chapterWords, setChapterWords] = useState(project.chapterWords || 3000);
   const composer = useRef<HTMLTextAreaElement>(null);
   const [tokenBudget, setTokenBudget] = useState(100000);
@@ -458,14 +460,21 @@ export function Conversation({
             {authorStep(workflow.activeStage) === "preparation" && <button onClick={() => void send("按推荐").catch(() => {})}>按推荐继续</button>}
             {workflow.activeStage !== "writing" && <button onClick={() => void send("先写一段看看").catch(() => {})}>先写一段看看</button>}
             {workflow.activeStage === "writing" && <details className="chapter-actions"><summary>写下一章 / 连续写作</summary>
-              <Field label="一次写几章"><input type="number" min={1} max={100} value={chapterCount} onChange={e => setChapterCount(Number(e.target.value))} /></Field>
+              <Field label="写作方式"><select value={writingMode} onChange={e=>{setWritingMode(e.target.value as "quick"|"thorough");if(e.target.value==="quick")setChapterCount(1);}}><option value="thorough">认真定稿</option><option value="quick">快速试写</option></select></Field>
+              <p className="muted">{writingMode==="quick"?"先保存一章草稿，尚未一致性检查；你可以编辑后继续认真定稿。":"逐章检查、有限修订及独立跨章复核。"}</p>
+              {writingError&&<p className="error" role="alert">{writingError}</p>}
+              <Field label="一次写几章"><input disabled={writingMode==="quick"} type="number" min={1} max={100} value={chapterCount} onChange={e => setChapterCount(Number(e.target.value))} /></Field>
               <Field label="每章大约多少字"><input type="number" min={1} max={16000} value={chapterWords} onChange={e => setChapterWords(Number(e.target.value))} /></Field>
               <button disabled={!Number.isInteger(chapterCount) || chapterCount < 1 || chapterCount > 100 || !Number.isInteger(chapterWords) || chapterWords < 1 || chapterWords > 16000} onClick={() => void (async () => {
                 if (!(await flush())) return;
                 const current = (await window.novel.snapshot()).projects.find(p => p.id === projectId)!;
                 if (current.chapterWords !== chapterWords) await run({ type: "project.update", id: current.id, revision: current.revision, patch: { chapterWords } });
-                await send(`接着写${chapterCount}章，每章大约${chapterWords}字`);
-              })().catch(() => {})}>开始写作</button>
+                setWritingError("");
+                if(writingMode==="quick"){
+                  setSending(true);
+                  try{const ordinal=Math.max(0,...chapters.map(c=>c.ordinal))+1;await run({type:"writing.start",projectId,text:`接着写1章，每章大约${chapterWords}字`,goal:{kind:"append",startOrdinal:ordinal,endOrdinal:ordinal},profileId:model.id,tokenBudget,mode:"quick"});}finally{setSending(false);}
+                }else await send(`接着写${chapterCount}章，每章大约${chapterWords}字`);
+              })().catch(e => setWritingError(e instanceof Error?e.message:"写作未能开始"))}>{writingMode==="quick"?"开始快速试写":"开始写作"}</button>
             </details>}
           </div>}
           {!model && (

@@ -32,6 +32,9 @@ export interface WritingIssue {
 export interface WritingJob extends RecordMeta {
   projectId: ID;
   profileId?: ID;
+  mode?: "quick" | "thorough";
+  checkCacheHits?: number;
+  checkCacheMisses?: number;
   checkingProfileId?: ID;
   text: string;
   goal: WritingGoal;
@@ -61,7 +64,7 @@ export interface WritingJob extends RecordMeta {
 }
 
 export type WritingCommand =
-  | { type: "writing.start"; projectId: ID; text: string; goal: WritingGoal; profileId?: ID; tokenBudget: number }
+  | { type: "writing.start"; projectId: ID; text: string; goal: WritingGoal; profileId?: ID; tokenBudget: number; mode?: "quick" | "thorough" }
   | { type: "writing.pause" | "writing.cancel"; id: ID }
   | { type: "writing.resume"; id: ID; tokenBudget?: number; profileId?: ID; text?: string };
 
@@ -136,7 +139,7 @@ function array(value: unknown, max: number): asserts value is any[] {
 }
 
 export function validateWritingJob(value: unknown): asserts value is WritingJob {
-  object(value, ["id", "revision", "createdAt", "updatedAt", "projectId", "profileId", "checkingProfileId", "text", "goal", "status", "phase", "chapters", "cursor", "plan", "planningDone", "reviewCursor", "reviewRounds", "reviewSourceDigest", "checkCursor", "checkSourceDigest", "checkIssues", "issues", "revisionJobIds", "warnings", "contextReferences", "contextReferenceCall", "tokenBudget", "budgetUsed", "usage", "calls", "reply", "error"]);
+  object(value, ["id", "revision", "createdAt", "updatedAt", "projectId", "profileId", "checkingProfileId", "text", "goal", "status", "phase", "chapters", "cursor", "plan", "planningDone", "reviewCursor", "reviewRounds", "reviewSourceDigest", "checkCursor", "checkSourceDigest", "checkIssues", "issues", "revisionJobIds", "warnings", "contextReferences", "contextReferenceCall", "tokenBudget", "budgetUsed", "usage", "calls", "reply", "error", "mode", "checkCacheHits", "checkCacheMisses"]);
   for (const key of ["id", "projectId"]) string(value[key], 200);
   for (const key of ["profileId", "checkingProfileId"]) if (value[key] !== undefined) string(value[key], 200);
   integer(value.revision, 1);
@@ -144,6 +147,8 @@ export function validateWritingJob(value: unknown): asserts value is WritingJob 
     string(value[key], 100);
     if (!Number.isFinite(Date.parse(value[key]))) fail();
   }
+  if(value.mode!==undefined&&!["quick","thorough"].includes(value.mode))fail();
+  for(const field of ["checkCacheHits","checkCacheMisses"])if(value[field]!==undefined)integer(value[field],0);
   string(value.text, 10000); string(value.plan, 40000, true); string(value.reply, 12000, true);
   if (value.error !== undefined) string(value.error, 4000, true);
   object(value.goal, ["kind", "startOrdinal", "endOrdinal"]);

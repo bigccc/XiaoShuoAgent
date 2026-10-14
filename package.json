@@ -20,6 +20,7 @@
     "test": "vitest run",
     "benchmark:recall": "node scripts/benchmark-recall.mjs",
     "benchmark:scenes": "node scripts/benchmark-scenes.mjs",
+    "benchmark:check-cost": "node scripts/benchmark-check-cost.mjs",
     "benchmark:voice": "node scripts/benchmark-voice.mjs",
     "typecheck": "tsc --noEmit",
     "dev": "electron-vite dev",

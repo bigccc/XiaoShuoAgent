@@ -81,6 +81,7 @@ export function WritingProgress({ job, state, run, flush, otherBusy, openChapter
         <small>{job.usage?.totalTokens == null ? "模型尚未报告用量" : `模型${job.usage.estimated ? "估算" : "已报告"}用量 ${job.usage.totalTokens.toLocaleString()} Token`} · {job.calls} 次请求</small>
         {(job.usage?.totalTokens == null && job.budgetUsed > 0 || job.budgetUsed > (job.usage?.totalTokens ?? 0)) && <small>占用额度包含调用预留或未报告用量，续跑不会清零。</small>}
       </details>
+      {(job.checkCacheHits!==undefined||job.checkCacheMisses!==undefined)&&<p className="muted">复用已验证窗口 {job.checkCacheHits??0} 段；本次新检查 {job.checkCacheMisses??0} 段。</p>}
       {job.reply && <p>{authorError(job.reply)}</p>}
       <ContextReferences references={job.contextReferences} chapters={state.chapters} label="最近一次提供的远章原文"
         description={job.contextReferenceCall ? `来自第${job.contextReferenceCall.number}次请求：${job.contextReferenceCall.phase}${job.contextReferenceCall.ordinal ? ` · 第${job.contextReferenceCall.ordinal}章` : ""}。当前任务进度可能已推进。` : "历史记录未注明对应请求。"} />
@@ -102,7 +103,7 @@ export function WritingProgress({ job, state, run, flush, otherBusy, openChapter
       <div className="toolbar">
         {job.status === "running" && <button disabled={pending} onClick={() => void act("writing.pause")}>暂停任务</button>}
         {resumable && budgetStopped(job.error) && job.tokenBudget < MAX_WRITING_TOKEN_BUDGET && <button disabled={pending || otherBusy || !validBudget} onClick={() => void act("writing.resume", true)}>增加本次调用额度并继续</button>}
-        {resumable && <button disabled={pending || otherBusy || !validBudget} onClick={() => void act("writing.resume")}>继续任务</button>}
+        {resumable && <button disabled={pending || otherBusy || !validBudget} onClick={() => void act("writing.resume")}>{job.mode==="quick"&&job.phase==="checking"?"继续认真定稿":"继续任务"}</button>}
         {!["completed", "cancelled"].includes(job.status) && <button disabled={pending} onClick={() => void act("writing.cancel")}>取消任务</button>}
         {latestChapter && <button onClick={() => openChapter(latestChapter)}>查看最新正文</button>}
         {job.revisionJobIds.length > 0 && <button onClick={() => document.querySelector<HTMLElement>('[aria-label="Agent 改稿任务"]')?.scrollIntoView({ block: "nearest" })}>查看待审稿</button>}

@@ -1,3 +1,4 @@
+import {CheckCache,issueIdentity} from "./check-cache";
 import {voiceStampCurrent} from "./voice-context";
 import type {VoiceStamp} from "../shared/voice";
 import {SceneService} from "./scenes";
@@ -88,15 +89,17 @@ export class WritingRunner {
   }
   start(c: StartWriting) {
     if (this.disposed) throw new DomainError("CONFLICT", "应用正在关闭");
-    if (Object.keys(c).some(k => !["type", "projectId", "text", "goal", "profileId", "tokenBudget"].includes(k)) || typeof c.text !== "string" || !c.text.trim() || c.text.length > 10000)
+    if (Object.keys(c).some(k => !["type", "projectId", "text", "goal", "profileId", "tokenBudget", "mode"].includes(k)) || typeof c.text !== "string" || !c.text.trim() || c.text.length > 10000)
       throw new DomainError("VALIDATION", "连续写作目标不正确");
+    if(c.mode!==undefined&&!["quick","thorough"].includes(c.mode))throw new DomainError("VALIDATION","写作方式不正确");
     this.project(c.projectId); this.assertAvailable(c.projectId);
     const goal = c.goal;
     if (!goal || !["through", "append"].includes(goal.kind) || !Number.isSafeInteger(goal.startOrdinal) || !Number.isSafeInteger(goal.endOrdinal) || goal.startOrdinal < 1 || goal.endOrdinal < goal.startOrdinal || goal.endOrdinal - goal.startOrdinal >= 100)
       throw new DomainError("VALIDATION", "连续写作一次支持1到100章，请指定有效范围");
     const chapters = this.store.selectByProject("chapters", c.projectId);
+    if(c.mode==="quick"&&(goal.endOrdinal!==goal.startOrdinal||chapters.some(ch=>ch.ordinal===goal.startOrdinal&&ch.content.trim())))throw new DomainError("VALIDATION","快速试写只支持一个尚未有正文的章节");
     const j: WritingJob = {
-      ...meta(), projectId: c.projectId, ...(c.profileId ? { profileId: c.profileId } : {}), text: c.text.trim(), goal,
+      ...meta(), projectId: c.projectId, ...(c.profileId ? { profileId: c.profileId } : {}), text: c.text.trim(), goal, mode:c.mode??"thorough",
       status: "running", phase: "planning", cursor: 0, planningDone: false, plan: "", reviewCursor: 0, reviewRounds: 0,
       chapters: Array.from({ length: goal.endOrdinal - goal.startOrdinal + 1 }, (_, i) => {
         const ordinal = goal.startOrdinal + i, ch = chapters.find(ch => ch.ordinal === ordinal);
@@ -137,6 +140,7 @@ export class WritingRunner {
     const next = { ...j, ...(c.profileId ? { profileId: c.profileId } : {}) };
     const profile = this.profile(next);
     this.update(j.id, { status: "running", profileId: profile.id, tokenBudget: budget, error: undefined,
+      ...(j.mode==="quick"&&j.phase==="checking"?{mode:"thorough" as const}:{}),
       ...(c.text ? { text: `${j.text}\n作者补充决定：${c.text}`.slice(-10000) } : {}),
       chapters, ...(changed >= 0 ? { cursor: changed, phase: "checking" as const, reviewCursor: 0 } : j.phase === "done" ? { phase: "reviewing" as const, reviewCursor: 0 } : {}),
       reply: "正在从已保存的进度继续任务" });
@@ -340,9 +344,17 @@ export class WritingRunner {
     const references = context.documents.flatMap(d=>d.reference ? [d.reference] : []);
     const input = { instruction: j.text, ordinal: final ? undefined : j.chapters[j.cursor]?.ordinal, context: context.text };
     const instruction = writingReviewInstruction + "\n将需要修改的本章/后出现章节的证据放在最后。方括号来源标记及紧接其后的章节索引说明是程序元数据，不是正文，不得作为quote或格式/文风问题；只引用下一行开始的正文。只依据context中带来源标记的原文独立检查，不引用计划或作者指令作为已发生事实，不依赖此前检查结论。篇幅由程序单独核验，不在这里输出length问题。";
+    this.assertRunning(id,signal);
+    this.checkSources(context.sources,context.storyStamp,j.projectId,context.voiceStamp,context.voiceText);
+    const cache=new CheckCache(this.store),profile=this.profile(j,true);
+    const key=cache.key({projectId:j.projectId,context,profile:{id:profile.id,revision:profile.revision,baseUrl:profile.baseUrl,model:profile.model,purpose:profile.purpose},protocol:instruction,request:{...input,final,maxTokens:3000}});
+    const cached=cache.get(j.projectId,key);
+    if(cached){try{const result=parseWritingReview(cached,context.documents);if(result.majorChange)throw Error("major change");this.update(id,{checkCacheHits:(this.job(id).checkCacheHits??0)+1});return result;}catch{cache.remove(j.projectId,key);}}
+    this.update(id,{checkCacheMisses:(this.job(id).checkCacheMisses??0)+1});
+    const remember=(result:ReturnType<typeof parseWritingReview>)=>{this.assertRunning(id,signal);this.checkSources(context.sources,context.storyStamp,j.projectId,context.voiceStamp,context.voiceText);if(!result.majorChange)cache.put(j.projectId,key,JSON.stringify(result));return result;};
     const raw = await this.call(id, final ? "跨章复核" : "检查", input, instruction, 3000, signal, true, [...new Map(references.map(r=>[r.source.id,r])).values()]);
     this.checkSources(context.sources,context.storyStamp,this.job(id).projectId,context.voiceStamp,context.voiceText);
-    try { return parseWritingReview(raw, context.documents); }
+    try { return remember(parseWritingReview(raw, context.documents)); }
     catch (error) {
       if (!(error instanceof ProviderError) || error.code !== "FORMAT") throw error;
       let original: any;
@@ -358,11 +370,12 @@ export class WritingRunner {
         originalIssues.some((issue: any, index: number) => !issue || ["category", "impact", "reason"].some(k => issue[k] !== (repaired.issues[index] as any)?.[k])) ||
         original?.majorChange === true && (!repaired.majorChange || repaired.reason !== original.reason))
         throw new ProviderError("FORMAT", "不能通过清空或改写疑点把无效检查变成通过；本次检查已停止");
-      return repaired;
+      return remember(repaired);
     }
   }
   private async checkChapter(id: string, signal: AbortSignal) {
     let j = this.job(id);
+    if(j.mode==="quick"){this.update(id,{status:"awaiting-author",reply:"快速试写草稿已保存，尚未一致性检查；可编辑后继续认真定稿。"});return;}
     const progress = j.chapters[j.cursor];
     if (!progress?.chapterId) throw new DomainError("CONFLICT", "章节尚未保存，无法检查");
     const source = this.context(j, progress.ordinal), windows = checkWindows(source, Math.min(this.maxChars, 24000));
@@ -374,7 +387,7 @@ export class WritingRunner {
       this.update(id, { reply: `正在检查第${progress.ordinal}章：${windowIndex + 1}/${windows.length}段` });
       const result = await this.inspect(id, windows[windowIndex], signal, false);
       if (result.majorChange) { this.update(id, { status: "awaiting-author", reply: result.reason }); return; }
-      found.push(...result.issues);
+      found.push(...result.issues.filter(issue=>!found.some(old=>issueIdentity(old)===issueIdentity(issue))));
       this.checkSources(source.sources,source.storyStamp,this.job(id).projectId,source.voiceStamp,source.voiceText); this.assertRunning(id, signal);
       this.update(id, { checkCursor: windowIndex + 1, checkIssues: found });
       if (windowIndex + 1 < windows.length) return;
@@ -403,7 +416,7 @@ export class WritingRunner {
     this.checkSources(source.sources,source.storyStamp,this.job(id).projectId,source.voiceStamp,source.voiceText); this.assertRunning(id, signal);
     if (result.majorChange) { this.update(id, { status: "awaiting-author", reply: result.reason }); return; }
     const previous = j.issues.filter(i => i.evidence.every(e => sourceCurrent(this.store.snapshot(), e.source)));
-    const issues = [...new Map([...previous, ...result.issues].map(i => [JSON.stringify(i), i])).values()];
+    const issues = [...new Map([...previous, ...result.issues].map(i => [issueIdentity(i), i])).values()];
     this.update(id, { issues, reviewCursor: j.reviewCursor + 1 });
     if (result.issues.length) {
       const blocking = result.issues.find(i => i.impact === "blocking"), target = blocking ?? result.issues[0];

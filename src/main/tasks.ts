@@ -1,3 +1,4 @@
+import {CheckCache,issueIdentity} from "./check-cache";
 import {voiceStampCurrent} from "./voice-context";
 import {storyStampCurrent} from "./story-context";
 import { randomUUID } from "node:crypto";
@@ -73,6 +74,8 @@ interface CandidateResult {
   lengthAttempts?: number;
 }
 interface ResultData {
+  checkCacheHits?: number;
+  checkCacheMisses?: number;
   candidates?: CandidateResult[];
   suggestion?: string;
   step?: string;
@@ -447,6 +450,8 @@ export class TaskRunner {
       !!snapshot.context.storyStamp && !storyStampCurrent(this.store.snapshot(),initial.projectId,snapshot.context.storyStamp) || initial.sourceRevisions.some(
         (ref) => !sourceCurrent(this.domain.snapshot(), ref),
       );
+    let fullCheckCaps = true;
+    const cache = new CheckCache(this.store);
     const call = async (
       messages: ChatMessage[],
       profile = snapshot.profile,
@@ -510,6 +515,7 @@ export class TaskRunner {
               : 2000,
         remaining,
       );
+      if(forCheck && cap < (thinkingCheck ? 8000 : 1500))fullCheckCaps=false;
       let full = "";
       let planningCount = Array.from(activePrefix.replace(/\s/g, "")).length;
       const reservation = inputEstimate + cap;
@@ -574,13 +580,13 @@ export class TaskRunner {
       const usage: TaskUsage = estimated
         ? {
             inputTokens: inputEstimate,
-            outputTokens: Math.max(1, Math.ceil(response.text.length / 2)),
-            totalTokens:
-              inputEstimate + Math.max(1, Math.ceil(response.text.length / 2)),
+            outputTokens: cap,
+            totalTokens: reservation,
             estimated: true,
           }
         : response.usage;
       settleUsage(usage);
+      if(estimated){result.disclosures??=[];result.disclosures.push("部分调用用量未知，保留完整调用预留；不是零消耗或精确账单。");saveResult();}
       return this.redact(response.text, keys);
     };
     const system = (text: string): ChatMessage => ({
@@ -595,9 +601,18 @@ export class TaskRunner {
       context: BuiltContext,
       profile = snapshot.profile,
       instruction = "",
+      targetChapterId?: string,
     ): Promise<ParsedCheck> => {
       const text =
         context.text + (instruction ? `\n作者要求：${instruction}` : "");
+      const checkProjectId=this.store.get("tasks",id)!.projectId;
+      const protocol = JSON.stringify([consistencyInstruction,reviewInstruction,"strict-source-check-v1",profile.model === "deepseek-v4-pro" && new URL(profile.baseUrl).hostname === "api.deepseek.com" ? 8000 : 1500]);
+      const cacheKey=cache.key({projectId:checkProjectId,context,profile:{...profile,revision:this.store.get("profiles",profile.id)?.revision},protocol,request:{instruction,targetChapterId}});
+      const saved= !stale() && !signal.aborted ? cache.get(checkProjectId,cacheKey) : undefined;
+      if(saved){try{const value=JSON.parse(saved);if(!Array.isArray(value.disclosures)||value.disclosures.some((x:unknown)=>typeof x!=="string"))throw Error("cache metadata");const checked=parseCheck(JSON.stringify(value.reviewed),context.documents);if(checked.majorChange)throw Error("cache major change");result.checkCacheHits=(result.checkCacheHits??0)+1;result.disclosures??=[];result.disclosures.push(...value.disclosures,"复用已验证窗口：原文、规则和模型配置一致，未新增调用。");saveResult();return checked;}catch{cache.remove(checkProjectId,cacheKey);}}
+      result.checkCacheMisses=(result.checkCacheMisses??0)+1;saveResult();
+      fullCheckCaps=true;
+      const disclosureStart=result.disclosures?.length??0;
       const structured = async (messages: ChatMessage[]) => {
         const raw = await call(messages, profile, true);
         try {
@@ -677,6 +692,7 @@ export class TaskRunner {
         `一致性复核：初检 ${initial.issues.length} 项，复核保留 ${reviewed.issues.length} 项；复核独立阅读原文，初检依据已保留。`,
       );
       saveResult();
+      if(!signal.aborted&&!stale()&&fullCheckCaps&&!initial.majorChange&&!reviewed.majorChange)cache.put(checkProjectId,cacheKey,JSON.stringify({reviewed,disclosures:result.disclosures.slice(disclosureStart)}));
       return reviewed;
     };
     const check = async (
@@ -697,10 +713,10 @@ export class TaskRunner {
       if (progress.total !== windows.length || progress.completed > windows.length)
         throw new DomainError("CONFLICT", "检查分段与已保存进度不一致，请使用当前来源新建任务");
       for (let index = progress.completed; index < windows.length; index++) {
-        const reviewed = await checkWindow(windows[index], profile, instruction);
-        const seen = new Set(progress.checked.issues.map(issue => JSON.stringify([issue.type, issue.evidence])));
+        const reviewed = await checkWindow(windows[index], profile, instruction, chapterId);
+        const seen = new Set(progress.checked.issues.map(issue => issueIdentity(issue)));
         for (const issue of reviewed.issues) {
-          const key = JSON.stringify([issue.type, issue.evidence]);
+          const key = issueIdentity(issue);
           if (!seen.has(key)) { progress.checked.issues.push(issue); seen.add(key); }
         }
         progress.checked.majorChange ||= reviewed.majorChange;
