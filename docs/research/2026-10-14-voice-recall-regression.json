@@ -1,0 +1,186 @@
+{
+  "kind": "deterministic-source-recall",
+  "generatedAt": "2026-10-14T09:11:28.373Z",
+  "runtime": "v22.22.1",
+  "platform": "darwin",
+  "arch": "arm64",
+  "limitations": "自有固定样本；无模型生成、文学质量评测或服务商Token测量。字符量不等于Token。",
+  "cases": [
+    {
+      "name": "repeated-term-evidence",
+      "expected": [
+        "c8"
+      ],
+      "baselineFound": [],
+      "combinedFound": [
+        "c8"
+      ],
+      "missed": [],
+      "unexpected": [],
+      "evidenceMisses": [],
+      "baselineChars": 303,
+      "recalledChars": 131,
+      "elapsedMs": 1.334
+    },
+    {
+      "name": "remote-transfer",
+      "expected": [
+        "c8"
+      ],
+      "baselineFound": [],
+      "combinedFound": [
+        "c8"
+      ],
+      "missed": [],
+      "unexpected": [],
+      "evidenceMisses": [],
+      "baselineChars": 309,
+      "recalledChars": 11,
+      "elapsedMs": 0.123
+    },
+    {
+      "name": "recent-and-remote",
+      "expected": [
+        "c8",
+        "c119"
+      ],
+      "baselineFound": [
+        "c119"
+      ],
+      "combinedFound": [
+        "c119",
+        "c8"
+      ],
+      "missed": [],
+      "unexpected": [],
+      "evidenceMisses": [],
+      "baselineChars": 312,
+      "recalledChars": 8,
+      "elapsedMs": 0.026
+    },
+    {
+      "name": "irrelevant-control",
+      "expected": [],
+      "baselineFound": [],
+      "combinedFound": [],
+      "missed": [],
+      "unexpected": [],
+      "evidenceMisses": [],
+      "baselineChars": 224,
+      "recalledChars": 0,
+      "elapsedMs": 0.017
+    },
+    {
+      "name": "future-control",
+      "expected": [],
+      "baselineFound": [],
+      "combinedFound": [],
+      "missed": [],
+      "unexpected": [],
+      "evidenceMisses": [],
+      "baselineChars": 186,
+      "recalledChars": 0,
+      "elapsedMs": 0.008
+    },
+    {
+      "name": "draft-control",
+      "expected": [],
+      "baselineFound": [],
+      "combinedFound": [],
+      "missed": [],
+      "unexpected": [],
+      "evidenceMisses": [],
+      "baselineChars": 186,
+      "recalledChars": 0,
+      "elapsedMs": 0.005
+    },
+    {
+      "name": "stale-control",
+      "expected": [],
+      "baselineFound": [],
+      "combinedFound": [],
+      "missed": [],
+      "unexpected": [],
+      "evidenceMisses": [],
+      "baselineChars": 224,
+      "recalledChars": 0,
+      "elapsedMs": 0.037
+    },
+    {
+      "name": "foreign-control",
+      "expected": [],
+      "baselineFound": [],
+      "combinedFound": [],
+      "missed": [],
+      "unexpected": [],
+      "evidenceMisses": [],
+      "baselineChars": 186,
+      "recalledChars": 0,
+      "elapsedMs": 0.007
+    },
+    {
+      "name": "alias",
+      "expected": [
+        "c8"
+      ],
+      "baselineFound": [
+        "c8"
+      ],
+      "combinedFound": [
+        "c8"
+      ],
+      "missed": [],
+      "unexpected": [],
+      "evidenceMisses": [],
+      "baselineChars": 254,
+      "recalledChars": 0,
+      "elapsedMs": 0.126
+    },
+    {
+      "name": "edited-source",
+      "expected": [
+        "c8"
+      ],
+      "baselineFound": [
+        "c8"
+      ],
+      "combinedFound": [
+        "c8"
+      ],
+      "missed": [],
+      "unexpected": [],
+      "evidenceMisses": [],
+      "baselineChars": 224,
+      "recalledChars": 0,
+      "elapsedMs": 0.005
+    },
+    {
+      "name": "generic-control",
+      "expected": [],
+      "baselineFound": [],
+      "combinedFound": [],
+      "missed": [],
+      "unexpected": [],
+      "evidenceMisses": [],
+      "baselineChars": 222,
+      "recalledChars": 0,
+      "elapsedMs": 0.02
+    }
+  ],
+  "summary": {
+    "labelledReferences": 6,
+    "baselineFound": 3,
+    "combinedFound": 6,
+    "missed": 0,
+    "unexpected": 0,
+    "evidenceMisses": 0
+  },
+  "scale": {
+    "chapters": 5000,
+    "sourceChars": 15000011,
+    "elapsedMs": 21.52,
+    "found": [
+      "scale-8"
+    ]
+  }
+}
