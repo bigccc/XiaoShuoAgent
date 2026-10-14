@@ -121,6 +121,8 @@ export class Store {
       if(version<8){if(existing&&version>=7)this.backup(`${path}.before-v8-${Date.now()}.sqlite`);this.transaction(()=>this.db.exec("CREATE TABLE IF NOT EXISTS voiceRecords(id TEXT PRIMARY KEY,json TEXT NOT NULL);CREATE TABLE IF NOT EXISTS voiceJobs(id TEXT PRIMARY KEY,json TEXT NOT NULL);PRAGMA user_version=8;"));}
       for (const table of collections.filter(t => t !== "profiles"))
         this.db.exec(`CREATE INDEX IF NOT EXISTS ${table}_project ON ${table}(json_extract(json,'$.projectId'));`);
+      // Local derived data, intentionally absent from author snapshots/packages.
+      this.db.exec("CREATE TABLE IF NOT EXISTS checkCache(project_id TEXT NOT NULL, key TEXT NOT NULL, raw TEXT NOT NULL, PRIMARY KEY(project_id,key));");
       this.db.exec("PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL;");
       if (path !== ":memory:") chmodSync(path, 0o600);
     } catch (e) {
@@ -131,6 +133,17 @@ export class Store {
   close(): void {
     this.db.close();
   }
+  getCheckCache(projectId:string,key:string):string|undefined {
+    const row=this.db.prepare("SELECT raw FROM checkCache WHERE project_id=? AND key=?").get(projectId,key);
+    return row ? String(row.raw) : undefined;
+  }
+  putCheckCache(projectId:string,key:string,raw:string) {
+    this.transaction(()=>{
+      this.db.prepare("INSERT OR REPLACE INTO checkCache(project_id,key,raw) VALUES(?,?,?)").run(projectId,key,raw);
+      this.db.prepare("DELETE FROM checkCache WHERE project_id=? AND rowid NOT IN (SELECT rowid FROM checkCache WHERE project_id=? ORDER BY rowid DESC LIMIT 256)").run(projectId,projectId);
+    });
+  }
+  deleteCheckCache(projectId:string,key:string) {this.db.prepare("DELETE FROM checkCache WHERE project_id=? AND key=?").run(projectId,key);}
   backup(destination: string): void {
     if (!isAbsolute(destination))
       throw new DomainError("STORAGE", "备份必须使用绝对路径");
