@@ -1,3 +1,4 @@
+import {VoicePanel} from "./voice";
 import {StoryStatePanel} from "./story-state";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
@@ -21,6 +22,7 @@ type View =
   | "reader"
   | "conversation"
   | "project"
+  | "voice"
   | "story-state"
   | "notes"
   | "planning"
@@ -153,7 +155,7 @@ function App() {
     setView("conversation");
   }
   const project = state.projects.find((p) => p.id === projectId);
-  const storyViews: Array<[View, string]> = [["project", "作品信息"], ["notes", "人物与世界"], ["story-state","状态与伏笔"], ["planning", "故事规划"], ["materials", "素材库"]];
+  const storyViews: Array<[View, string]> = [["project", "作品信息"], ["notes", "人物与世界"], ["story-state","状态与伏笔"], ["voice","文风与声音"], ["planning", "故事规划"], ["materials", "素材库"]];
   const readerViews: Array<[View, string]> = [["reader", "阅读正文"], ["chapters", "正文与版本"], ["issues", "检查问题"], ["tasks", "待审稿与记录"]];
   const storyView = storyViews.some(([id]) => id === view);
   const readerView = readerViews.some(([id]) => id === view);
@@ -287,6 +289,8 @@ function App() {
                   showProfiles={() => void navigate("profiles")}
                   showNotes={() => void navigate("notes")}
                 />
+              ) : project && view === "voice" ? (
+                <VoicePanel key={project.id} state={state} projectId={project.id} run={run} register={register} flush={flush} openChapter={id=>{void flush().then(ok=>{if(ok){setChapterId(id);void navigate("chapters");}});}} />
               ) : project && view === "story-state" ? (
                 <StoryStatePanel key={project.id} state={state} projectId={project.id} run={run} register={register} flush={flush} openChapter={id=>{void flush().then(ok=>{if(ok){setChapterId(id);void navigate("chapters");}});}} />
               ) : project && view === "reader" ? (

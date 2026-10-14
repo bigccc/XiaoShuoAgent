@@ -1,0 +1,26 @@
+import {createServer as createViteServer} from "vite";
+import {createServer as createHttpServer} from "node:http";
+import {performance} from "node:perf_hooks";
+import assert from "node:assert/strict";
+const vite=await createViteServer({logLevel:"error",configFile:false,server:{middlewareMode:true},appType:"custom"});
+try{
+ const {Store}=await vite.ssrLoadModule("/src/main/store.ts"),{DomainService}=await vite.ssrLoadModule("/src/main/domain.ts"),{WritingRunner}=await vite.ssrLoadModule("/src/main/writing.ts"),{ChatProvider}=await vite.ssrLoadModule("/src/main/provider.ts"),{VoiceService}=await vite.ssrLoadModule("/src/main/voice.ts"),{emptyVoiceFields}=await vite.ssrLoadModule("/src/shared/voice.ts"),{voiceContext}=await vite.ssrLoadModule("/src/main/voice-context.ts");
+ const cases=[];
+ for(const targetWords of [200,2500,3000])for(const enabled of [false,true]){
+  const calls=[];const http=createHttpServer(async(req,res)=>{let raw="";for await(const c of req)raw+=c;const body=JSON.parse(raw),phase=body.messages[0].content,input=JSON.parse(body.messages.at(-1).content);let value;
+   if(phase.includes("连续写作·规划"))value={plan:"阿宁与老周在旧城围绕失信交锋，保持既有方向。",majorChange:false,reason:""};else if(phase.includes("连续写作·生成")||phase.includes("连续写作·修订"))value={title:"旧信",content:("阿宁推开门，老周把信按在桌上。"+"雨滴敲着窗，信上有刻痕。".repeat(targetWords)).slice(0,targetWords),majorChange:false,reason:""};else value={issues:[],majorChange:false,reason:""};
+   const inputChars=body.messages.reduce((n,m)=>n+m.content.length,0),outputChars=JSON.stringify(value).length,prompt_tokens=Math.ceil(inputChars/2),completion_tokens=Math.ceil(outputChars/2);
+   calls.push({phase,input,inputChars,outputChars});res.setHeader("content-type","application/json");res.end(JSON.stringify({choices:[{message:{content:JSON.stringify(value)}}],usage:{prompt_tokens,completion_tokens,total_tokens:prompt_tokens+completion_tokens}}));
+  });await new Promise(r=>http.listen(0,"127.0.0.1",r));const store=new Store(":memory:"),domain=new DomainService(store),voices=new VoiceService(store);let runner;
+  try{
+   const result=c=>{const r=domain.execute(c);assert(r.ok,r.error?.message);return r.entityId;};const projectId=result({type:"project.create",title:"旧城",chapterWords:targetWords});result({type:"profile.save",name:"fixture",purpose:"writing",model:"fixture",baseUrl:`http://127.0.0.1:${http.address().port}`});const noteIds=["阿宁","老周"].map(title=>result({type:"note.save",projectId,noteType:"character",title,body:"既有人物资料",sources:[]}));const chapterId=result({type:"chapter.create",projectId,ordinal:8,title:"认可样本"}),quote="灯灭了。阿宁说：“先开门。”老周答：“莫急。”";result({type:"chapter.save",id:chapterId,revision:1,content:quote});result({type:"chapter.confirm",id:chapterId,revision:2});
+   for(const [kind,entityNoteId,fields] of [["narration",undefined,{...emptyVoiceFields(),rhythm:"短句克制",vocabulary:"具体动作"}],["character",noteIds[0],{...emptyVoiceFields(),addresses:"周叔",catchphrases:"先开门",emotion:"紧张时仍说短句"}],["character",noteIds[1],{...emptyVoiceFields(),addresses:"小宁",catchphrases:"莫急",emotion:"担心时放缓语速"}]]){
+    const r=voices.save({type:"voice.save",projectId,kind,...(entityNoteId?{entityNoteId}:{}),fields,samples:[{chapterId,revision:3,start:0,end:quote.length,approved:true}]});voices.command({type:"voice.confirm",id:r.id,revision:r.revision});if(!enabled){const current=voices.record(r.id);voices.command({type:"voice.enable",id:r.id,revision:current.revision,enabled:false});}
+   }
+   const references=voiceContext(store.snapshot(),projectId,"阿宁与老周",8000);assert(!references.text.includes(quote));assert.equal(references.profiles.length,enabled?3:0);
+   runner=new WritingRunner(store,domain,new ChatProvider({retryDelayMs:1}));const started=performance.now(),id=runner.start({type:"writing.start",projectId,text:"阿宁与老周在旧城交锋，续写一章",goal:{kind:"append",startOrdinal:9,endOrdinal:9},tokenBudget:1000000});for(let i=0;i<2000&&store.get("writingJobs",id)?.status==="running";i++)await new Promise(r=>setTimeout(r,5));const job=store.get("writingJobs",id),ch=store.list("chapters").find(c=>c.ordinal===9),generated=calls.find(c=>c.phase.includes("连续写作·生成"));assert.equal(job.status,"completed",job.reply);assert.equal(ch.content.replace(/\s/g,"").length,targetWords);assert.equal(calls.length,4);assert.equal(generated.input.context.includes("作者认可的表达参考"),enabled);
+   cases.push({mode:enabled?"approved-references":"references-disabled",targetWords,actualWords:ch.content.replace(/\s/g,"").length,calls:calls.length,profilesProvided:references.profiles.length,referenceChars:references.text.length,inputChars:calls.reduce((n,c)=>n+c.inputChars,0),outputChars:calls.reduce((n,c)=>n+c.outputChars,0),fixtureReportedTokens:job.usage.totalTokens,elapsedMs:+(performance.now()-started).toFixed(2),humanBlindCharacterIdentification:null,humanNarrationStability:null,humanEditedChars:null,humanRetainedRatio:null});
+  }finally{await runner?.dispose();store.close();await new Promise(r=>{http.closeAllConnections();http.close(r);});}
+ }
+ console.log(JSON.stringify({kind:"approved-voice-protocol-comparison",generatedAt:new Date().toISOString(),runtime:process.version,cases,limitations:"真实写作器/SQLite/loopback HTTP；同一固定章纲及正文，比较关闭与启用作者认可档案的实际输入和请求。fixture正文与Token不是服务商质量或账单，人类盲评/修改量/保留比例未测，保留null。默认无额外学习请求，但参考规则增加输入量。"},null,2));
+}finally{await vite.close();}
