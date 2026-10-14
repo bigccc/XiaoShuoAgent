@@ -1,0 +1,70 @@
+{
+  "kind": "bounded-structure-navigation",
+  "generatedAt": "2026-10-14T13:40:50.190Z",
+  "runtime": "v22.22.1",
+  "chapters": 5000,
+  "scenePlans": 1000,
+  "linkedScenes": 999,
+  "manuscriptChars": 14000010,
+  "cases": [
+    {
+      "query": {
+        "view": "scenes",
+        "offset": 1960
+      },
+      "total": 2000,
+      "rows": 40,
+      "nextOffset": null,
+      "responseChars": 10785,
+      "elapsedMs": 15.9
+    },
+    {
+      "query": {
+        "view": "pov",
+        "query": "宁宁"
+      },
+      "total": 1000,
+      "rows": 40,
+      "nextOffset": 40,
+      "responseChars": 10636,
+      "elapsedMs": 15.58
+    },
+    {
+      "query": {
+        "view": "characters",
+        "entityNoteId": "d5eea654-78ec-4321-a080-9d5f0ba1b520"
+      },
+      "total": 2,
+      "rows": 2,
+      "nextOffset": null,
+      "responseChars": 409,
+      "elapsedMs": 106.92
+    },
+    {
+      "query": {
+        "view": "threads",
+        "threadId": "main",
+        "offset": 959
+      },
+      "total": 999,
+      "rows": 40,
+      "nextOffset": null,
+      "responseChars": 10778,
+      "elapsedMs": 17.79
+    },
+    {
+      "query": {
+        "view": "scenes",
+        "fromOrdinal": 4980,
+        "toOrdinal": 5000
+      },
+      "total": 0,
+      "rows": 0,
+      "nextOffset": null,
+      "responseChars": 50,
+      "elapsedMs": 9.58
+    }
+  ],
+  "modelCalls": 0,
+  "limitations": "真实SQLite/结构服务，5000章固定数据；禁用全书snapshot且导航响应无正文全文。耗时是本机查询、不是端到端UI或文学质量；人物为字面姓名/明确别名提及，不保证实际出场。"
+}
