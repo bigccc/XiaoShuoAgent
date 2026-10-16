@@ -1,16 +1,20 @@
+import { readFileSync } from "node:fs";
 import { MakerZIP } from "@electron-forge/maker-zip";
 import { NativeDmgMaker } from "./scripts/native-dmg-maker.mjs";
+const appVersion = JSON.parse(readFileSync(new URL("./package.json", import.meta.url), "utf8")).version;
 const signingIdentity = process.env.MAC_SIGN_IDENTITY || "-";
 const adHocSigning = signingIdentity === "-";
 export default {
-  outDir: "release",
+  outDir: process.env.NOVEL_RELEASE_DIR || `release/v${appVersion}`,
   packagerConfig: {
     name: "XiaoShuoAgent",
     appBundleId: "cn.xiaoshuoagent.desktop",
-    appVersion: "0.1.0",
+    appVersion,
     asar: true,
     appCategoryType: "public.app-category.productivity",
     ignore: [
+      // Ship runtime files only; local tutorials and workspace material stay out.
+      /^\/(?!out(?:\/|$)|node_modules(?:\/|$)|package\.json$|LICENSE$).+/,
       /^\/\.env(?:$|[.\/])/,
       /^\/src($|\/)/,
       /^\/tests($|\/)/,
