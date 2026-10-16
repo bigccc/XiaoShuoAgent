@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { createServer } from "node:http";
 let app:ElectronApplication, page:Page, dir:string;
 async function launch() {
-  app=await electron.launch({args:["out/main/index.js","--use-mock-keychain"],env:{...process.env,NOVEL_TEST:"1",NOVEL_DATA_DIR:dir}});
+  app=await electron.launch({args:[...(process.env.NOVEL_PACKAGED_EXECUTABLE?[]:["out/main/index.js"]),"--use-mock-keychain"],executablePath:process.env.NOVEL_PACKAGED_EXECUTABLE,env:{...process.env,NOVEL_TEST:"1",NOVEL_DATA_DIR:dir}});
   page=await app.firstWindow(); await page.waitForLoadState();
 }
 test.beforeEach(async()=>{dir=await mkdtemp(join(tmpdir(),"novel-recall-ui-"));await launch();});
