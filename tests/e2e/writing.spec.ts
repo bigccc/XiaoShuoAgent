@@ -1,3 +1,4 @@
+import { DatabaseSync } from "node:sqlite";
 import { _electron as electron, expect, test, type ElectronApplication, type Page } from "@playwright/test";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -67,8 +68,9 @@ test("continuous writing exposes its goal and can pause, survive restart, resume
     card = page.getByRole("region", { name: "连续写作任务" });
     await expect(card).toContainText("已暂停");
     expect(calls).toBe(1);
-    await card.getByRole("button", { name: "继续任务", exact: true }).click();
+    await card.getByRole("button", { name: "继续完成", exact: true }).click();
     await expect.poll(() => calls).toBe(2);
+    if (!(await card.locator(".writing-more").evaluate(el => (el as HTMLDetailsElement).open))) await card.locator(".writing-more > summary").click();
     await card.getByRole("button", { name: "取消任务", exact: true }).click();
     await expect(card).toContainText("已取消");
     const state = await page.evaluate(() => window.novel.snapshot());
@@ -84,7 +86,7 @@ test("continuous writing exposes its goal and can pause, survive restart, resume
 
 // Dropping the composer tokenBudget argument would start a model call instead
 // of retaining this task for the user to increase its total budget.
-test("continuous writing shares the composer budget and offers an increased budget on resume", async () => {
+test("legacy explicit budgets remain bounded and can be increased without losing progress", async () => {
   let calls = 0;
   const server = createServer(async (req) => {
     for await (const _ of req) { /* Pending request is cancelled by the UI. */ }
@@ -93,20 +95,23 @@ test("continuous writing shares the composer budget and offers an increased budg
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
   try {
     await openProject(server);
-    await page.locator(".model-choice > summary").click();
-    await page.getByLabel("创作 Token 预算", { exact: true }).fill("1000");
-    await page.getByLabel("创作消息").fill("写完前五章");
-    await page.getByRole("button", { name: "发送", exact: true }).click();
+    await page.evaluate(async () => {
+      const state = await window.novel.snapshot();
+      const result = await window.novel.invoke({type:"conversation.send",projectId:state.projects[0].id,text:"写完前五章",tokenBudget:1000});
+      if (!result.ok) throw Error(result.error.message);
+    });
     const card = page.getByRole("region", { name: "连续写作任务" });
-    await expect(card).toContainText("本次调用已达到上限");
-    await expect(card.getByRole("button", { name: "继续任务", exact: true })).toBeVisible();
+    await expect(card).toContainText("超出预计用量");
+    await expect(card.getByRole("button", { name: "继续完成", exact: true })).toBeVisible();
     expect(calls).toBe(0);
     await page.getByRole("button", { name: "待处理 · 1", exact: true }).click();
     await expect(card).toBeVisible();
+    await card.locator(".writing-more > summary").click();
     await card.getByText("高级设置", { exact: true }).click();
     await card.getByLabel("连续写作 Token 总预算").fill("100000");
-    await card.getByRole("button", { name: "继续任务", exact: true }).click();
+    await card.getByRole("button", { name: "继续完成", exact: true }).click();
     await expect.poll(() => calls).toBe(1);
+    if (!(await card.locator(".writing-more").evaluate(el => (el as HTMLDetailsElement).open))) await card.locator(".writing-more > summary").click();
     await card.getByRole("button", { name: "取消任务", exact: true }).click();
     await expect(card).toContainText("已取消");
   } finally {
@@ -135,7 +140,7 @@ test("one request saves five chapters sequentially and keeps saved and checked p
     if (system.includes("连续写作·规划")) respond({ plan: "前五章依次描写收信、拜访、调查、发现和归来，保持林舟与雨夜书店的主线。", majorChange: false, reason: "" });
     else if (system.includes("连续写作·生成")) {
       generated.push(input.ordinal);
-      respond({ title: `故事${input.ordinal}`, content: bodyText, majorChange: false, reason: "" });
+      respond({ type: "json_object", title: `故事${input.ordinal}`, content: bodyText, majorChange: false, reason: "" });
     } else if (system.includes("连续写作·检查")) {
       checks++;
       if (checks === 1) releaseCheck = () => respond({ issues: [], majorChange: false, reason: "" });
@@ -151,7 +156,7 @@ test("one request saves five chapters sequentially and keeps saved and checked p
     const card = page.getByRole("region", { name: "连续写作任务" });
     await expect(card).toContainText("已保存 1 / 5 章");
     await expect(card).toContainText("已检查 0 / 5 章");
-    await expect(card).toContainText("已保存不代表检查全部通过");
+    await expect(card).toContainText("正在检查已保存的章节");
     await expect.poll(() => !!releaseCheck).toBe(true);
     releaseCheck!();
     // Completing five serial generation/check calls is slower under Rosetta.
@@ -162,7 +167,7 @@ test("one request saves five chapters sequentially and keeps saved and checked p
     const snapshot = await page.evaluate(() => window.novel.snapshot());
     expect(snapshot.chapters.map((chapter) => chapter.ordinal).sort((a, b) => a - b)).toEqual([1, 2, 3, 4, 5]);
     expect(snapshot.chapters.every((chapter) => chapter.content === bodyText)).toBe(true);
-    await card.getByRole("button", { name: "查看最新正文", exact: true }).click();
+    await card.getByRole("button", { name: "查看正文", exact: true }).click();
     await expect(page.getByLabel("章节正文", { exact: true })).toHaveValue(bodyText);
     await expect(page.getByLabel("当前章节")).toHaveValue(snapshot.chapters.find((chapter) => chapter.ordinal === 5)!.id);
     await page.screenshot({ path: "test-results/continuous-writing-completed.png" });
@@ -205,7 +210,7 @@ test("a major story change remains pending until the author supplies a decision 
     await expect(card).toContainText("是否改变主角身份");
     expect((await page.evaluate(() => window.novel.snapshot())).chapters).toHaveLength(0);
     await card.getByLabel("连续写作补充说明").fill("保留主角身份，按原主线推进。");
-    await card.getByRole("button", { name: "继续任务", exact: true }).click();
+    await card.getByRole("button", { name: "继续完成", exact: true }).click();
     await expect(card).toContainText("任务已完成");
     const state = await page.evaluate(() => window.novel.snapshot());
     expect(state.writingJobs).toHaveLength(1);
@@ -216,53 +221,75 @@ test("a major story change remains pending until the author supplies a decision 
   }
 });
 
-// Existing prose must remain untouched until its candidate is accepted in the
-// established revision UI, even though later new chapters can already exist.
-test("existing prose uses the existing revision review entry and is never silently overwritten", async () => {
-  const original = ("他站着，一动不动地站着。" + "窗外雨声渐密，林舟看了看柜台上的信，屋里仍然安静。".repeat(5)).slice(0, 100);
-  const revised = "林舟站在窗前，听着雨声落在屋檐上。他把来信放进抽屉，转身迎接敲门的旧友。".repeat(5).slice(0, 100);
-  const server = createServer(async (req, res) => {
-    let raw = "";
-    for await (const chunk of req) raw += chunk;
-    const body = JSON.parse(raw);
-    const system = body.messages.find((message: { role: string }) => message.role === "system")?.content ?? "";
-    const input = JSON.parse(body.messages.at(-1).content);
-    let output: unknown;
-    if (system.includes("连续写作·规划")) output = { plan: "保留已有第一章，第二章让旧友来访。", majorChange: false, reason: "" };
-    else if (system.includes("连续写作·生成") || system.includes("连续写作·修订")) output = { title: `故事${input.ordinal}`, content: revised, majorChange: false, reason: "" };
-    else if (system.includes("连续写作·检查") && input.ordinal === 1) {
-      const source = String(input.context).match(/\[chapter:([^@\]]+)@(\d+)\]/);
-      if (!source) { res.writeHead(500); res.end("Missing first-chapter source"); return; }
-      output = { issues: [{ category: "style", impact: "local", reason: "第一句重复描述站立状态。", evidence: [{ quote: "他站着，一动不动地站着。", source: { kind: "chapter", id: source[1], revision: Number(source[2]) } }] }], majorChange: false, reason: "" };
-    } else if (system.includes("连续写作·检查") || system.includes("连续写作·跨章复核")) output = { issues: [], majorChange: false, reason: "" };
-    else { res.writeHead(500); res.end("Unexpected writing phase"); return; }
-    res.writeHead(200, { "Content-Type": "application/json" });
-    res.end(JSON.stringify({ choices: [{ message: { content: JSON.stringify(output) }, finish_reason: "stop" }], usage: { prompt_tokens: 100, completion_tokens: 150, total_tokens: 250 } }));
+test("shows existing prose changes inline and resumes after one-click adoption", async () => {
+  const original="作者原稿只有一句。", revised="雨".repeat(100);
+  const server=createServer(async(req,res)=>{
+    let raw="";for await(const chunk of req)raw+=chunk;
+    const body=JSON.parse(raw),phase=body.messages[0].content,input=JSON.parse(body.messages.at(-1).content);
+    const value=phase.includes("·规划")?{plan:"保持原稿方向。",majorChange:false,reason:""}:
+      phase.includes("·生成")||phase.includes("·修订")?{title:`故事${input.ordinal}`,content:revised,majorChange:false,reason:""}:{issues:[],majorChange:false,reason:""};
+    res.setHeader("content-type","application/json");res.end(JSON.stringify({choices:[{message:{content:JSON.stringify(value)},finish_reason:"stop"}],usage:{prompt_tokens:10,completion_tokens:20,total_tokens:30}}));
   });
-  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  await new Promise<void>(r=>server.listen(0,"127.0.0.1",r));
   try {
-    await openProject(server, original);
+    await openProject(server,original);
     await page.getByLabel("创作消息").fill("写完前两章");
-    await page.getByRole("button", { name: "发送", exact: true }).click();
-    const card = page.getByRole("region", { name: "连续写作任务" });
-    await expect(card).toContainText("仍有待处理事项");
-    await expect(card).toContainText("已保存 2 / 2 章");
-    const before = await page.evaluate(() => window.novel.snapshot());
-    expect(before.chapters.find((chapter) => chapter.ordinal === 1)?.content).toBe(original);
-    await card.getByRole("button", { name: "查看待审稿", exact: true }).click();
-    const revisions = page.getByRole("region", { name: "Agent 改稿任务" });
-    await expect(revisions).toBeVisible();
-    await revisions.locator(".revision-candidate summary").click();
-    await expect(revisions.locator(".diff-added")).toContainText("林舟站在窗前");
-    await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setSize(1050, 680));
-    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-    expect((await page.getByRole("log", { name: "创作对话记录" }).boundingBox())!.height).toBeGreaterThan(120);
-    await revisions.getByRole("button", { name: "采纳本章", exact: true }).scrollIntoViewIfNeeded();
-    await page.screenshot({ path: "test-results/continuous-writing-review-minimum.png" });
-    await revisions.getByRole("button", { name: "采纳本章", exact: true }).click();
-    await expect.poll(async () => (await page.evaluate(() => window.novel.snapshot())).chapters.find((chapter) => chapter.ordinal === 1)?.content).toBe(revised);
-  } finally {
-    server.closeAllConnections();
-    await new Promise<void>((resolve) => server.close(() => resolve()));
-  }
+    await page.getByRole("button",{name:"发送",exact:true}).click();
+    const card=page.getByRole("region",{name:"连续写作任务"});
+    const preview=card.getByRole("region",{name:"修改预览"});
+    await expect(preview).toBeVisible();
+    await expect(preview.locator(".diff-removed")).toContainText(original);
+    await expect(preview.locator(".diff-added")).toContainText(revised);
+    expect((await page.evaluate(()=>window.novel.snapshot())).chapters[0].content).toBe(original);
+    await page.evaluate(async edited => {
+      const state=await window.novel.snapshot(), chapter=state.chapters[0];
+      const r=await window.novel.invoke({type:"chapter.save",id:chapter.id,revision:chapter.revision,content:edited});
+      if(!r.ok)throw Error(r.error.message);
+    },original+"作者补充。");
+    await expect(preview.getByRole("button",{name:"采用修改并继续",exact:true})).toBeDisabled();
+    await preview.getByRole("button",{name:"放弃修改，重新检查",exact:true}).click();
+    await expect(preview.locator(".diff-removed")).toContainText(original+"作者补充。");
+    await preview.getByRole("button",{name:"采用修改并继续",exact:true}).click();
+    await expect(card).toContainText("任务已完成");
+    const state=await page.evaluate(()=>window.novel.snapshot());
+    expect(state.chapters[0].content).toBe(revised);
+    expect(state.versions.some(v=>v.chapterId===state.chapters[0].id&&v.content===original)).toBe(true);
+  } finally {server.closeAllConnections();await new Promise<void>(r=>server.close(()=>r()));}
+});
+
+test("starts automatic writing from count and words without budget or mode choices", async () => {
+  const server = createServer(async (req,res) => {
+    let raw="";for await(const chunk of req) raw+=chunk;
+    const body=JSON.parse(raw), phase=body.messages[0].content, input=JSON.parse(body.messages.at(-1).content);
+    const value=phase.includes("·规划")?{plan:"遵循设定推进。",majorChange:false,reason:""}:
+      phase.includes("·生成")||phase.includes("·修订")?{title:`雨夜${input.ordinal}`,content:"雨".repeat(120),majorChange:false,reason:""}:
+      {issues:[],majorChange:false,reason:""};
+    res.setHeader("content-type","application/json");res.end(JSON.stringify({choices:[{message:{content:JSON.stringify(value)},finish_reason:"stop"}],usage:{prompt_tokens:10,completion_tokens:20,total_tokens:30}}));
+  });
+  await new Promise<void>(resolve=>server.listen(0,"127.0.0.1",resolve));
+  try {
+    await openProject(server,"雨".repeat(100));
+    await page.getByText("写下一章 / 连续写作",{exact:true}).click();
+    await expect(page.getByLabel("写作方式",{exact:true})).toHaveCount(0);
+    await page.getByLabel("一次写几章",{exact:true}).fill("2");
+    await page.getByLabel("每章大约多少字",{exact:true}).fill("120");
+    await page.getByLabel("额外要求（可选）",{exact:true}).fill("雨夜推进线索");
+    await page.screenshot({path:"docs/screenshots/simple-writing-form-20261017.png"});
+    await page.getByRole("button",{name:"开始写作",exact:true}).click();
+    const card=page.getByRole("region",{name:"连续写作任务"});
+    await expect(card).toContainText("任务已完成");
+    const state=await page.evaluate(()=>window.novel.snapshot());
+    expect(state.writingJobs![0]).toMatchObject({budgetMode:"auto",targetWords:120,status:"completed"});
+    expect(state.chapters.map(c=>c.ordinal)).toEqual([1,2,3]);
+    expect(state.writingJobs![0].text).toContain("雨夜推进线索");
+    await expect(card.getByText("需要你决定",{exact:true})).toHaveCount(0);
+    await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].setSize(1050,680));
+    await card.scrollIntoViewIfNeeded();
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+    await expect(card.getByRole("button",{name:"查看正文",exact:true})).toBeInViewport();
+    await page.screenshot({path:"docs/screenshots/simple-writing-result-20261017.png"});
+    await page.getByRole("button",{name:"检查并修正本章",exact:true}).click();
+    await expect.poll(async()=>{const s=await page.evaluate(()=>window.novel.snapshot());return s.writingJobs?.at(-1)?.reviewOnly&&s.writingJobs.at(-1)?.status==="completed";}).toBe(true);
+    expect((await page.evaluate(()=>window.novel.snapshot())).chapters).toHaveLength(3);
+  } finally {server.closeAllConnections();await new Promise<void>(resolve=>server.close(()=>resolve()));}
 });

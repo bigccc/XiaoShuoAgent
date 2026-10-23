@@ -62,7 +62,9 @@ export function SaveStatus({
       {editor.failed && (
         <>
           <button onClick={() => void editor.retry()}>重试保存</button>
-          <button onClick={editor.reload}>放弃编辑并重新载入</button>
+          <button className="danger" onClick={editor.reload}>
+            放弃编辑并重新载入
+          </button>
         </>
       )}
     </div>

@@ -85,7 +85,7 @@ it("recall: budget refusal leaves no audit reference for a request that was neve
   expect(calls[0].phase).toContain("连续写作·规划");
   expect(job.contextReferences ?? []).toEqual([]);
 });
-it("story-state: captures optional changes without extra calls and uses candidates only inside the same batch",async()=>{
+it("story-state: captures optional changes without extra calls and exposes checked references after completion",async()=>{
   const prose="铜钥匙在老周手中。"+"雨落。".repeat(36);
   const states=[{kind:"item",subject:"铜钥匙",attribute:"持有人",value:"老周",statement:"fact",storyTime:"",quote:"铜钥匙在老周手中。"}];
   const {app,projectId,calls}=await setup((phase,input,res)=>{
@@ -95,7 +95,7 @@ it("story-state: captures optional changes without extra calls and uses candidat
   expect(job.status,job.reply).toBe("completed");expect(calls).toHaveLength(6);
   expect(app.snapshot().storyRecords).toHaveLength(1);expect(app.snapshot().storyRecords![0].status).toBe("candidate");
   expect(calls.find(c=>c.phase.includes("连续写作·生成")&&c.input.ordinal===2)!.input.context).toContain("本批临时状态");
-  expect(app.storyWorkspace({projectId}).current).toEqual([]);
+  expect(app.storyWorkspace({projectId}).current[0]).toMatchObject({value:"老周",automatic:true});
 });
 it("story-state: invalid optional evidence warns but keeps valid generated prose",async()=>{
   const {app,projectId}=await setup((phase,input,res)=>{
@@ -143,14 +143,15 @@ it("resumes after a budget increase without resetting usage or duplicating saved
   expect(job.calls).toBe(calls.length);
   expect(new Set(app.snapshot().chapters.map(c => c.ordinal)).size).toBe(5);
 });
-it("keeps incomplete length after exactly two revisions visibly pending review", async () => {
+it("pauses unfinished length after bounded revisions without pretending it is a creative decision", async () => {
   const { app, projectId, calls } = await setup((phase, input, res) => {
     if (phase.includes("连续写作·生成") || phase.includes("连续写作·修订")) { reply(res, { title: `第${input.ordinal}章`, content: "太短的稿子。", majorChange: false, reason: "" }); return true; }
   });
   const job = await done(app, await start(app, projectId, "写完前二章"));
-  expect(job.status).toBe("awaiting-author");
+  expect(job.status).toBe("paused");
   expect(job.chapters.map(c => c.revisionRounds)).toEqual([2, 2]);
   expect(calls.filter(c => c.phase.includes("连续写作·修订"))).toHaveLength(4);
+  expect(job.error).toContain("篇幅");
   expect(job.issues.some(i => i.category === "length")).toBe(true);
   expect(app.snapshot().chapters).toHaveLength(2);
 });
@@ -211,7 +212,72 @@ it("blocking contradictions stop after two revisions and do not create downstrea
   expect(calls.filter(c => c.phase.includes("连续写作·修订"))).toHaveLength(2);
   expect(app.snapshot().chapters.map(c => c.ordinal)).toEqual([1]);
 });
-it("local style issues can continue after two revisions but cannot become an all-clear", async () => {
+it("repairs a uniquely located factual sentence once after two whole-chapter revisions", async () => {
+  const bad = "今年十八岁。去年三十岁。" + "雨落在窗前。".repeat(18);
+  let fixed = false, patches = 0;
+  const { app, projectId } = await setup((phase, input, res) => {
+    if (phase.includes("连续写作·生成") || phase.includes("连续写作·修订")) { reply(res,{title:"雨夜",content:bad});return true; }
+    if (phase.includes("连续写作·定点修正")) { fixed=true;patches++;reply(res,{type:"json_object",edits:[{quote:"去年三十岁。",replacement:"去年十七岁。",reason:"保持相邻年份年龄一致"}],majorChange:false,reason:""});return true; }
+    if (!fixed && phase.includes("连续写作·检查")) { const source=lastChapter(input);reply(res,{issues:[{category:"timeline",impact:"blocking",reason:"人物年龄冲突",evidence:[{quote:"今年十八岁。",source},{quote:"去年三十岁。",source}]}],majorChange:false,reason:""});return true; }
+  });
+  const job=await done(app,await start(app,projectId,"写完前一章"));
+  expect(job.status,job.reply).toBe("completed");
+  expect(patches).toBe(1);
+  expect(app.snapshot().chapters[0].content).toBe(bad.replace("去年三十岁。","去年十七岁。"));
+  expect(job.chapters[0].revisionRounds).toBe(2);
+});
+it.each(["edit", "cancel"])("protects an in-flight targeted repair from %s", async (action) => {
+  const bad="今年十八岁。去年三十岁。"+"雨落在窗前。".repeat(18);
+  let release: (()=>void)|undefined;
+  const {app,projectId}=await setup((phase,input,res)=>{
+    if(phase.includes("连续写作·生成")||phase.includes("连续写作·修订")){reply(res,{title:"雨夜",content:bad});return true;}
+    if(phase.includes("连续写作·定点修正")){release=()=>reply(res,{edits:[{quote:"去年三十岁。",replacement:"去年十七岁。"}],majorChange:false,reason:""});return true;}
+    if(phase.includes("连续写作·检查")){const source=lastChapter(input);reply(res,{issues:[{category:"timeline",impact:"blocking",reason:"年龄冲突",evidence:[{quote:"今年十八岁。",source},{quote:"去年三十岁。",source}]}],majorChange:false,reason:""});return true;}
+  });
+  const jobId=await start(app,projectId,"写完前一章");
+  await expect.poll(()=>!!release).toBe(true);
+  const chapter=app.snapshot().chapters[0];
+  if(action==="edit")id(await app.dispatch({type:"chapter.save",id:chapter.id,revision:chapter.revision,content:"作者刚写的新正文"}));
+  else id(await app.dispatch({type:"writing.cancel",id:jobId}));
+  release!();
+  const job=await done(app,jobId);
+  expect(job.status).toBe(action==="edit"?"paused":"cancelled");
+  expect(app.snapshot().chapters[0].content).toBe(action==="edit"?"作者刚写的新正文":bad);
+  expect(job.chapters[0].targetedRevisionRounds??0).toBe(0);
+});
+it.each(["unrelated", "whole", "decision"])("does not apply an invalid targeted %s change", async (kind) => {
+  const bad="今年十八岁。去年三十岁。这句完全无关。"+"雨落在窗前。".repeat(17);
+  const {app,projectId}=await setup((phase,input,res)=>{
+    if(phase.includes("连续写作·生成")||phase.includes("连续写作·修订")){reply(res,{title:"雨夜",content:bad});return true;}
+    if(phase.includes("连续写作·定点修正")){reply(res,{edits:[{quote:kind==="whole"?bad:"这句完全无关。",replacement:"不得应用"}],majorChange:kind==="decision",reason:kind==="decision"?"需要修改主角身份":""});return true;}
+    if(phase.includes("连续写作·检查")){const source=lastChapter(input);reply(res,{issues:[{category:"timeline",impact:"blocking",reason:"年龄冲突",evidence:[{quote:"今年十八岁。",source},{quote:"去年三十岁。",source}]}],majorChange:false,reason:""});return true;}
+  });
+  const job=await done(app,await start(app,projectId,"写完前一章"));
+  expect(job.status).toBe("awaiting-author");
+  expect(app.snapshot().chapters[0].content).toBe(bad);
+});
+it("invalidates a cross-chapter targeted repair when another evidence chapter changes", async () => {
+  let release:(()=>void)|undefined, service:AppServices;
+  const first="主角今年十八岁。"+"雨落在窗前。".repeat(18), second="同一天主角三十岁。"+"风吹过庭院。".repeat(18);
+  const {app,projectId}=await setup((phase,input,res)=>{
+    if(phase.includes("连续写作·生成")||phase.includes("连续写作·修订")){reply(res,{title:"雨夜",content:input.ordinal===1?first:second});return true;}
+    if(phase.includes("连续写作·跨章复核")){
+      const chapters=service.snapshot().chapters, a=chapters.find(c=>c.ordinal===1)!,b=chapters.find(c=>c.ordinal===2)!;
+      reply(res,{issues:[{category:"timeline",impact:"blocking",reason:"同日年龄冲突",evidence:[{quote:"同一天主角三十岁。",source:{kind:"chapter",id:b.id,revision:b.revision}},{quote:"主角今年十八岁。",source:{kind:"chapter",id:a.id,revision:a.revision}}]}],majorChange:false,reason:""});return true;
+    }
+    if(phase.includes("连续写作·定点修正")){release=()=>reply(res,{edits:[{quote:"主角今年十八岁。",replacement:"主角今年三十岁。"}],majorChange:false,reason:""});return true;}
+  });
+  service=app;
+  const jobId=await start(app,projectId,"写完前二章");
+  await expect.poll(()=>!!release).toBe(true);
+  const other=app.snapshot().chapters.find(c=>c.ordinal===2)!;
+  id(await app.dispatch({type:"chapter.save",id:other.id,revision:other.revision,content:"作者重新明确了时间和年龄。"}));
+  release!();
+  const job=await done(app,jobId);
+  expect(job.status).toBe("paused");
+  expect(app.snapshot().chapters.find(c=>c.ordinal===1)!.content).toBe(first);
+});
+it("local style advice completes without rewriting prose or requiring author action", async () => {
   const { app, projectId } = await setup((phase, input, res) => {
     if (phase.includes("连续写作·检查") || phase.includes("连续写作·跨章复核")) {
       const source = lastChapter(input);
@@ -219,8 +285,8 @@ it("local style issues can continue after two revisions but cannot become an all
     }
   });
   const job = await done(app, await start(app, projectId, "写完前二章"));
-  expect(job.status).toBe("awaiting-author");
-  expect(job.chapters.map(c => c.revisionRounds)).toEqual([2, 2]);
+  expect(job.status).toBe("completed");
+  expect(job.chapters.map(c => c.revisionRounds)).toEqual([0, 0]);
   expect(app.snapshot().chapters).toHaveLength(2);
 });
 it("existing prose needing completion is proposed for review and remains unchanged", async () => {
@@ -340,18 +406,18 @@ it("repairs an invalid review once without erasing its original finding", async 
     if (phase.includes("连续写作·检查整理")) {
       repairs++;
       const source = lastChapter(input);
-      reply(res, { issues: [{ category: "style", impact: "local", reason: "重复句式", evidence: [{ quote: "雨落在窗前。", source }] }], majorChange: false, reason: "" }); return true;
+      reply(res, { type: "json_object", issues: [{ category: "style", impact: "local", reason: "重复句式", evidence: [{ quote: "雨落在窗前。", source }] }], majorChange: false, reason: "" }); return true;
     }
     if (invalid && phase.includes("连续写作·检查")) {
       invalid = false;
       const source = { ...lastChapter(input), revision: 999 };
-      reply(res, { issues: [{ category: "style", impact: "local", reason: "重复句式", evidence: [{ quote: "雨落在窗前。", source }] }], majorChange: false, reason: "" }); return true;
+      reply(res, { type: "json_object", issues: [{ category: "style", impact: "local", reason: "重复句式", evidence: [{ quote: "雨落在窗前。", source }] }], majorChange: false, reason: "" }); return true;
     }
   });
   const job = await done(app, await start(app, projectId, "写完前一章"));
   expect(job.status, job.reply).toBe("completed");
   expect(repairs).toBe(1);
-  expect(job.chapters[0].revisionRounds).toBe(1);
+  expect(job.chapters[0].revisionRounds).toBe(0);
 });
 it("invalid review repair cannot clear unresolved findings to manufacture success", async () => {
   const { app, projectId } = await setup((phase, input, res) => {
@@ -378,7 +444,7 @@ it("can restore omitted review controls without deleting an existing finding", a
   });
   const job = await done(app, await start(app, projectId, "写完前一章"));
   expect(job.status, job.reply).toBe("completed");
-  expect(job.chapters[0].revisionRounds).toBe(1);
+  expect(job.chapters[0].revisionRounds).toBe(0);
 });
 it("unwraps the provider json_object envelope without rewriting its complete draft", async () => {
   const content = "雨落在窗前。".repeat(20);
@@ -388,6 +454,118 @@ it("unwraps the provider json_object envelope without rewriting its complete dra
   const job = await done(app, await start(app, projectId, "写完前一章"));
   expect(job.status, job.reply).toBe("completed");
   expect(app.snapshot().chapters[0].content).toBe(content);
+});
+it("retains Chinese quotation marks when a provider unnecessarily escapes them", async () => {
+  const content = "他说：“旧钟修好了。”" + "雨落。".repeat(35);
+  const { app, projectId } = await setup((phase, input, res) => {
+    if (phase.includes("连续写作·生成")) {
+      const raw = JSON.stringify({ type: "json_object", title: `第${input.ordinal}章`, content }).replace("“", "\\“");
+      res.setHeader("content-type", "application/json");
+      res.end(JSON.stringify({ choices: [{ message: { content: raw }, finish_reason: "stop" }], usage: { prompt_tokens: 10, completion_tokens: 20, total_tokens: 30 } }));
+      return true;
+    }
+  });
+  const job = await done(app, await start(app, projectId, "写完前一章"));
+  expect(job.status, job.reply).toBe("completed");
+  expect(app.snapshot().chapters[0].content).toBe(content);
+});
+it("saves complete prose when a balanced optional scene object is malformed, retaining the raw reply", async () => {
+  const content = "雨落在窗前。".repeat(20);
+  const raw = '{"scenes":[{"title":"场景",{"type":"hint","value":"旁支"}}],"title":"旧钟","content":' + JSON.stringify(content) + ',"majorChange":false,"reason":""}';
+  const { app, projectId, calls } = await setup((phase, _input, res) => {
+    if (phase.includes("连续写作·生成")) {
+      res.setHeader("content-type", "application/json");
+      res.end(JSON.stringify({choices:[{message:{content:raw},finish_reason:"stop"}],usage:{prompt_tokens:10,completion_tokens:20,total_tokens:30}}));return true;
+    }
+  });
+  const job = await done(app, await start(app, projectId, "写完前一章"));
+  expect(job.status, job.reply).toBe("completed");
+  expect(app.snapshot().chapters[0]).toMatchObject({title:"旧钟",content});
+  expect(app.snapshot().scenePlans).toEqual([]);
+  expect(job.warnings.some(w=>w.includes("场景卡"))).toBe(true);
+  expect(job.lastFailedResponse!.rawResponse).toBe(raw);
+  expect(calls).toHaveLength(4);
+});
+it("continues all four 3000-character chapters when the model adds a flat json_object type marker", async () => {
+  const content = "雨落在窗前。".repeat(500);
+  const { app, projectId, calls } = await setup((phase, input, res) => {
+    if (phase.includes("连续写作·生成")) {
+      reply(res, { type: "json_object", title: `第${input.ordinal}章`, content, scenes: [], states: [], majorChange: false, reason: "" });
+      return true;
+    }
+  });
+  const p = app.snapshot().projects[0];
+  id(await app.dispatch({ type: "project.update", id: projectId, revision: p.revision, patch: { chapterWords: 3000 } }));
+  const first = id(await app.dispatch({ type: "chapter.create", projectId, ordinal: 1, title: "作者开篇" }));
+  id(await app.dispatch({ type: "chapter.save", id: first, revision: 1, content: "作者已保存的第一章。" }));
+  const job = await done(app, await start(app, projectId, "接着写4章，每章大约3000字", 200000));
+  expect(job.status, job.reply).toBe("completed");
+  expect(job.chapters.map(c => [c.ordinal, c.status])).toEqual([[2, "checked"], [3, "checked"], [4, "checked"], [5, "checked"]]);
+  expect(app.snapshot().chapters.filter(c => c.ordinal > 1).map(c => c.content)).toEqual([content, content, content, content]);
+  expect(app.snapshot().chapters.find(c => c.id === first)!.content).toBe("作者已保存的第一章。");
+  expect(calls.filter(c => c.phase.includes("连续写作·生成")).map(c => c.input.ordinal)).toEqual([2, 3, 4, 5]);
+  expect(job.calls).toBe(10);
+});
+it("preserves an unrecognized writing reply across restart without exposing its body in polling", async () => {
+  const draft = "不能丢掉的生成原文。";
+  const f = await setup((phase, input, res) => {
+    if (phase.includes("连续写作·生成") && input.ordinal === 2) {
+      reply(res, { title: "第二章", content: draft, unsupportedDecision: true });
+      return true;
+    }
+  });
+  const taskId = await start(f.app, f.projectId, "写完前四章");
+  const job = await done(f.app, taskId);
+  expect(job.status).toBe("failed");
+  expect(job.chapters.map(c => c.status)).toEqual(["checked", "pending", "pending", "pending"]);
+  expect(JSON.parse(job.lastFailedResponse!.rawResponse)).toMatchObject({ content: draft, unsupportedDecision: true });
+  expect(job.lastFailedResponse!).toMatchObject({ phase: "writing", ordinal: 2, truncated: false });
+  expect(JSON.stringify(f.app.workspaceSnapshot(f.projectId))).not.toContain(draft);
+  const app = await f.restart();
+  expect(JSON.parse(app.snapshot().writingJobs![0].lastFailedResponse!.rawResponse).content).toBe(draft);
+  expect(app.snapshot().chapters).toHaveLength(1);
+});
+it("preserves a major creative decision in a flat json_object result", async () => {
+  const { app, projectId } = await setup((phase, _input, res) => {
+    if (phase.includes("连续写作·生成")) {
+      reply(res, { type: "json_object", title: "待确认", content: "不能擅自应用的改写", majorChange: true, reason: "需要改变已确认的结局" });
+      return true;
+    }
+  });
+  const job = await done(app, await start(app, projectId, "写完前四章"));
+  expect(job.status).toBe("awaiting-author");
+  expect(job.reply).toBe("需要改变已确认的结局");
+  expect(app.snapshot().chapters).toHaveLength(0);
+});
+it.each(["生成", "检查"])("redacts the configured key from failed %s provider output before persisting diagnostics", async (failedPhase) => {
+  const key = `fixture-private-${failedPhase === "生成" ? "writing" : "checking"}-key-do-not-export`;
+  const { app, projectId } = await setup((phase, _input, res) => {
+    if (phase.includes(`连续写作·${failedPhase}`)) {
+      res.setHeader("content-type", "text/event-stream");
+      res.end(`data: ${JSON.stringify({choices:[{delta:{content:`片段 ${key}`},finish_reason:"content_filter"}],usage:{prompt_tokens:10,completion_tokens:20,total_tokens:30}})}\n\ndata: [DONE]\n\n`);
+      return true;
+    }
+  }, { credentials: { encrypt: (value: string) => Buffer.from(value), decrypt: (value: Uint8Array) => Buffer.from(value).toString() } });
+  const profile = app.snapshot().profiles[0];
+  id(await app.dispatch({ type: "profile.save", id: profile.id, revision: profile.revision, name: profile.name, model: profile.model, baseUrl: profile.baseUrl, purpose: profile.purpose, apiKey: failedPhase === "生成" ? key : "fixture-writing-key" }));
+  if (failedPhase === "检查") id(await app.dispatch({ type: "profile.save", name: "checking", model: profile.model, baseUrl: profile.baseUrl, purpose: "checking", apiKey: key }));
+  const job = await done(app, await start(app, projectId, "写完前一章"));
+  expect(job.status).toBe("failed");
+  expect(job.lastFailedResponse?.rawResponse).toBe("片段 [已隐藏]");
+  expect(JSON.stringify(app.snapshot().writingJobs)).not.toContain(key);
+  expect(app.snapshot().chapters).toHaveLength(failedPhase === "检查" ? 1 : 0);
+});
+it.each(["chapter", "json", null])("does not ignore an unknown type marker %j", async (type) => {
+  const { app, projectId, calls } = await setup((phase, _input, res) => {
+    if (phase.includes("连续写作·生成")) {
+      reply(res, { type, title: "待确认", content: "不能静默接受" });
+      return true;
+    }
+  });
+  const job = await done(app, await start(app, projectId, "写完前四章"));
+  expect(job.status).toBe("failed");
+  expect(app.snapshot().chapters).toHaveLength(0);
+  expect(calls).toHaveLength(2);
 });
 it("does not unwrap envelopes that carry additional decision fields", async () => {
   const { app, projectId } = await setup((phase, input, res) => {
@@ -421,5 +599,228 @@ it("scenes: an author plan reaches the generation input and cannot be replaced b
   const j=await done(f.app,await start(f.app,f.projectId,"写完前一章"));expect(j.status,j.reply).toBe("completed");expect(f.calls.find(c=>c.phase.includes("连续写作·生成"))!.input.scenePlan.cards[0].goal).toBe("作者保留目标");expect(f.app.snapshot().scenePlans![0].cards[0].goal).toBe("作者保留目标");
 });
 
-it("scenes: the author per-chapter allocation controls generation and length verification",async()=>{const f=await setup((phase,input,res)=>{if(phase.includes("连续写作·生成")){reply(res,{title:"雨夜",content:"雨落在窗前。".repeat(100).slice(0,input.chapterWords),majorChange:false,reason:""});return true;}});const ch=id(await f.app.dispatch({type:"chapter.create",projectId:f.projectId,ordinal:1,title:"雨夜"}));id(await f.app.dispatch({type:"scene.save",projectId:f.projectId,chapterId:ch,targetWords:200,cards:Array.from({length:2},(_,i)=>({title:`场景${i}`,pov:"阿宁",goal:"找信",obstacle:"门锁",turn:"发现暗号",reveal:"旧城",words:100,hook:"脚步"}))}));const j=await done(f.app,await start(f.app,f.projectId,"写完前一章"));const input=f.calls.find(c=>c.phase.includes("连续写作·生成"))!.input;expect(input.chapterWords).toBe(200);expect(input.wordLimit).toMatchObject({min:160,max:240});expect(j.chapters[0].revisionRounds).toBe(0);expect(f.app.snapshot().chapters[0].content.length).toBe(200);});
+it("scenes: the author per-chapter allocation controls generation and length verification",async()=>{const f=await setup((phase,input,res)=>{if(phase.includes("连续写作·生成")){reply(res,{title:"雨夜",content:"雨落在窗前。".repeat(100).slice(0,input.chapterWords),majorChange:false,reason:""});return true;}});const ch=id(await f.app.dispatch({type:"chapter.create",projectId:f.projectId,ordinal:1,title:"雨夜"}));id(await f.app.dispatch({type:"scene.save",projectId:f.projectId,chapterId:ch,targetWords:200,cards:Array.from({length:2},(_,i)=>({title:`场景${i}`,pov:"阿宁",goal:"找信",obstacle:"门锁",turn:"发现暗号",reveal:"旧城",words:100,hook:"脚步"}))}));const j=await done(f.app,await start(f.app,f.projectId,"写完前一章"));const input=f.calls.find(c=>c.phase.includes("连续写作·生成"))!.input;expect(input.chapterWords).toBe(200);expect(input.wordLimit).toMatchObject({min:180,max:220});expect(j.chapters[0].revisionRounds).toBe(0);expect(f.app.snapshot().chapters[0].content.length).toBe(200);});
 it("scenes: a newly added author plan blocks a generation that started without one",async()=>{let release:(()=>void)|undefined;const f=await setup((phase,_input,res)=>{if(phase.includes("连续写作·生成")){release=()=>reply(res,{title:"旧方向",content:"雨落在窗前。".repeat(20),majorChange:false,reason:""});return true;}});const ch=id(await f.app.dispatch({type:"chapter.create",projectId:f.projectId,ordinal:1,title:"开篇"}));const jid=await start(f.app,f.projectId,"写完前一章");await expect.poll(()=>!!release).toBe(true);id(await f.app.dispatch({type:"scene.save",projectId:f.projectId,chapterId:ch,targetWords:120,cards:Array.from({length:2},(_,i)=>({title:`新方向${i}`,pov:"阿宁",goal:"作者刚明确的新方向",obstacle:"锁门",turn:"暗号",reveal:"旧城",words:60,hook:"脚步"}))}));release!();const j=await done(f.app,jid);expect(j.status,j.reply).toBe("paused");expect(f.app.snapshot().chapters[0].content).toBe("");expect(f.app.snapshot().scenePlans![0].cards[0].goal).toBe("作者刚明确的新方向");});
+it("unknown computed output metadata stays rejected rather than bypassing the writing contract", async () => {
+  const {app,projectId}=await setup((phase,_input,res)=>{
+    if(phase.includes("连续写作·生成")){reply(res,{type:"json_object",title:"雨夜",content:"雨落在窗前。".repeat(20),wordCount:120,scenes:[],states:[]});return true;}
+  });
+  const job=await done(app,await start(app,projectId,"写完前一章"));
+  expect(job.status).toBe("failed");
+  expect(job.error).toContain("回复字段不正确");
+  expect(app.snapshot().chapters).toHaveLength(0);
+  expect(job.lastFailedResponse?.rawResponse).toContain('"wordCount"');
+});
+it("revision can continue when this task's earlier automatic scene cards became stale", async () => {
+  let revisions=0;
+  const cards=[{title:"进门",pov:"阿宁",goal:"修钟",obstacle:"找不到工具",turn:"发现抽屉",reveal:"工具在抽屉",words:60,hook:"拿起工具"},{title:"开工",pov:"阿宁",goal:"打开钟壳",obstacle:"螺丝生锈",turn:"找到办法",reveal:"机芯松动",words:60,hook:"开始维修"}];
+  const {app,projectId,calls}=await setup((phase,_input,res)=>{
+    if(phase.includes("连续写作·生成")){reply(res,{title:"修理铺",content:"雨".repeat(70),scenes:cards,majorChange:false,reason:""});return true;}
+    if(phase.includes("连续写作·修订")){revisions++;reply(res,{title:"修理铺",content:"雨".repeat(revisions===1?80:120),majorChange:false,reason:""});return true;}
+  });
+  const job=await done(app,await start(app,projectId,"写完前一章"));
+  expect(job.status,job.error??job.reply).toBe("completed");
+  expect(revisions).toBe(2);
+  expect(app.snapshot().chapters[0].content).toBe("雨".repeat(120));
+  const revisionCalls=calls.filter(c=>c.phase.includes("连续写作·修订"));
+  expect(revisionCalls[0].input.scenePlan).toBeDefined();
+  expect(revisionCalls[1].input.scenePlan).toBeUndefined();
+  expect(job.chapters[0].status).toBe("checked");
+});
+it("stale author scene plans still require review before an automatic revision", async () => {
+  const {app,projectId,calls}=await setup();
+  const chapterId=id(await app.dispatch({type:"chapter.create",projectId,ordinal:1,title:"作者原稿"}));
+  id(await app.dispatch({type:"chapter.save",id:chapterId,revision:1,content:"雨".repeat(70)}));
+  const cards=[{title:"进门",pov:"阿宁",goal:"修钟",obstacle:"找工具",turn:"发现抽屉",reveal:"找到工具",words:60,hook:"开工"},{title:"维修",pov:"阿宁",goal:"打开钟壳",obstacle:"生锈",turn:"想到办法",reveal:"机芯松动",words:60,hook:"继续"}];
+  id(await app.dispatch({type:"scene.save",projectId,chapterId,targetWords:120,cards}));
+  id(await app.dispatch({type:"chapter.save",id:chapterId,revision:2,content:"作者保留的文字。".repeat(8)}));
+  const job=await done(app,await start(app,projectId,"写完前一章"));
+  expect(job.status).toBe("paused");
+  expect(job.error).toContain("场景依据已改变");
+  expect(calls.some(c=>c.phase.includes("连续写作·修订"))).toBe(false);
+  expect(app.snapshot().chapters[0].content).toBe("作者保留的文字。".repeat(8));
+});
+it("resume rechecks stale issue evidence outside the writing goal before revising prose",async()=>{
+  const {app,projectId,dir,calls}=await setup();
+  const first=id(await app.dispatch({type:"chapter.create",projectId,ordinal:1,title:"前章"}));
+  id(await app.dispatch({type:"chapter.save",id:first,revision:1,content:"旧事实。".repeat(30)}));
+  const job=await done(app,await start(app,projectId,"接着写一章"));
+  const target=app.snapshot().chapters.find(c=>c.ordinal===2)!;
+  const seed=new Store(join(dir,"works.sqlite"));
+  seed.put("writingJobs",{...job,status:"paused",phase:"revising",cursor:0,issues:[{category:"timeline",impact:"blocking",reason:"上次检查发现的衔接问题。",chapterId:target.id,evidence:[{quote:"旧事实。",source:{kind:"chapter",id:first,revision:2}},{quote:"雨落在窗前。",source:{kind:"chapter",id:target.id,revision:target.revision}}]}]});seed.close();
+  id(await app.dispatch({type:"chapter.confirm",id:first,revision:2}));
+  const callCount=calls.length;
+  id(await app.dispatch({type:"writing.resume",id:job.id}));
+  const resumed=await done(app,job.id);
+  expect(resumed.status,resumed.reply).toBe("completed");
+  const later=calls.slice(callCount);
+  expect(later[0].phase).toContain("连续写作·检查");
+  expect(later.some(c=>c.phase.includes("连续写作·修订"))).toBe(false);
+  expect(app.snapshot().chapters.find(c=>c.id===target.id)?.revision).toBe(target.revision);
+  expect(app.snapshot().chapters.find(c=>c.id===first)?.content).toBe("旧事实。".repeat(30));
+});
+
+it("automatically budgets a writing request and snapshots its requested word target", async () => {
+  const { app, projectId, calls } = await setup();
+  const taskId = id(await app.dispatch({type:"conversation.send",projectId,text:"接着写2章，每章大约120字"}));
+  const job = await done(app, taskId);
+  expect(job.status,job.reply).toBe("completed");
+  expect(job).toMatchObject({budgetMode:"auto",targetWords:120});
+  expect(job.tokenBudget).toBeGreaterThan(job.budgetUsed);
+  expect(calls.find(c=>c.phase.includes("连续写作·生成"))!.input.wordLimit).toMatchObject({min:108,max:132});
+});
+
+it("repairs a chapter outside ten percent even when it was within the old twenty percent", async () => {
+  const {app,projectId,calls}=await setup((phase,input,res)=>{
+    if(phase.includes("连续写作·生成")){reply(res,{title:"雨城",content:"雨".repeat(100),majorChange:false,reason:""});return true;}
+  });
+  const job=await done(app,await start(app,projectId,"接着写1章"));
+  expect(job.status,job.reply).toBe("completed");
+  expect(job.chapters[0].revisionRounds).toBe(1);
+  expect(app.snapshot().chapters[0].content.length).toBe(120);
+  expect(calls.filter(c=>c.phase.includes("连续写作·修订"))).toHaveLength(1);
+});
+
+it("a larger automatic writing goal receives more allowance without a token input", async () => {
+  const f=await setup();
+  const first=await done(f.app,id(await f.app.dispatch({type:"conversation.send",projectId:f.projectId,text:"接着写1章"})));
+  const second=await done(f.app,id(await f.app.dispatch({type:"conversation.send",projectId:f.projectId,text:"接着写5章"})));
+  expect(second.status,second.reply).toBe("completed");
+  expect(second.tokenBudget).toBeGreaterThan(first.tokenBudget);
+  expect(second.budgetMode).toBe("auto");
+});
+
+it("uses automatically maintained facts in the next batch without calling them author-confirmed",async()=>{
+  const prose="铜钥匙在老周手中。"+"雨落。".repeat(36);
+  const f=await setup((phase,input,res)=>{
+    if(phase.includes("连续写作·生成")){reply(res,{title:`第${input.ordinal}章`,content:prose,majorChange:false,reason:"",states:input.ordinal===1?[{kind:"item",subject:"铜钥匙",attribute:"持有人",value:"老周",statement:"fact",storyTime:"",quote:"铜钥匙在老周手中。"}]:[]});return true;}
+  });
+  const first=await done(f.app,await start(f.app,f.projectId,"接着写1章"));
+  expect(first.status,first.reply).toBe("completed");
+  expect(f.app.storyWorkspace({projectId:f.projectId}).current[0]).toMatchObject({value:"老周",automatic:true,status:"candidate"});
+  await done(f.app,await start(f.app,f.projectId,"接着写1章"));
+  const generation=f.calls.find(c=>c.phase.includes("连续写作·生成")&&c.input.ordinal===2)!;
+  expect(generation.input.context).toContain("正文自动整理");
+  const ch=f.app.snapshot().chapters[0];
+  id(await f.app.dispatch({type:"chapter.save",id:ch.id,revision:ch.revision,content:prose+"作者修改。"}));
+  expect(f.app.storyWorkspace({projectId:f.projectId}).current).toEqual([]);
+  expect(f.app.storyWorkspace({projectId:f.projectId}).blockedCount).toBeGreaterThan(0);
+});
+
+it("automatically managed facts honor an author's rejection",async()=>{
+  const prose="铜钥匙在老周手中。"+"雨落。".repeat(36);
+  const f=await setup((phase,input,res)=>{
+    if(phase.includes("连续写作·生成")){reply(res,{title:"雨城",content:prose,majorChange:false,reason:"",states:[{kind:"item",subject:"铜钥匙",attribute:"持有人",value:"老周",statement:"fact",storyTime:"",quote:"铜钥匙在老周手中。"}]});return true;}
+  });
+  await done(f.app,await start(f.app,f.projectId,"接着写1章"));
+  const record=f.app.snapshot().storyRecords![0];
+  id(await f.app.dispatch({type:"story.reject",id:record.id,revision:record.revision}));
+  expect(f.app.storyWorkspace({projectId:f.projectId}).current).toEqual([]);
+});
+
+it("one-click automatic continuation preserves spent usage after an allowance pause",async()=>{
+  const f=await setup((phase,_input,res)=>{
+    if(phase.includes("连续写作·规划")){reply(res,{plan:"沿用已有方向。",majorChange:false,reason:""},{prompt_tokens:900000,completion_tokens:10,total_tokens:900010});return true;}
+  });
+  const task=id(await f.app.dispatch({type:"conversation.send",projectId:f.projectId,text:"接着写1章"}));
+  const paused=await done(f.app,task);expect(paused.status).toBe("paused");expect(paused.budgetUsed).toBe(900010);
+  id(await f.app.dispatch({type:"writing.resume",id:task}));
+  const result=await done(f.app,task);expect(result.status,result.reply).toBe("completed");
+  expect(result.budgetUsed).toBeGreaterThan(900010);expect(result.tokenBudget).toBeGreaterThan(paused.tokenBudget);
+  expect(f.app.snapshot().chapters).toHaveLength(1);
+});
+
+it("one-click continuation can finish length without duplicating chapters or asking for a decision",async()=>{
+  let short=true;
+  const f=await setup((phase,input,res)=>{
+    if(short&&(phase.includes("连续写作·生成")||phase.includes("连续写作·修订"))){reply(res,{title:"雨城",content:"太短。",majorChange:false,reason:""});return true;}
+  });
+  const task=await start(f.app,f.projectId,"接着写1章");
+  const paused=await done(f.app,task);expect(paused.status).toBe("paused");short=false;
+  id(await f.app.dispatch({type:"writing.resume",id:task}));
+  const result=await done(f.app,task);expect(result.status,result.reply).toBe("completed");
+  expect(f.app.snapshot().chapters).toHaveLength(1);expect(f.app.snapshot().chapters[0].content.length).toBe(120);
+});
+
+it("unverifiable suspicions remain visible as notes without blocking or rewriting prose",async()=>{
+  const f=await setup((phase,input,res)=>{
+    if(phase.includes("连续写作·检查")) {reply(res,{issues:[{category:"plot",impact:"blocking",reason:"模型怀疑地点矛盾",evidence:[{quote:"不存在的地点描述",source:lastChapter(input)},{quote:"另一句不存在的描述",source:lastChapter(input)}]}],majorChange:false,reason:""});return true;}
+  });
+  const job=await done(f.app,await start(f.app,f.projectId,"接着写1章"));
+  expect(job.status,job.reply).toBe("completed");expect(job.chapters[0].revisionRounds).toBe(0);
+  expect(job.reviewNotes?.join(" ")).toContain("模型怀疑地点矛盾");
+  expect(job.reply).not.toContain("未发现需要处理的问题");
+});
+
+it("checking existing prose does not fill gaps, enforce new length or rewrite style advice",async()=>{
+  const f=await setup();
+  const ch=id(await f.app.dispatch({type:"chapter.create",projectId:f.projectId,ordinal:5,title:"已有第五章"}));
+  id(await f.app.dispatch({type:"chapter.save",id:ch,revision:1,content:"作者特意写的短章。"}));
+  const task=id(await f.app.dispatch({type:"writing.start",projectId:f.projectId,text:"检查并修正本章",goal:{kind:"append",startOrdinal:5,endOrdinal:5},reviewOnly:true} as Command));
+  const job=await done(f.app,task);
+  expect(job.status,job.reply).toBe("completed");
+  expect(f.app.snapshot().chapters.map(c=>[c.ordinal,c.content])).toEqual([[5,"作者特意写的短章。"]]);
+  expect(f.calls.every(c=>!c.phase.includes("·生成")&&!c.phase.includes("·修订")&&!c.phase.includes("·规划"))).toBe(true);
+});
+
+it("rejecting the latest automatic state does not revive an older holder",async()=>{
+  const f=await setup((phase,input,res)=>{
+    if(phase.includes("连续写作·生成")) {
+      const holder=input.ordinal===1?"老周":"阿宁",quote=`铜钥匙在${holder}手中。`;
+      reply(res,{title:`第${input.ordinal}章`,content:quote+"雨落。".repeat(36),majorChange:false,reason:"",states:[{kind:"item",subject:"铜钥匙",attribute:"持有人",value:holder,statement:"fact",storyTime:"",quote}]});return true;
+    }
+  });
+  await done(f.app,await start(f.app,f.projectId,"接着写1章"));
+  await done(f.app,await start(f.app,f.projectId,"接着写1章"));
+  const record=f.app.snapshot().storyRecords!.find(r=>r.value==="阿宁")!;
+  expect(f.app.storyWorkspace({projectId:f.projectId}).current[0].value).toBe("阿宁");
+  id(await f.app.dispatch({type:"story.reject",id:record.id,revision:record.revision}));
+  expect(f.app.storyWorkspace({projectId:f.projectId}).current).toEqual([]);
+});
+
+it("one length continuation schedules every remaining chapter",async()=>{
+  let short=true;
+  const f=await setup((phase,input,res)=>{
+    if(short&&(phase.includes("连续写作·生成")||phase.includes("连续写作·修订"))){reply(res,{title:`第${input.ordinal}章`,content:"太短。",majorChange:false,reason:""});return true;}
+  });
+  const task=await start(f.app,f.projectId,"接着写3章");
+  expect((await done(f.app,task)).status).toBe("paused");short=false;
+  id(await f.app.dispatch({type:"writing.resume",id:task}));
+  const result=await done(f.app,task);expect(result.status,result.reply).toBe("completed");
+  expect(f.app.snapshot().chapters.map(c=>c.content.length)).toEqual([120,120,120]);
+});
+
+it("model length advice cannot force expansion while checking an existing short chapter",async()=>{
+  const f=await setup((phase,input,res)=>{
+    if(phase.includes("·检查")||phase.includes("·跨章复核")){reply(res,{issues:[{category:"length",impact:"local",reason:"建议扩写篇幅",evidence:[{quote:"作者特意写的短章。",source:lastChapter(input)}]}],majorChange:false,reason:""});return true;}
+  });
+  const ch=id(await f.app.dispatch({type:"chapter.create",projectId:f.projectId,ordinal:1,title:"短章"}));
+  id(await f.app.dispatch({type:"chapter.save",id:ch,revision:1,content:"作者特意写的短章。"}));
+  const task=id(await f.app.dispatch({type:"writing.start",projectId:f.projectId,text:"检查本章，保持篇幅",goal:{kind:"append",startOrdinal:1,endOrdinal:1},reviewOnly:true}));
+  const result=await done(f.app,task);expect(result.status,result.reply).toBe("completed");
+  expect(result.revisionJobIds).toEqual([]);expect(f.app.chapter(ch).content).toBe("作者特意写的短章。");
+});
+
+it("rechecking revised automatic evidence does not revive an older holder",async()=>{
+  const f=await setup((phase,input,res)=>{
+    if(phase.includes("·生成")) {const holder=input.ordinal===1?"老周":"阿宁",quote=`铜钥匙在${holder}手中。`;reply(res,{title:`第${input.ordinal}章`,content:quote+"雨落。".repeat(36),majorChange:false,reason:"",states:[{kind:"item",subject:"铜钥匙",attribute:"持有人",value:holder,statement:"fact",storyTime:"",quote}]});return true;}
+  });
+  await done(f.app,await start(f.app,f.projectId,"接着写2章"));
+  const record=f.app.snapshot().storyRecords!.find(r=>r.value==="阿宁")!,ch=f.app.snapshot().chapters[1];
+  id(await f.app.dispatch({type:"chapter.save",id:ch.id,revision:ch.revision,content:ch.content+"作者补充。"}));
+  id(await f.app.dispatch({type:"story.recheck",id:record.id,revision:record.revision}));
+  expect(f.app.storyWorkspace({projectId:f.projectId}).current).toEqual([]);
+  expect(f.app.storyWorkspace({projectId:f.projectId}).blockedCount).toBeGreaterThan(0);
+});
+
+it("the current automatic capture wins when revision moves its quote earlier in the same chapter",async()=>{
+  const quote="铜钥匙在老周手中。",states=[{kind:"item",subject:"铜钥匙",attribute:"持有人",value:"老周",statement:"fact",storyTime:"",quote}];
+  const f=await setup((phase,input,res)=>{
+    if(phase.includes("·生成")||phase.includes("·修订")) {reply(res,{title:"雨城",content:phase.includes("·生成")?"雨".repeat(141)+quote:quote+"雨".repeat(111),majorChange:false,reason:"",states});return true;}
+  });
+  const job=await done(f.app,await start(f.app,f.projectId,"接着写1章"));
+  expect(job.status,job.reply).toBe("completed");expect(job.chapters[0].revisionRounds).toBe(1);
+  const workspace=f.app.storyWorkspace({projectId:f.projectId});
+  expect(workspace.current).toHaveLength(1);expect(workspace.current[0].value).toBe("老周");
+  expect(workspace.current[0].evidence[0].revision).toBe(job.chapters[0].checkedRevision);
+});

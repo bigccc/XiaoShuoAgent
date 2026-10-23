@@ -1,0 +1,57 @@
+{
+  "date": "2026-10-16",
+  "architecture": "arm64",
+  "dmgVerified": true,
+  "installedAfterUnmount": true,
+  "installedDesktopTests": {
+    "passed": 11,
+    "suites": [
+      "writing",
+      "sync"
+    ]
+  },
+  "tests": {
+    "files": 40,
+    "passed": 652
+  },
+  "typecheck": true,
+  "build": true,
+  "runtimeFiles": [
+    "out/main/index.js",
+    "out/preload/index.cjs",
+    "out/renderer/index.html",
+    "out/renderer/assets/index-CVXbuzpz.css",
+    "out/renderer/assets/index-CkFBpQQW.js"
+  ],
+  "mainSha256": "13ceb6a100d3f5a54e9abe296749729e694623a7656293bfe6d5558f986fa55b",
+  "workspaceFilesExcluded": true,
+  "validInternalSymlinks": 14,
+  "temporaryInstallRemoved": true,
+  "privateDiagnosticsRemoved": true,
+  "applicationsReplaced": false,
+  "productionModified": false,
+  "testWorkCopy": {
+    "path": "release/writing-flow-fix-20261016/private/验收副本-第2至9章.novel",
+    "chapters": 9,
+    "importVerified": true,
+    "modelCredentialsExcluded": true,
+    "privatePermissions": "0o600"
+  },
+  "liveValidation": {
+    "calls": 40,
+    "reportedTokens": 751804,
+    "newFourChapterBatchReportedTokens": 339637
+  },
+  "assets": [
+    {
+      "path": "release/writing-flow-fix-20261016/make/dmg/arm64/XiaoShuoAgent-0.2.0-arm64.dmg",
+      "bytes": 162741154,
+      "sha256": "52fdb0ec1d87e19dbed056678231a62508f7298aca9428c14bfa6fecc69a759a"
+    },
+    {
+      "path": "release/writing-flow-fix-20261016/make/zip/darwin/arm64/XiaoShuoAgent-darwin-arm64-0.2.0.zip",
+      "bytes": 145087257,
+      "sha256": "4672c57bb703efdf0947a9c2297d52ef9006ba504eb737687301fc1a76382888"
+    }
+  ]
+}

@@ -37,6 +37,16 @@ export const statusNames = {
   cancelled: "已取消",
   interrupted: "已中断",
 };
+export const statusBadge = (status: string) =>
+  status === "completed"
+    ? "badge ok"
+    : status === "failed"
+      ? "badge danger"
+      : status === "awaiting-author" || status === "interrupted"
+        ? "badge warn"
+        : status === "running"
+          ? "badge info"
+          : "badge";
 interface Candidate {
   chapterId: string;
   text: string;
@@ -73,6 +83,7 @@ export function AiPanel({
   flush,
   showTasks,
   showProfiles,
+  showWriting,
 }: {
   state: AppState;
   projectId: string;
@@ -82,6 +93,7 @@ export function AiPanel({
   flush: Flush;
   showTasks: () => void;
   showProfiles: () => void;
+  showWriting: () => void;
 }) {
   const [profile, setProfile] = useState(""),
     [planning, setPlanning] = useState(""),
@@ -177,9 +189,10 @@ export function AiPanel({
   }
   return (
     <aside className="ai-panel">
-      <div className="eyebrow">AI 创作助手</div>
-      <h2>把下一步交给灵感</h2>
-      <p>建议与候选单独保存，由你决定采用。</p>
+      <div className="eyebrow">专业工具 / 分步操作</div>
+      <h2>单独生成与检查</h2>
+      <p>日常写作可直接填写章数与字数，自动完成检查和修正。</p>
+      <button className="primary" onClick={showWriting}>前往自动写作</button>
       {!state.profiles.length ? (
         <div className="hint">
           <strong>还没有连接 AI</strong>
@@ -481,7 +494,7 @@ export function Tasks({
           >
             <strong>{taskNames[t.kind]}</strong>
             <small>{new Date(t.createdAt).toLocaleString("zh-CN")}</small>
-            <span className="badge">{statusNames[t.status]}</span>
+            <span className={statusBadge(t.status)}>{statusNames[t.status]}</span>
           </button>
         ))}
       </aside>
@@ -541,7 +554,7 @@ function TaskDetail({
           <div className="eyebrow">任务记录</div>
           <h1>{taskNames[task.kind]}</h1>
         </div>
-        <span className="badge">{statusNames[task.status]}</span>
+        <span className={statusBadge(task.status)}>{statusNames[task.status]}</span>
       </div>
       <details className="task-stats"><summary>技术详情</summary>
         <span>{task.calls} 次调用</span>
@@ -729,14 +742,14 @@ function PlanningResult({
       {guard.dialog}
       <Field label="建议标题">
         <input
-          disabled={done}
+          disabled={done || guard.busy}
           value={title}
           onChange={(e) => setTitle(e.target.value)}
         />
       </Field>
       <Field label="保存为设定类型">
         <select
-          disabled={done}
+          disabled={done || guard.busy}
           value={type}
           onChange={(e) => setType(e.target.value as NoteType)}
         >
@@ -750,7 +763,7 @@ function PlanningResult({
       <Field label="可编辑的规划建议">
         <textarea
           className="long-text"
-          disabled={done}
+          disabled={done || guard.busy}
           value={body}
           onChange={(e) => setBody(e.target.value)}
         />
@@ -760,6 +773,7 @@ function PlanningResult({
         <label className="check">
           <input
             type="checkbox"
+            disabled={guard.busy}
             checked={reviewed}
             onChange={(e) =>
               setReviewKey(e.target.checked ? fingerprint : null)
@@ -770,14 +784,14 @@ function PlanningResult({
       )}
       <button
         className="primary"
-        disabled={done || (stale && !reviewed)}
-        onClick={() => void adopt().catch(() => {})}
+        disabled={done || guard.busy || (stale && !reviewed)}
+        onClick={() => void guard.save()}
       >
         {done ? "已保存为设定" : "采纳为新设定"}
       </button>
       {result.step === "idea" && (
         <button
-          disabled={stale && !reviewed}
+          disabled={guard.busy || (stale && !reviewed)}
           onClick={() => {
             const p = state.projects.find((p) => p.id === task.projectId);
             if (p)
@@ -858,7 +872,7 @@ function CandidateResult({
     <article className="card">
       <h2>{chapter?.title ?? "章节候选"}</h2>
       <div className="toolbar">
-        <span className="badge">
+        <span className={"badge " + (c.checked ? "ok" : "warn")}>
           {c.checked ? "已完成本次检查" : "尚未完成检查"}
         </span>
         {stale && <span className="badge warn">依据已变化 · 需要复核</span>}

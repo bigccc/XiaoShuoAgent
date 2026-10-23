@@ -1,0 +1,145 @@
+{
+  "date": "2026-10-17",
+  "version": "0.2.0",
+  "architecture": "arm64",
+  "unitTests": {
+    "files": 45,
+    "passed": 676
+  },
+  "contrastPairs": 148,
+  "typecheck": true,
+  "build": true,
+  "sourceDesktopTests": {
+    "passed": 20
+  },
+  "installedDesktopTests": {
+    "passed": 20
+  },
+  "installation": {
+    "copiedFromReadonlyDmg": true,
+    "path": "/Users/dave/Dev/XiaoShuoAgent/release/scene-resume-fix-20261017/installed/XiaoShuoAgent.app",
+    "applicationsModified": true,
+    "codesignVerified": true,
+    "dailyApp": "/Applications/XiaoShuoAgent.app",
+    "dailyInstallVerified": true,
+    "backupDir": "/Users/dave/Dev/XiaoShuoAgent/release/installed-backups/scene-resume-20261017-1792225188433",
+    "dataUnchanged": true,
+    "recoveryButtonVisibleAndEnabled": true,
+    "realWritingAutomaticallyStarted": false,
+    "installRecord": "docs/scene-resume-install-20261017.json"
+  },
+  "integrity": [
+    {
+      "path": "out/main/index.js",
+      "sha256": "47b9a4e2735c59329fa8625938f38978b5ddc2c083cf8e3f4958f4cf55cd19e8",
+      "matchesBuild": true
+    },
+    {
+      "path": "out/preload/index.cjs",
+      "sha256": "e22d07b1e00898fa50cac2f6289c340d907874bd863411b91da84fad1f392bbc",
+      "matchesBuild": true
+    },
+    {
+      "path": "out/renderer/index.html",
+      "sha256": "fe46794575a0176736f86ebee253bb089ecad8117811a2b016738406a4a0ade8",
+      "matchesBuild": true
+    },
+    {
+      "path": "out/renderer/assets/index-ByIfa7rr.js",
+      "sha256": "0d87e0b9b4e2dc170783ddc660a045f38ff1ea204275164c3ca5d77186cae86c",
+      "matchesBuild": true
+    },
+    {
+      "path": "out/renderer/assets/index-Ddg_ihfd.css",
+      "sha256": "8aa25cc4693ddef97ffb2cbb2672f6a0d59538b020e704838fcc54818b4f3706",
+      "matchesBuild": true
+    }
+  ],
+  "bundleLinks": [
+    {
+      "path": "Contents/Frameworks/Electron Framework.framework/Electron Framework",
+      "target": "Versions/Current/Electron Framework",
+      "valid": true
+    },
+    {
+      "path": "Contents/Frameworks/Electron Framework.framework/Helpers",
+      "target": "Versions/Current/Helpers",
+      "valid": true
+    },
+    {
+      "path": "Contents/Frameworks/Electron Framework.framework/Libraries",
+      "target": "Versions/Current/Libraries",
+      "valid": true
+    },
+    {
+      "path": "Contents/Frameworks/Electron Framework.framework/Resources",
+      "target": "Versions/Current/Resources",
+      "valid": true
+    },
+    {
+      "path": "Contents/Frameworks/Electron Framework.framework/Versions/Current",
+      "target": "A",
+      "valid": true
+    },
+    {
+      "path": "Contents/Frameworks/Mantle.framework/Mantle",
+      "target": "Versions/Current/Mantle",
+      "valid": true
+    },
+    {
+      "path": "Contents/Frameworks/Mantle.framework/Resources",
+      "target": "Versions/Current/Resources",
+      "valid": true
+    },
+    {
+      "path": "Contents/Frameworks/Mantle.framework/Versions/Current",
+      "target": "A",
+      "valid": true
+    },
+    {
+      "path": "Contents/Frameworks/ReactiveObjC.framework/ReactiveObjC",
+      "target": "Versions/Current/ReactiveObjC",
+      "valid": true
+    },
+    {
+      "path": "Contents/Frameworks/ReactiveObjC.framework/Resources",
+      "target": "Versions/Current/Resources",
+      "valid": true
+    },
+    {
+      "path": "Contents/Frameworks/ReactiveObjC.framework/Versions/Current",
+      "target": "A",
+      "valid": true
+    },
+    {
+      "path": "Contents/Frameworks/Squirrel.framework/Resources",
+      "target": "Versions/Current/Resources",
+      "valid": true
+    },
+    {
+      "path": "Contents/Frameworks/Squirrel.framework/Squirrel",
+      "target": "Versions/Current/Squirrel",
+      "valid": true
+    },
+    {
+      "path": "Contents/Frameworks/Squirrel.framework/Versions/Current",
+      "target": "A",
+      "valid": true
+    }
+  ],
+  "privateWorkspaceFiles": [],
+  "files": [
+    {
+      "path": "release/scene-resume-fix-20261017/make/dmg/arm64/XiaoShuoAgent-0.2.0-arm64.dmg",
+      "bytes": 163303534,
+      "sha256": "4d92829973873cf60d8ad29acddda7797e32322379b76ef17fc67218d40d5008"
+    },
+    {
+      "path": "release/scene-resume-fix-20261017/make/zip/darwin/arm64/XiaoShuoAgent-darwin-arm64-0.2.0.zip",
+      "bytes": 145099766,
+      "sha256": "c3595e0f367f0d308794f609139b977cf30cbf7cc83b935853812fbe148beb86"
+    }
+  ],
+  "gitPushed": false,
+  "githubPublished": false
+}

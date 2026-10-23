@@ -1,13 +1,14 @@
+import { GenerationPreviews } from "./generation-preview";
+import { Modal } from "./modal";
 import { ContextReferences } from "./context-references";
 import { useEffect, useRef, useState } from "react";
-import type { AppState, AuthoringStage } from "../shared/types";
+import type { AppState, AuthoringStage, ConversationTurn } from "../shared/types";
 import type { Run } from "./api";
 import type { Flush, Register } from "./editing";
 import { Reader, type RevisionRequest } from "./reader";
 import { Revisions } from "./revisions";
 import { ConversationRecovery } from "./conversation-recovery";
 import { WritingProgress } from "./writing-progress";
-import { MAX_REVISION_TOKEN_BUDGET } from "../shared/revision";
 import { ChapterEditor } from "./chapters";
 import { Field, noteNames } from "./ui";
 import { NoteHistory } from "./note-history";
@@ -35,14 +36,48 @@ function saveLocal(key: string, value: string) {
   }
 }
 
+function ThinkingStatus({ turn }: { turn: ConversationTurn }) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+  const elapsed = Math.max(
+    0,
+    Math.round((now - new Date(turn.createdAt).getTime()) / 1000),
+  );
+  return (
+    <div className="thinking" role="status">
+      {turn.recoveryPhase === "retrying"
+        ? "正在重新获取回复…"
+        : turn.recoveryPhase === "repairing"
+          ? "正在整理回复格式，保留已生成的内容…"
+          : "正在构思和写作…完成后会自动保存到右侧。"}
+      {elapsed >= 3 && (
+        <small>
+          已等待{" "}
+          {elapsed >= 60
+            ? `${Math.floor(elapsed / 60)} 分 ${elapsed % 60} 秒`
+            : `${elapsed} 秒`}
+        </small>
+      )}
+    </div>
+  );
+}
+
 export function Conversation({
   state,
   projectId,
   run,
   flush,
   register,
+  refresh,
   showProfiles,
   showNotes,
+  showStoryState,
+  pendingCount,
+  showTasks,
+  showFiles,
   revisionRequest,
   clearRevisionRequest,
 }: {
@@ -51,8 +86,13 @@ export function Conversation({
   run: Run;
   flush: Flush;
   register: Register;
+  refresh: () => Promise<void>;
   showProfiles: () => void;
   showNotes: () => void;
+  showStoryState: () => void;
+  pendingCount: number;
+  showTasks: () => void;
+  showFiles: () => void;
   revisionRequest?: RevisionRequest;
   clearRevisionRequest: () => void;
 }) {
@@ -87,13 +127,13 @@ export function Conversation({
   >("");
   const [mobilePane, setMobilePane] = useState<"chat" | "manuscript">("chat");
   const [startMode, setStartMode] = useState<"idea" | "inspiration">();
+  const [diagnosticsOpen, setDiagnosticsOpen] = useState(false);
   const [genre, setGenre] = useState("玄幻");
   const [chapterCount, setChapterCount] = useState(1);
-  const [writingMode,setWritingMode]=useState<"quick"|"thorough">("thorough");
+  const [writingRequirements, setWritingRequirements] = useState("");
   const [writingError,setWritingError]=useState("");
   const [chapterWords, setChapterWords] = useState(project.chapterWords || 3000);
   const composer = useRef<HTMLTextAreaElement>(null);
-  const [tokenBudget, setTokenBudget] = useState(100000);
   const [rangeStart, setRangeStart] = useState(1),
     [rangeEnd, setRangeEnd] = useState(1);
   const [text, setText] = useState(() => readLocal(draftKey));
@@ -170,7 +210,6 @@ export function Conversation({
         projectId,
         text: prepareAuthorMessage(message, workflow),
         profileId: model.id,
-        tokenBudget,
         stage: viewStage,
         ...(chapter ? { chapterId: chapter.id } : {}),
         ...(proposalTurnId ? { proposalTurnId } : {}),
@@ -216,15 +255,47 @@ export function Conversation({
       </div>
       <div className="conversation-pane">
         <header className="conversation-heading">
-          <div className="eyebrow">想法在这里，慢慢长成故事</div>
-          <h1>和 AI 一起写故事</h1>
-          <p>
-            当前：{authorStep(workflow.activeStage) === "overview" ? "定故事" : authorStep(workflow.activeStage) === "preparation" ? "做准备" : "开始写"} ·{" "}
-            {workflow.activeStage === "writing"
-              ? "逐章推进故事"
-              : "AI 准备方案，你来判断方向"}
-          </p>
+          <div>
+            <div className="eyebrow">想法在这里，慢慢长成故事</div>
+            <h1>和 AI 一起写故事</h1>
+            <p>
+              当前：{authorStep(workflow.activeStage) === "overview" ? "定故事" : authorStep(workflow.activeStage) === "preparation" ? "做准备" : "开始写"} ·{" "}
+              {workflow.activeStage === "writing"
+                ? "逐章推进故事"
+                : "AI 准备方案，你来判断方向"}
+            </p>
+          </div>
+          <div className="heading-actions">
+            <button onClick={showTasks}>待处理{pendingCount ? ` · ${pendingCount}` : ""}</button>
+            <button className="subtle" onClick={showFiles}>导出</button>
+            <button className="subtle" onClick={() => setDiagnosticsOpen(true)}>诊断</button>
+          </div>
         </header>
+        {diagnosticsOpen && (
+          <Modal label="对话诊断" wide onClose={() => setDiagnosticsOpen(false)}>
+              <div className="page-heading">
+                <h2>对话诊断</h2>
+                <button className="subtle" aria-label="关闭诊断" onClick={() => setDiagnosticsOpen(false)}>×</button>
+              </div>
+              <p className="muted">每轮请求的用量与原始回复记录，仅用于排查问题，不影响正文。</p>
+              {turns
+                .map((t, i) => ({ turn: t, index: i }))
+                .filter(({ turn: t }) => (t.usage?.totalTokens != null) || !!t.attempts?.length || ["failed", "cancelled", "interrupted"].includes(t.status))
+                .map(({ turn: t, index }) => (
+                  <section key={t.id} className="diagnostics-turn">
+                    <h3>第 {index + 1} 轮 · {t.text.slice(0, 18) || "（无文字）"}{t.text.length > 18 ? "…" : ""}</h3>
+                    {(t.usage?.totalTokens != null || !!t.attempts?.length) && (
+                      <div className="diagnostics-usage">
+                        <span>{t.usage?.totalTokens == null ? "模型未报告用量" : `${t.usage.totalTokens.toLocaleString()} Token`}</span>
+                        {!!t.attempts?.length && <p>本轮共 {t.attempts.length} 次请求，包含自动恢复。</p>}
+                        {t.attempts?.some(a => a.usage?.totalTokens == null) && <p>部分请求未返回用量，以上仅为已记录用量。</p>}
+                      </div>
+                    )}
+                    <ConversationRecovery turn={t} />
+                  </section>
+                ))}
+          </Modal>
+        )}
         <div
           className="conversation-log"
           ref={log}
@@ -270,9 +341,7 @@ export function Conversation({
               <div className="chat-message assistant-message">
                 <small>创作搭档</small>
                 {t.status === "running" ? (
-                  <div className="thinking" role="status">
-                    {t.recoveryPhase === "retrying" ? "正在重新获取回复…" : t.recoveryPhase === "repairing" ? "正在整理回复格式，保留已生成的内容…" : "正在构思和写作…完成后会自动保存到右侧。"}
-                  </div>
+                  <ThinkingStatus turn={t} />
                 ) : (
                   <div>{t.reply || (t.error ? authorError(t.error) : "本轮尚未完成")}</div>
                 )}
@@ -296,14 +365,6 @@ export function Conversation({
                   </details>
                 )}
                 <ContextReferences references={t.contextReferences} chapters={state.chapters} />
-                {(t.usage?.totalTokens != null || !!t.attempts?.length) && (
-                  <details className="chat-details">
-                    <summary>本轮用量</summary>
-                    <span>{t.usage?.totalTokens == null ? "模型未报告用量" : `${t.usage.totalTokens.toLocaleString()} Token`}</span>
-                    {!!t.attempts?.length && <p>本轮共 {t.attempts.length} 次请求，包含自动恢复。</p>}
-                    {t.attempts?.some(a => a.usage?.totalTokens == null) && <p>部分请求未返回用量，以上仅为已记录用量。</p>}
-                  </details>
-                )}
                 {t.status === "failed" && t.response && (
                   <details className="chat-details">
                     <summary>查看尚未应用的回复</summary>
@@ -339,7 +400,6 @@ export function Conversation({
                     ))}
                   </details>
                 )}
-                <ConversationRecovery turn={t} />
                 {last?.id === t.id &&
                   ["failed", "cancelled", "interrupted"].includes(t.status) && (
                     <button
@@ -362,16 +422,19 @@ export function Conversation({
               </div>
             </div>
           ))}
+          <GenerationPreviews projectId={projectId} refresh={refresh} />
           {writingJobs.map((job) => (
             <WritingProgress key={job.id} job={job} state={state} run={run} flush={flush}
+              openStoryState={showStoryState}
+              openProfiles={showProfiles}
               otherBusy={sending || !!active || (!!activeWriting && activeWriting.id !== job.id)}
               openChapter={(id) => void flush().then((ok) => {
                 if (ok) { setSelected(id); saveLocal(chapterKey, id); showStage("writing"); }
               }).catch(() => {})} />
           ))}
-          {writingJobs.length > 0 && <Revisions state={state} projectId={projectId} run={run} />}
+          {writingJobs.length > 0 && <Revisions state={state} projectId={projectId} run={run} excludeJobIds={writingJobs.flatMap(j => j.revisionJobIds)} />}
         </div>
-        {!writingJobs.length && <Revisions state={state} projectId={projectId} run={run} />}
+        {!writingJobs.length && <Revisions state={state} projectId={projectId} run={run} excludeJobIds={writingJobs.flatMap(j => j.revisionJobIds)} />}
         <div className="conversation-compose">
           {requestTarget && (
             <div className="revision-target">
@@ -455,26 +518,35 @@ export function Conversation({
                 ))}
               </div>
             )}
+          {writingError && <p className="error" role="alert">{writingError}</p>}
           {!busy && model && <div className="author-next-actions">
             {workflow.activeStage === "overview" && workflow.documents.overview?.content.trim() && !workflow.documents.overview.needsReview && <button onClick={() => void send("按推荐").catch(() => {})}>确认方向，做准备</button>}
             {authorStep(workflow.activeStage) === "preparation" && <button onClick={() => void send("按推荐").catch(() => {})}>按推荐继续</button>}
             {workflow.activeStage !== "writing" && <button onClick={() => void send("先写一段看看").catch(() => {})}>先写一段看看</button>}
+            {workflow.activeStage === "writing" && chapter && <button onClick={() => void (async () => {
+              if (busy || !(await flush())) return;
+              setSending(true); setWritingError("");
+              try { await run({type:"writing.start",projectId,profileId:model.id,reviewOnly:true,
+                goal:{kind:"append",startOrdinal:chapter.ordinal,endOrdinal:chapter.ordinal},
+                text:`检查并修正第${chapter.ordinal}章。保留作者的创作方向与篇幅，明确错误先给出修改预览。`}); }
+              finally {setSending(false);}
+            })().catch(e => setWritingError(e instanceof Error?e.message:"检查未能开始"))}>检查并修正本章</button>}
             {workflow.activeStage === "writing" && <details className="chapter-actions"><summary>写下一章 / 连续写作</summary>
-              <Field label="写作方式"><select value={writingMode} onChange={e=>{setWritingMode(e.target.value as "quick"|"thorough");if(e.target.value==="quick")setChapterCount(1);}}><option value="thorough">认真定稿</option><option value="quick">快速试写</option></select></Field>
-              <p className="muted">{writingMode==="quick"?"先保存一章草稿，尚未一致性检查；你可以编辑后继续认真定稿。":"逐章检查、有限修订及独立跨章复核。"}</p>
-              {writingError&&<p className="error" role="alert">{writingError}</p>}
-              <Field label="一次写几章"><input disabled={writingMode==="quick"} type="number" min={1} max={100} value={chapterCount} onChange={e => setChapterCount(Number(e.target.value))} /></Field>
+              <p className="muted">自动写作、检查并修正，完成后直接阅读。字数允许上下浮动 10%。</p>
+              <Field label="一次写几章"><input type="number" min={1} max={100} value={chapterCount} onChange={e => setChapterCount(Number(e.target.value))} /></Field>
               <Field label="每章大约多少字"><input type="number" min={1} max={16000} value={chapterWords} onChange={e => setChapterWords(Number(e.target.value))} /></Field>
-              <button disabled={!Number.isInteger(chapterCount) || chapterCount < 1 || chapterCount > 100 || !Number.isInteger(chapterWords) || chapterWords < 1 || chapterWords > 16000} onClick={() => void (async () => {
-                if (!(await flush())) return;
-                const current = (await window.novel.snapshot()).projects.find(p => p.id === projectId)!;
-                if (current.chapterWords !== chapterWords) await run({ type: "project.update", id: current.id, revision: current.revision, patch: { chapterWords } });
-                setWritingError("");
-                if(writingMode==="quick"){
-                  setSending(true);
-                  try{const ordinal=Math.max(0,...chapters.map(c=>c.ordinal))+1;await run({type:"writing.start",projectId,text:`接着写1章，每章大约${chapterWords}字`,goal:{kind:"append",startOrdinal:ordinal,endOrdinal:ordinal},profileId:model.id,tokenBudget,mode:"quick"});}finally{setSending(false);}
-                }else await send(`接着写${chapterCount}章，每章大约${chapterWords}字`);
-              })().catch(e => setWritingError(e instanceof Error?e.message:"写作未能开始"))}>{writingMode==="quick"?"开始快速试写":"开始写作"}</button>
+              <Field label="额外要求（可选）"><textarea maxLength={4000} value={writingRequirements} placeholder="例如：本批揭开一个线索，保持悬念" onChange={e => setWritingRequirements(e.target.value)} /></Field>
+              <button className="primary" disabled={busy || !Number.isInteger(chapterCount) || chapterCount < 1 || chapterCount > 100 || !Number.isInteger(chapterWords) || chapterWords < 1 || chapterWords > 16000} onClick={() => void (async () => {
+                if (busy || !(await flush())) return;
+                setSending(true); setWritingError("");
+                try {
+                  const snapshot = await window.novel.snapshot();
+                  const ordinal = Math.max(0, ...snapshot.chapters.filter(c => c.projectId === projectId).map(c => c.ordinal)) + 1;
+                  await run({type:"writing.start",projectId,profileId:model.id,targetWords:chapterWords,
+                    goal:{kind:"append",startOrdinal:ordinal,endOrdinal:ordinal+chapterCount-1},
+                    text:`接着写${chapterCount}章，每章大约${chapterWords}字${writingRequirements.trim()?`。额外要求：${writingRequirements.trim()}`:""}`});
+                } finally {setSending(false);}
+              })().catch(e => setWritingError(e instanceof Error?e.message:"写作未能开始"))}>开始写作</button>
             </details>}
           </div>}
           {!model && (
@@ -510,8 +582,6 @@ export function Conversation({
             <div className="composer-actions">
               <details className="model-choice">
                 <summary>高级设置</summary>
-                <Field label="创作 Token 预算"><input type="number" min={1000} max={MAX_REVISION_TOKEN_BUDGET} step={1000} value={tokenBudget} onChange={e => setTokenBudget(Number(e.target.value))} /></Field>
-                <small>调用上限覆盖写作、检查和重试，达到后会暂停；不等同于服务账户余额。</small>
                 <Field label="创作模型">
                   <select
                     value={model?.id ?? ""}

@@ -1,0 +1,255 @@
+{
+  "startedAt": "2026-10-17T03:26:20.156Z",
+  "limits": {
+    "requests": 20,
+    "tokens": 300000,
+    "milliseconds": 1200000
+  },
+  "installedExecutable": "/Users/dave/Dev/XiaoShuoAgent/release/generation-preview-20261017/installed/XiaoShuoAgent.app/Contents/MacOS/XiaoShuoAgent",
+  "calls": [
+    {
+      "index": 1,
+      "purpose": "writing",
+      "model": "deepseek-flash",
+      "startedAt": 1792207582123,
+      "reservation": 19442,
+      "usage": {
+        "totalTokens": 1712,
+        "inputTokens": 1308,
+        "outputTokens": 404
+      },
+      "firstContentAt": 1792207583644,
+      "finishedAt": 1792207585416,
+      "httpStatus": 200
+    },
+    {
+      "index": 2,
+      "purpose": "writing",
+      "model": "deepseek-flash",
+      "startedAt": 1792207585480,
+      "reservation": 19268,
+      "usage": {
+        "totalTokens": 1776,
+        "inputTokens": 1374,
+        "outputTokens": 402
+      },
+      "firstContentAt": 1792207586884,
+      "finishedAt": 1792207589037,
+      "httpStatus": 200
+    },
+    {
+      "index": 3,
+      "purpose": "writing",
+      "model": "deepseek-flash",
+      "startedAt": 1792207589286,
+      "reservation": 17175,
+      "usage": {
+        "totalTokens": 517,
+        "inputTokens": 395,
+        "outputTokens": 122
+      },
+      "firstContentAt": 1792207590460,
+      "finishedAt": 1792207590542,
+      "httpStatus": 200
+    },
+    {
+      "index": 4,
+      "purpose": "writing",
+      "model": "deepseek-flash",
+      "startedAt": 1792207590566,
+      "reservation": 5632,
+      "usage": {
+        "totalTokens": 3896,
+        "inputTokens": 682,
+        "outputTokens": 3214
+      },
+      "firstContentAt": 1792207609211,
+      "finishedAt": 1792207610814,
+      "httpStatus": 200,
+      "failed": true
+    },
+    {
+      "index": 5,
+      "purpose": "writing",
+      "model": "deepseek-flash",
+      "startedAt": 1792207610820,
+      "reservation": 4310,
+      "usage": {
+        "totalTokens": 2444,
+        "inputTokens": 1420,
+        "outputTokens": 1024
+      },
+      "firstContentAt": null,
+      "finishedAt": 1792207615019,
+      "httpStatus": 200,
+      "failed": true
+    }
+  ],
+  "stages": [
+    {
+      "name": "planning",
+      "state": {
+        "conversations": [
+          {
+            "id": "12a8ce3b-dfde-4efb-9f24-877da7b22178",
+            "status": "completed",
+            "calls": 1
+          }
+        ],
+        "writingJobs": [],
+        "chapters": []
+      }
+    },
+    {
+      "name": "trial",
+      "state": {
+        "conversations": [
+          {
+            "id": "12a8ce3b-dfde-4efb-9f24-877da7b22178",
+            "status": "completed",
+            "calls": 1
+          },
+          {
+            "id": "7b9b1af1-a850-468c-99cb-a3fb2626f04e",
+            "status": "completed",
+            "calls": 1
+          }
+        ],
+        "writingJobs": [],
+        "chapters": [
+          {
+            "id": "df3f62bd-4a85-4968-a9a9-6f899c109314",
+            "ordinal": 1,
+            "characters": 301,
+            "revision": 2,
+            "contentSha256": "007191a6cd95c78456714d87bf172e0357452c36398ffacc771ee574b4283796"
+          }
+        ]
+      }
+    },
+    {
+      "name": "continuous-two-chapters",
+      "state": {
+        "conversations": [
+          {
+            "id": "12a8ce3b-dfde-4efb-9f24-877da7b22178",
+            "status": "completed",
+            "calls": 1
+          },
+          {
+            "id": "7b9b1af1-a850-468c-99cb-a3fb2626f04e",
+            "status": "completed",
+            "calls": 1
+          }
+        ],
+        "writingJobs": [
+          {
+            "id": "3d12dc89-ebac-4abf-87d9-747f815cc214",
+            "status": "failed",
+            "phase": "writing",
+            "calls": 2,
+            "saved": 0,
+            "checked": 0,
+            "needsReview": 0,
+            "issues": 0,
+            "blockingIssues": 0
+          }
+        ],
+        "chapters": [
+          {
+            "id": "df3f62bd-4a85-4968-a9a9-6f899c109314",
+            "ordinal": 1,
+            "characters": 301,
+            "revision": 2,
+            "contentSha256": "007191a6cd95c78456714d87bf172e0357452c36398ffacc771ee574b4283796"
+          }
+        ]
+      }
+    }
+  ],
+  "preview": [
+    {
+      "taskId": "12a8ce3b-dfde-4efb-9f24-877da7b22178",
+      "attemptId": "6e446acd-5076-431f-9048-fda9cfbbab6f",
+      "kind": "conversation",
+      "appendAt": 1792207583647,
+      "path": "message",
+      "visibleAt": 1792207583654,
+      "appendToVisibleMs": 7,
+      "events": 27,
+      "characters": 288,
+      "requestIndex": 1,
+      "upstreamToVisibleMs": 10,
+      "visibleBeforeResponseEnd": true
+    },
+    {
+      "taskId": "7b9b1af1-a850-468c-99cb-a3fb2626f04e",
+      "attemptId": "8685aebe-5f21-4bae-bcef-dbc896c1ee3e",
+      "kind": "conversation",
+      "appendAt": 1792207586915,
+      "path": "message",
+      "visibleAt": 1792207586920,
+      "appendToVisibleMs": 5,
+      "events": 31,
+      "characters": 356,
+      "requestIndex": 2,
+      "upstreamToVisibleMs": 36,
+      "visibleBeforeResponseEnd": true
+    }
+  ],
+  "limitReached": null,
+  "outcome": "incomplete",
+  "models": [
+    {
+      "purpose": "writing",
+      "model": "deepseek-flash",
+      "host": "api.deepseek.com"
+    },
+    {
+      "purpose": "checking",
+      "model": "deepseek-v4-pro",
+      "host": "api.deepseek.com"
+    }
+  ],
+  "coldRestart": true,
+  "reopened": {
+    "conversations": [
+      {
+        "id": "12a8ce3b-dfde-4efb-9f24-877da7b22178",
+        "status": "completed",
+        "calls": 1
+      },
+      {
+        "id": "7b9b1af1-a850-468c-99cb-a3fb2626f04e",
+        "status": "completed",
+        "calls": 1
+      }
+    ],
+    "writingJobs": [
+      {
+        "id": "3d12dc89-ebac-4abf-87d9-747f815cc214",
+        "status": "failed",
+        "phase": "writing",
+        "calls": 2,
+        "saved": 0,
+        "checked": 0,
+        "needsReview": 0,
+        "issues": 0,
+        "blockingIssues": 0
+      }
+    ],
+    "chapters": [
+      {
+        "id": "df3f62bd-4a85-4968-a9a9-6f899c109314",
+        "ordinal": 1,
+        "characters": 301,
+        "revision": 2,
+        "contentSha256": "007191a6cd95c78456714d87bf172e0357452c36398ffacc771ee574b4283796"
+      }
+    ]
+  },
+  "reopenMatchesSaved": true,
+  "finishedAt": "2026-10-17T03:26:56.204Z",
+  "elapsedMs": 36048,
+  "tokensChargedIncludingUnknownReservations": 13947
+}

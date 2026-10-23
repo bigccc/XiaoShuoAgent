@@ -127,15 +127,20 @@ describe("continuous writing review evidence", () => {
   it.each([
     ["unknown category", { category: "location" }],
     ["unknown impact", { impact: "warning" }],
-    ["downgraded factual conflict", { impact: "local" }],
     ["blank explanation", { reason: " " }],
     ["missing evidence", { evidence: [] }],
     ["model-supplied chapter", { chapterId: "unrelated-chapter" }],
     ["unknown issue field", { instructions: "rewrite everything" }],
   ])("rejects %s", (_name, patch) => rejects(payload([{ ...factual(), ...patch }])));
 
-  it("does not allow a prose suggestion to halt the task as a factual conflict", () => {
-    rejects(payload([{ ...stylistic(), impact: "blocking" }]));
+  it("derives blocking impact from a verified factual category even when the model says local", () => {
+    expect(parseWritingReview(JSON.stringify(payload([{ ...factual(), impact: "local" }])), documents).issues[0])
+      .toMatchObject({ category: "character", impact: "blocking", reason: factual().reason });
+  });
+
+  it("derives local impact from a prose category without discarding the suggestion", () => {
+    expect(parseWritingReview(JSON.stringify(payload([{ ...stylistic(), impact: "blocking" }])), documents).issues[0])
+      .toMatchObject({ category: "style", impact: "local", reason: stylistic().reason });
   });
 
   it.each(["timeline", "plot", "world", "knowledge", "foreshadowing"])(
@@ -151,6 +156,15 @@ describe("continuous writing review evidence", () => {
 });
 
 describe("continuous writing review response boundary", () => {
+  it("accepts a flat JSON transport marker without losing a major decision", () => {
+    expect(parseWritingReview(JSON.stringify(payload([], { type:"json_object", majorChange:true, reason:"需要修改已确认主线" })),documents))
+      .toEqual(payload([], {majorChange:true,reason:"需要修改已确认主线"}));
+  });
+  it("retains the rejected review response for diagnostics", () => {
+    const raw = JSON.stringify(payload([{ ...stylistic(), evidence: [] }]));
+    try { parseWritingReview(raw, documents); throw Error("expected rejection"); }
+    catch (error) { expect((error as ProviderError).partial).toBe(raw); }
+  });
   it("accepts a complete empty check and standard JSON fences", () => {
     const raw = JSON.stringify(payload());
     for (const text of [raw, ` \n${raw}\n `, `\x60\x60\x60json\n${raw}\n\x60\x60\x60`, `\x60\x60\x60\n${raw}\n\x60\x60\x60`]) {
@@ -169,11 +183,15 @@ describe("continuous writing review response boundary", () => {
   ])("rejects incomplete or extra output: %s", raw => rejects(raw));
 
   it.each([
-    { issues: [] },
+    { issues: [], reason: "必须改变主线" },
     payload([], { majorChange: "false" }),
     payload([], { reason: 1 }),
     payload([], { comment: "passed" }),
   ])("requires the complete declared response schema", raw => rejects(raw));
+
+  it.each([{issues:[]}, {issues:[],majorChange:false}, {issues:[],reason:""}])("defaults absent review decision fields only when no decision was requested", value => {
+    expect(parseWritingReview(JSON.stringify(value),documents)).toEqual(payload());
+  });
 
   it("preserves a reasoned major creative change for an author decision", () => {
     const change = payload([], { majorChange: true, reason: "需要推翻已确认的主线结局才能继续。" });

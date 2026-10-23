@@ -3,7 +3,7 @@ import { validateStoryCommand, validateStoryEntry, validateStoryRecord, validate
 import type { StoryCommand, StoryQuery, StoryWorkspace, StoryRecord, StoryEvidenceInput, StoryEvidence, StoryProposal, StoryOrigin } from "../shared/story-state";
 import type { CommandResult, Chapter } from "../shared/types";
 import { DomainError } from "../shared/validation";
-import { chapterDigest, currentStory, currentForeshadowing, storyViews, acceptedStory } from "./story-context";
+import { chapterDigest, currentStory, currentForeshadowing, storyViews, referencedStory } from "./story-context";
 import { Store } from "./store";
 export class StoryStateService {
     constructor(private store: Store) { }
@@ -118,7 +118,8 @@ export class StoryStateService {
         this.project(q.projectId);
         const offset = q.offset ?? 0, limit = q.limit ?? 40;
         const records = this.store.selectByProject("storyRecords", q.projectId), chapters = this.store.chapterMetadata(q.projectId), notes = this.store.selectByProject("notes", q.projectId), views = storyViews(records, chapters, notes);
-        const accepted = storyViews(acceptedStory(records, q.beforeOrdinal), chapters, notes);
+        const accepted = referencedStory(records, chapters, notes, this.store.selectByProject("writingJobs", q.projectId), q.beforeOrdinal);
+        for (const view of views) { const reference = accepted.find(r => r.id === view.id && r.automatic); if (reference) { view.automatic = true; view.needsReview ||= reference.needsReview; view.stable = reference.stable; } }
         const { current, blockedCount } = currentStory(accepted, q.beforeOrdinal);
         const fores = currentForeshadowing(accepted, q.beforeOrdinal);
         const visible = views.filter(r => r.archived === (q.archived ?? false)).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt) || a.id.localeCompare(b.id));
@@ -138,6 +139,15 @@ export class StoryStateService {
                 if (start < 0 || chapter.content.indexOf(p.quote, start + 1) >= 0)
                     throw new DomainError("VALIDATION", "候选引用无法唯一对应正文");
                 const { quote, ...entry } = p, evidence = this.evidence(projectId, [{ chapterId: chapter.id, revision: chapter.revision, start, end: start + quote.length }]);
+                if (origin.kind === "writing" && entry.foreshadowingStage === "resolved") {
+                    const planting = storyViews(this.store.selectByProject("storyRecords", projectId), this.store.chapterMetadata(projectId), this.store.selectByProject("notes", projectId))
+                        .filter(r => r.kind === "foreshadowing" && r.subject.trim() === entry.subject.trim() && r.foreshadowingStage === "planted" &&
+                            r.status !== "rejected" && !r.archived && !r.needsReview && r.evidence.length &&
+                            (r.evidence[0].ordinal < chapter.ordinal || r.evidence[0].chapterId === chapter.id && r.evidence[0].end <= start))
+                        .sort((a, b) => b.evidence[0].ordinal - a.evidence[0].ordinal || b.evidence[0].start - a.evidence[0].start)[0];
+                    if (!planting) throw new DomainError("VALIDATION", "未找到当前有效的埋设原文，暂不将该伏笔标为已回收；正文已保留");
+                    evidence.unshift(planting.evidence[0]);
+                }
                 const fingerprint = (r: StoryRecord) => JSON.stringify([storyEntry(r), r.evidence]);
                 const known = this.store.selectByProject("storyRecords", projectId).find(r => fingerprint(r) === JSON.stringify([storyEntry(entry), evidence]));
                 if (known) {

@@ -62,7 +62,7 @@ test("conversation recovery shows progress, saves once and loads the original re
     await expect(page.getByRole("status").filter({ hasText: "正在整理回复格式" })).toBeVisible();
     releaseRepair!();
     await expect(page.getByLabel("章节正文", { exact: true })).toHaveValue(result.chapters[0].content);
-    await page.getByText("本轮用量", { exact: true }).click();
+    await page.getByRole("button", { name: "诊断", exact: true }).click();
     await expect(page.getByText("900 Token", { exact: true })).toBeVisible();
     await expect(page.getByText("本轮共 3 次请求，包含自动恢复。", { exact: true })).toBeVisible();
     await page.getByText("查看本轮回复与恢复记录", { exact: true }).click();

@@ -1,0 +1,73 @@
+{
+  "run": "20261016-append-confirm",
+  "isolated": true,
+  "productionModified": false,
+  "responses": [
+    {
+      "number": 1,
+      "phase": "连续写作·跨章复核",
+      "characters": 18,
+      "shape": {
+        "keys": [
+          "issues"
+        ],
+        "issues": []
+      },
+      "usage": {
+        "prompt_tokens": 15828,
+        "completion_tokens": 7,
+        "total_tokens": 15835,
+        "prompt_tokens_details": {
+          "cached_tokens": 0
+        },
+        "prompt_cache_hit_tokens": 0,
+        "prompt_cache_miss_tokens": 15828
+      }
+    }
+  ],
+  "startCalls": 17,
+  "startBudgetUsed": 323802,
+  "result": {
+    "status": "completed",
+    "phase": "done",
+    "calls": 18,
+    "usage": {
+      "inputTokens": 311581,
+      "outputTokens": 28056,
+      "totalTokens": 339637,
+      "estimated": false
+    },
+    "budgetUsed": 339637,
+    "chapters": [
+      {
+        "ordinal": 6,
+        "status": "checked",
+        "revisionRounds": 0,
+        "words": 2716
+      },
+      {
+        "ordinal": 7,
+        "status": "checked",
+        "revisionRounds": 2,
+        "words": 2744
+      },
+      {
+        "ordinal": 8,
+        "status": "checked",
+        "revisionRounds": 0,
+        "words": 2851
+      },
+      {
+        "ordinal": 9,
+        "status": "checked",
+        "revisionRounds": 1,
+        "words": 2851
+      }
+    ],
+    "issues": [],
+    "warningCount": 5
+  },
+  "workflowCompleted": true,
+  "liveCalls": 1,
+  "replayedResponses": 0
+}

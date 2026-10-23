@@ -1,0 +1,176 @@
+{
+  "date": "2026-10-17",
+  "version": "0.2.0",
+  "architecture": "arm64",
+  "unitTests": {
+    "files": 45,
+    "passed": 673
+  },
+  "contrastPairs": 148,
+  "typecheck": true,
+  "build": true,
+  "sourceDesktopTests": {
+    "passed": 51,
+    "baseline": "before final prompt-only reinforcement"
+  },
+  "installedDesktopTests": {
+    "passed": 12,
+    "scope": [
+      "contrast",
+      "generation-preview",
+      "writing"
+    ],
+    "artifact": "final prompt-reinforced DMG"
+  },
+  "installation": {
+    "copiedFromReadonlyDmg": true,
+    "path": "/Users/dave/Dev/XiaoShuoAgent/release/generation-preview-20261017/installed-final/XiaoShuoAgent.app",
+    "applicationsModified": false,
+    "codesignVerified": true
+  },
+  "integrity": [
+    {
+      "path": "out/main/index.js",
+      "sha256": "c50b26641c44d11e5d5b5d862cf13dc1df30d5bba2278bbe2943c869768a9719",
+      "matchesBuild": true
+    },
+    {
+      "path": "out/preload/index.cjs",
+      "sha256": "e22d07b1e00898fa50cac2f6289c340d907874bd863411b91da84fad1f392bbc",
+      "matchesBuild": true
+    },
+    {
+      "path": "out/renderer/index.html",
+      "sha256": "07b7674f3f100c952fb9298f341aea9350fd6edf05f6714197bfae32b30a017b",
+      "matchesBuild": true
+    },
+    {
+      "path": "out/renderer/assets/index-Ddg_ihfd.css",
+      "sha256": "8aa25cc4693ddef97ffb2cbb2672f6a0d59538b020e704838fcc54818b4f3706",
+      "matchesBuild": true
+    },
+    {
+      "path": "out/renderer/assets/index-ehZ7VgEQ.js",
+      "sha256": "6125887e0a0d592bc4afd25a8cae53439056b780b603827816673845365bac30",
+      "matchesBuild": true
+    }
+  ],
+  "bundleLinks": [
+    {
+      "path": "Contents/Frameworks/Electron Framework.framework/Electron Framework",
+      "target": "Versions/Current/Electron Framework",
+      "valid": true
+    },
+    {
+      "path": "Contents/Frameworks/Electron Framework.framework/Helpers",
+      "target": "Versions/Current/Helpers",
+      "valid": true
+    },
+    {
+      "path": "Contents/Frameworks/Electron Framework.framework/Libraries",
+      "target": "Versions/Current/Libraries",
+      "valid": true
+    },
+    {
+      "path": "Contents/Frameworks/Electron Framework.framework/Resources",
+      "target": "Versions/Current/Resources",
+      "valid": true
+    },
+    {
+      "path": "Contents/Frameworks/Electron Framework.framework/Versions/Current",
+      "target": "A",
+      "valid": true
+    },
+    {
+      "path": "Contents/Frameworks/Mantle.framework/Mantle",
+      "target": "Versions/Current/Mantle",
+      "valid": true
+    },
+    {
+      "path": "Contents/Frameworks/Mantle.framework/Resources",
+      "target": "Versions/Current/Resources",
+      "valid": true
+    },
+    {
+      "path": "Contents/Frameworks/Mantle.framework/Versions/Current",
+      "target": "A",
+      "valid": true
+    },
+    {
+      "path": "Contents/Frameworks/ReactiveObjC.framework/ReactiveObjC",
+      "target": "Versions/Current/ReactiveObjC",
+      "valid": true
+    },
+    {
+      "path": "Contents/Frameworks/ReactiveObjC.framework/Resources",
+      "target": "Versions/Current/Resources",
+      "valid": true
+    },
+    {
+      "path": "Contents/Frameworks/ReactiveObjC.framework/Versions/Current",
+      "target": "A",
+      "valid": true
+    },
+    {
+      "path": "Contents/Frameworks/Squirrel.framework/Resources",
+      "target": "Versions/Current/Resources",
+      "valid": true
+    },
+    {
+      "path": "Contents/Frameworks/Squirrel.framework/Squirrel",
+      "target": "Versions/Current/Squirrel",
+      "valid": true
+    },
+    {
+      "path": "Contents/Frameworks/Squirrel.framework/Versions/Current",
+      "target": "A",
+      "valid": true
+    }
+  ],
+  "privateWorkspaceFiles": [],
+  "files": [
+    {
+      "path": "release/generation-preview-20261017/make/dmg/arm64/XiaoShuoAgent-0.2.0-arm64.dmg",
+      "bytes": 162776969,
+      "sha256": "98131a6c1492d484a1ee17c89165521b4fecbb59244b6c4a9a5b0b72a934b069"
+    },
+    {
+      "path": "release/generation-preview-20261017/make/zip/darwin/arm64/XiaoShuoAgent-darwin-arm64-0.2.0.zip",
+      "bytes": 145099501,
+      "sha256": "06545130ab76c499f3e4c794f5f086d82e9bd23e4abe436bb2b0303db3bcaa6b"
+    }
+  ],
+  "gitPushed": false,
+  "githubPublished": false,
+  "priorInstalledDesktopTests": {
+    "passed": 50,
+    "skipped": 1,
+    "baseline": "before final prompt-only reinforcement"
+  },
+  "independentReview": {
+    "blockingFindings": 0,
+    "reports": [
+      ".tmp/stream-preview-20261017/whole-review.md",
+      ".tmp/stream-preview-20261017/final-review.md"
+    ],
+    "promptReinforcementReviewed": true
+  },
+  "realModelAcceptance": {
+    "status": "passed",
+    "writingModel": "deepseek-v4-pro",
+    "checkingModel": "deepseek-v4-pro",
+    "cumulativeRequests": 22,
+    "requestLimit": 25,
+    "tokensChargedIncludingUnknownReservations": 47938,
+    "tokenLimit": 300000,
+    "saved": 2,
+    "checked": 2,
+    "blockingIssues": 0,
+    "coldRestart": true,
+    "contentHashesMatch": true,
+    "isolationRemoved": true,
+    "defaultConfigurationChanged": false,
+    "defaultWritingModelLimitation": "deepseek-flash returned extra fields or invalid JSON; retained strict rejection; failed metadata preserved",
+    "report": "docs/generation-preview-live-20261017.json"
+  }
+}

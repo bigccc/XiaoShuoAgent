@@ -1,0 +1,392 @@
+{
+  "startedAt": "2026-10-17T03:30:20.945Z",
+  "budgetStartedAt": "2026-10-17T03:26:20.156Z",
+  "limits": {
+    "requests": 20,
+    "tokens": 300000,
+    "milliseconds": 1200000
+  },
+  "installedExecutable": "/Users/dave/Dev/XiaoShuoAgent/release/generation-preview-20261017/installed/XiaoShuoAgent.app/Contents/MacOS/XiaoShuoAgent",
+  "calls": [
+    {
+      "index": 1,
+      "purpose": "writing",
+      "model": "deepseek-flash",
+      "startedAt": 1792207582123,
+      "reservation": 19442,
+      "usage": {
+        "totalTokens": 1712,
+        "inputTokens": 1308,
+        "outputTokens": 404
+      },
+      "firstContentAt": 1792207583644,
+      "finishedAt": 1792207585416,
+      "httpStatus": 200
+    },
+    {
+      "index": 2,
+      "purpose": "writing",
+      "model": "deepseek-flash",
+      "startedAt": 1792207585480,
+      "reservation": 19268,
+      "usage": {
+        "totalTokens": 1776,
+        "inputTokens": 1374,
+        "outputTokens": 402
+      },
+      "firstContentAt": 1792207586884,
+      "finishedAt": 1792207589037,
+      "httpStatus": 200
+    },
+    {
+      "index": 3,
+      "purpose": "writing",
+      "model": "deepseek-flash",
+      "startedAt": 1792207589286,
+      "reservation": 17175,
+      "usage": {
+        "totalTokens": 517,
+        "inputTokens": 395,
+        "outputTokens": 122
+      },
+      "firstContentAt": 1792207590460,
+      "finishedAt": 1792207590542,
+      "httpStatus": 200
+    },
+    {
+      "index": 4,
+      "purpose": "writing",
+      "model": "deepseek-flash",
+      "startedAt": 1792207590566,
+      "reservation": 5632,
+      "usage": {
+        "totalTokens": 3896,
+        "inputTokens": 682,
+        "outputTokens": 3214
+      },
+      "firstContentAt": 1792207609211,
+      "finishedAt": 1792207610814,
+      "httpStatus": 200,
+      "failed": true
+    },
+    {
+      "index": 5,
+      "purpose": "writing",
+      "model": "deepseek-flash",
+      "startedAt": 1792207610820,
+      "reservation": 4310,
+      "usage": {
+        "totalTokens": 2444,
+        "inputTokens": 1420,
+        "outputTokens": 1024
+      },
+      "firstContentAt": null,
+      "finishedAt": 1792207615019,
+      "httpStatus": 200,
+      "failed": true
+    },
+    {
+      "phase": "conversation-or-sync",
+      "index": 6,
+      "purpose": "writing",
+      "model": "deepseek-flash",
+      "startedAt": 1792207718366,
+      "reservation": 19442,
+      "usage": {
+        "totalTokens": 1618,
+        "inputTokens": 1308,
+        "outputTokens": 310
+      },
+      "firstContentAt": 1792207719245,
+      "finishedAt": 1792207721423,
+      "httpStatus": 200
+    },
+    {
+      "phase": "conversation-or-sync",
+      "index": 7,
+      "purpose": "writing",
+      "model": "deepseek-flash",
+      "startedAt": 1792207721432,
+      "reservation": 19384,
+      "usage": {
+        "totalTokens": 1658,
+        "inputTokens": 1449,
+        "outputTokens": 209
+      },
+      "firstContentAt": 1792207722123,
+      "finishedAt": 1792207723352,
+      "httpStatus": 200
+    },
+    {
+      "phase": "conversation-or-sync",
+      "index": 8,
+      "purpose": "writing",
+      "model": "deepseek-flash",
+      "startedAt": 1792207723469,
+      "reservation": 17175,
+      "usage": {
+        "totalTokens": 431,
+        "inputTokens": 392,
+        "outputTokens": 39
+      },
+      "firstContentAt": 1792207723998,
+      "finishedAt": 1792207724172,
+      "httpStatus": 200
+    },
+    {
+      "phase": "规划",
+      "index": 9,
+      "purpose": "writing",
+      "model": "deepseek-flash",
+      "startedAt": 1792207724196,
+      "reservation": 5536,
+      "usage": {
+        "totalTokens": 802,
+        "inputTokens": 623,
+        "outputTokens": 179
+      },
+      "firstContentAt": 1792207724691,
+      "finishedAt": 1792207725777,
+      "httpStatus": 200
+    },
+    {
+      "phase": "生成",
+      "index": 10,
+      "purpose": "writing",
+      "model": "deepseek-flash",
+      "startedAt": 1792207725787,
+      "reservation": 3824,
+      "usage": {
+        "totalTokens": 1994,
+        "inputTokens": 1119,
+        "outputTokens": 875
+      },
+      "firstContentAt": 1792207726509,
+      "finishedAt": 1792207731183,
+      "httpStatus": 200
+    },
+    {
+      "phase": "conversation-or-sync",
+      "index": 11,
+      "purpose": "writing",
+      "model": "deepseek-flash",
+      "startedAt": 1792207822824,
+      "reservation": 19442,
+      "usage": {
+        "totalTokens": 1605,
+        "inputTokens": 1304,
+        "outputTokens": 301
+      },
+      "firstContentAt": 1792207823942,
+      "finishedAt": 1792207825864,
+      "httpStatus": 200,
+      "finishReason": "stop"
+    },
+    {
+      "phase": "conversation-or-sync",
+      "index": 12,
+      "purpose": "writing",
+      "model": "deepseek-flash",
+      "startedAt": 1792207825881,
+      "reservation": 19693,
+      "usage": {
+        "totalTokens": 1849,
+        "inputTokens": 1610,
+        "outputTokens": 239
+      },
+      "firstContentAt": 1792207826441,
+      "finishedAt": 1792207828049,
+      "httpStatus": 200,
+      "finishReason": "stop"
+    },
+    {
+      "phase": "规划",
+      "index": 13,
+      "purpose": "writing",
+      "model": "deepseek-flash",
+      "startedAt": 1792207828175,
+      "reservation": 6423,
+      "usage": {
+        "totalTokens": 1397,
+        "inputTokens": 1094,
+        "outputTokens": 303
+      },
+      "firstContentAt": 1792207828833,
+      "finishedAt": 1792207831014,
+      "httpStatus": 200,
+      "finishReason": "stop",
+      "failed": true
+    }
+  ],
+  "stages": [
+    {
+      "name": "planning",
+      "state": {
+        "conversations": [
+          {
+            "id": "f34d2bb3-e407-43f9-b27d-a765a35c8f78",
+            "status": "completed",
+            "calls": 1
+          }
+        ],
+        "writingJobs": [],
+        "chapters": []
+      }
+    },
+    {
+      "name": "trial",
+      "state": {
+        "conversations": [
+          {
+            "id": "f34d2bb3-e407-43f9-b27d-a765a35c8f78",
+            "status": "completed",
+            "calls": 1
+          },
+          {
+            "id": "ff2243ff-35c4-4c52-ab63-9094ab0f8a12",
+            "status": "completed",
+            "calls": 1
+          }
+        ],
+        "writingJobs": [],
+        "chapters": [
+          {
+            "id": "11c73c10-2569-408e-9285-5f33b356de90",
+            "ordinal": 1,
+            "characters": 238,
+            "revision": 2,
+            "contentSha256": "f5231bf781c6905947bc3cce055e0467f7a626937e211e06c9d6cee97555aae2"
+          }
+        ]
+      }
+    },
+    {
+      "name": "continuous-two-chapters",
+      "state": {
+        "conversations": [
+          {
+            "id": "f34d2bb3-e407-43f9-b27d-a765a35c8f78",
+            "status": "completed",
+            "calls": 1
+          },
+          {
+            "id": "ff2243ff-35c4-4c52-ab63-9094ab0f8a12",
+            "status": "completed",
+            "calls": 1
+          }
+        ],
+        "writingJobs": [
+          {
+            "id": "0fed622c-1767-4059-9762-4e7165d34c12",
+            "status": "failed",
+            "phase": "planning",
+            "calls": 1,
+            "saved": 0,
+            "checked": 0,
+            "failureKind": "RESPONSE_FORMAT",
+            "needsReview": 0,
+            "issues": 0,
+            "blockingIssues": 0
+          }
+        ],
+        "chapters": [
+          {
+            "id": "11c73c10-2569-408e-9285-5f33b356de90",
+            "ordinal": 1,
+            "characters": 238,
+            "revision": 2,
+            "contentSha256": "f5231bf781c6905947bc3cce055e0467f7a626937e211e06c9d6cee97555aae2"
+          }
+        ]
+      }
+    }
+  ],
+  "preview": [
+    {
+      "taskId": "f34d2bb3-e407-43f9-b27d-a765a35c8f78",
+      "attemptId": "8de07083-7ab7-451d-8c7d-cbed4fb93cd3",
+      "kind": "conversation",
+      "appendAt": 1792207823951,
+      "path": "message",
+      "visibleAt": 1792207823961,
+      "appendToVisibleMs": 10,
+      "events": 27,
+      "characters": 364,
+      "requestIndex": 11,
+      "upstreamToVisibleMs": 19,
+      "visibleBeforeResponseEnd": true
+    },
+    {
+      "taskId": "ff2243ff-35c4-4c52-ab63-9094ab0f8a12",
+      "attemptId": "720a840e-2616-43a7-8e0a-5e8b8111f7d8",
+      "kind": "conversation",
+      "appendAt": 1792207826566,
+      "path": "message",
+      "visibleAt": 1792207826575,
+      "appendToVisibleMs": 9,
+      "events": 21,
+      "characters": 281,
+      "requestIndex": 12,
+      "upstreamToVisibleMs": 134,
+      "visibleBeforeResponseEnd": true
+    }
+  ],
+  "limitReached": null,
+  "outcome": "incomplete",
+  "models": [
+    {
+      "purpose": "writing",
+      "model": "deepseek-flash",
+      "host": "api.deepseek.com"
+    },
+    {
+      "purpose": "checking",
+      "model": "deepseek-v4-pro",
+      "host": "api.deepseek.com"
+    }
+  ],
+  "coldRestart": true,
+  "reopened": {
+    "conversations": [
+      {
+        "id": "f34d2bb3-e407-43f9-b27d-a765a35c8f78",
+        "status": "completed",
+        "calls": 1
+      },
+      {
+        "id": "ff2243ff-35c4-4c52-ab63-9094ab0f8a12",
+        "status": "completed",
+        "calls": 1
+      }
+    ],
+    "writingJobs": [
+      {
+        "id": "0fed622c-1767-4059-9762-4e7165d34c12",
+        "status": "failed",
+        "phase": "planning",
+        "calls": 1,
+        "saved": 0,
+        "checked": 0,
+        "failureKind": "RESPONSE_FORMAT",
+        "needsReview": 0,
+        "issues": 0,
+        "blockingIssues": 0
+      }
+    ],
+    "chapters": [
+      {
+        "id": "11c73c10-2569-408e-9285-5f33b356de90",
+        "ordinal": 1,
+        "characters": 238,
+        "revision": 2,
+        "contentSha256": "f5231bf781c6905947bc3cce055e0467f7a626937e211e06c9d6cee97555aae2"
+      }
+    ]
+  },
+  "reopenMatchesSaved": true,
+  "finishedAt": "2026-10-17T03:30:32.115Z",
+  "elapsedMs": 11170,
+  "budgetElapsedMs": 251959,
+  "proxyOfficialOptionsRestored": true,
+  "tokensChargedIncludingUnknownReservations": 30327
+}

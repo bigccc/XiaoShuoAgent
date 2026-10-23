@@ -124,3 +124,15 @@ it("pages archived records separately and restores them after reopening the serv
   const r=last.records[0];id(reopened.command({type:"story.archive",id:r.id,revision:r.revision,archived:false}));expect(reopened.workspace({projectId:f.projectId}).total).toBe(1);
   expect(reopened.workspace({projectId:f.projectId,archived:true} as any).total).toBe(41);
 });
+
+it("automatically links a resolved clue to current planting and payoff evidence without author confirmation",()=>{
+  const f=setup(),plant=source(f,1,"旧信封上有一枚铜色印记。");
+  const planted=save(f,"信封印记",[plant],{kind:"foreshadowing",subject:"铜色印记",foreshadowingStage:"planted"});
+  id(act(f,planted,"story.confirm"));
+  const payoff=source(f,2,"阿宁认出铜色印记，终于知道寄信人是老周。",false);
+  const captured=f.story.capture(f.projectId,f.store.get("chapters",payoff.chapterId)!,[{kind:"foreshadowing",subject:"铜色印记",attribute:"进展",value:"寄信人身份揭晓",statement:"fact",storyTime:"",foreshadowingStage:"resolved",quote:"阿宁认出铜色印记，终于知道寄信人是老周。"}],{kind:"writing",id:"writing-2"});
+  expect(captured.warnings).toEqual([]);expect(captured.ids).toHaveLength(1);
+  const record=f.story.record(captured.ids[0]);
+  expect(record.status).toBe("candidate");
+  expect(record.evidence.map(e=>e.chapterId)).toEqual([plant.chapterId,payoff.chapterId]);
+});

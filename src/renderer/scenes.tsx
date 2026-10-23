@@ -37,7 +37,7 @@ export function ScenePanel({state,chapter,run,register,flush,flushChapter}:{stat
     {error&&<p role="alert" className="error">{error}</p>}{notice&&<p role="status">{notice}</p>}
     {data?.needsReview&&<p className="hint warn">场景依据或绑定原文已改变，请复核卡片和原文后保存，或重新规划；旧计划不会继续使用。</p>}
     {!!data?.plan?.sources.length&&<details><summary>场景参考依据</summary><p className="muted">资料版本与正文版本变化后需要复核；计划不作为原文事实。</p>{data.plan.sources.map((s,i)=>{const name=s.kind==="chapter"?state.chapters.find(c=>c.id===s.id)?.title:s.kind==="note"?state.notes.find(n=>n.id===s.id)?.title:state.projects.find(p=>p.id===s.id)?.title;return <p key={i}>{s.kind==="chapter"?"正文":s.kind==="note"?"故事资料":"作品"} · {name??"已移除"} · 版本{s.revision}</p>;})}</details>}
-    <form onSubmit={e=>{e.preventDefault();void save().catch(err=>setError(err instanceof Error?err.message:"保存未完成"));}}>
+    <form onSubmit={e=>{e.preventDefault();void guard.save().catch(err=>setError(err instanceof Error?err.message:"保存未完成"));}}>
       <fieldset disabled={pending}>
         <label>本章计划字数<input aria-label="本章计划字数" type="number" min={2} max={16000} value={editor.targetWords} onChange={e=>setEditor(v=>({...v,targetWords:Number(e.target.value)}))}/></label>
         <p className={total===editor.targetWords?"muted":"hint warn"}>场景合计{total}字 · 本章计划{editor.targetWords}字</p>

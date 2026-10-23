@@ -1,0 +1,85 @@
+{
+  "run": "20261016-evidence",
+  "isolated": true,
+  "productionModified": false,
+  "responses": [
+    {
+      "number": 1,
+      "phase": "连续写作·跨章复核",
+      "characters": 45,
+      "shape": {
+        "keys": [
+          "issues",
+          "majorChange",
+          "reason"
+        ],
+        "issues": [],
+        "majorChange": false
+      },
+      "usage": {
+        "prompt_tokens": 18045,
+        "completion_tokens": 14,
+        "total_tokens": 18059,
+        "prompt_tokens_details": {
+          "cached_tokens": 17920
+        },
+        "prompt_cache_hit_tokens": 17920,
+        "prompt_cache_miss_tokens": 125
+      }
+    }
+  ],
+  "startCalls": 36,
+  "startBudgetUsed": 567808,
+  "result": {
+    "status": "awaiting-author",
+    "phase": "done",
+    "calls": 37,
+    "usage": {
+      "inputTokens": 525961,
+      "outputTokens": 59906,
+      "totalTokens": 585867,
+      "estimated": false
+    },
+    "budgetUsed": 585867,
+    "chapters": [
+      {
+        "ordinal": 2,
+        "status": "checked",
+        "revisionRounds": 0,
+        "words": 2505
+      },
+      {
+        "ordinal": 3,
+        "status": "checked",
+        "revisionRounds": 1,
+        "words": 3037
+      },
+      {
+        "ordinal": 4,
+        "status": "needs-review",
+        "revisionRounds": 2,
+        "words": 3704
+      },
+      {
+        "ordinal": 5,
+        "status": "needs-review",
+        "revisionRounds": 2,
+        "words": 4217
+      }
+    ],
+    "issues": [
+      {
+        "category": "length",
+        "impact": "local"
+      },
+      {
+        "category": "length",
+        "impact": "local"
+      }
+    ],
+    "warningCount": 9
+  },
+  "workflowCompleted": true,
+  "liveCalls": 1,
+  "replayedResponses": 0
+}

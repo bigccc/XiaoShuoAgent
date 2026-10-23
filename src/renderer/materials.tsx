@@ -76,9 +76,9 @@ export function Materials({
           >
             <small>{m.type === "plot" ? "剧情套路" : "候选表达"}</small>
             <strong>{m.title}</strong>
-            <span className="badge">{m.approved ? "已审核" : "待审核"}</span>
+            <span className={"badge " + (m.approved ? "ok" : "warn")}>{m.approved ? "已审核" : "待审核"}</span>
             {m.projectReferences.some((r) => r.projectId === projectId) && (
-              <span className="badge">本作引用</span>
+              <span className="badge info">本作引用</span>
             )}
           </button>
         ))}
@@ -205,10 +205,11 @@ export function MaterialForm({
     <form
       onSubmit={(e) => {
         e.preventDefault();
-        void save().catch(() => {});
+        void guard.save();
       }}
     >
       {guard.dialog}
+      <fieldset className="manual-save-fields" disabled={guard.busy}>
       {guard.dirty && <p className="small warn">此素材有未保存的修改</p>}
       <Field label="素材标题">
         <input
@@ -261,6 +262,7 @@ export function MaterialForm({
           已保存素材
         </span>
       )}
+      </fieldset>
     </form>
   );
 }

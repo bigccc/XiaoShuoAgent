@@ -1,0 +1,44 @@
+{
+  "date": "2026-10-16",
+  "architecture": "arm64",
+  "dmgVerified": true,
+  "installedAfterUnmount": true,
+  "installedDesktopTests": {
+    "passed": 14,
+    "noticeScenarios": 8,
+    "writingRegression": 5,
+    "windowTrustBoundary": 1
+  },
+  "unitTests": {
+    "files": 40,
+    "passed": 652
+  },
+  "typecheck": true,
+  "build": true,
+  "runtimeFiles": [
+    "out/main/index.js",
+    "out/preload/index.cjs",
+    "out/renderer/index.html",
+    "out/renderer/assets/index-DdJEsb0C.css",
+    "out/renderer/assets/index-Qmt7bogT.js"
+  ],
+  "mainSha256": "f87fac27974b2e9508ae8e6a896b01154e380794b26492154b826636b0370421",
+  "workspaceFilesExcluded": true,
+  "validInternalSymlinks": 14,
+  "productionModified": false,
+  "applicationsReplaced": false,
+  "liveProviderCalls": 0,
+  "assets": [
+    {
+      "path": "release/writing-feedback-ui-20261016/make/dmg/arm64/XiaoShuoAgent-0.2.0-arm64.dmg",
+      "bytes": 162754459,
+      "sha256": "d8a61fc7369d99872df2ad4b3d58be5d21ffe92009f18078702efe5f8b293d80"
+    },
+    {
+      "path": "release/writing-feedback-ui-20261016/make/zip/darwin/arm64/XiaoShuoAgent-darwin-arm64-0.2.0.zip",
+      "bytes": 145090070,
+      "sha256": "250c641c637fe7a9fa8a6a73568c016b90a474bb8972d13b59d3bbb686c3356c"
+    }
+  ],
+  "temporaryInstallRemoved": true
+}

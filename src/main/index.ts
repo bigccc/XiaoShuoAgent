@@ -95,9 +95,18 @@ app
       trusted(event);
       return services.workspaceSnapshot(projectId, since);
     });
+    ipcMain.handle("novel:generation-preview", (event, projectId: string, acknowledged?: string) => {
+      trusted(event);
+      return services.generationPreview(projectId, acknowledged);
+    });
+    services.onGenerationDelta(event => {
+      if (win && !win.isDestroyed() && !win.webContents.isDestroyed() && win.webContents.mainFrame.url === allowedUrl)
+        win.webContents.send("novel:generation-delta", event);
+    });
     ipcMain.handle("novel:chapter", (event, id: string) => { trusted(event); return services.chapter(id); });
     ipcMain.handle("novel:versions", (event, id: string) => { trusted(event); return services.chapterVersions(id); });
     ipcMain.handle("novel:conversation", (event, id: string) => { trusted(event); return services.conversation(id); });
+    ipcMain.handle("novel:writing-issues", (event, id: string) => { trusted(event); return services.writingIssues(id); });
     ipcMain.handle("novel:search", (event, projectId: string, query: string, offset?: number) => { trusted(event); return services.search(projectId, query, offset); });
     ipcMain.handle("novel:revision", (event, id: string, offset?: number, limit?: number) => { trusted(event); return services.revisionJob(id, offset, limit); });
     ipcMain.handle("novel:structure-query",(event,q)=>{trusted(event);return services.structureQuery(q);});

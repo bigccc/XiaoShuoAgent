@@ -1,3 +1,4 @@
+import type { GenerationDelta } from "../shared/generation-preview";
 import { contextBridge, ipcRenderer } from "electron";
 import type { Command } from "../shared/types";
 contextBridge.exposeInMainWorld("novel", {
@@ -7,6 +8,7 @@ contextBridge.exposeInMainWorld("novel", {
   chapter: (id: string) => ipcRenderer.invoke("novel:chapter", id),
   chapterVersions: (id: string) => ipcRenderer.invoke("novel:versions", id),
   conversation: (id: string) => ipcRenderer.invoke("novel:conversation", id),
+  writingIssues: (id: string) => ipcRenderer.invoke("novel:writing-issues", id),
   search: (projectId: string, query: string, offset?: number) => ipcRenderer.invoke("novel:search", projectId, query, offset),
   revisionJob: (id: string, offset?: number, limit?: number) => ipcRenderer.invoke("novel:revision", id, offset, limit),
   storyWorkspace:(query:unknown)=>ipcRenderer.invoke("novel:story-workspace",query),
@@ -17,6 +19,12 @@ contextBridge.exposeInMainWorld("novel", {
   sceneWorkspace:(chapterId:string)=>ipcRenderer.invoke("novel:scene-workspace",chapterId),
   scenePlan:(id:string)=>ipcRenderer.invoke("novel:scene-plan",id),
   storyRecord:(id:string)=>ipcRenderer.invoke("novel:story-record",id),
+  generationPreview: (projectId: string, acknowledged?: string) => ipcRenderer.invoke("novel:generation-preview", projectId, acknowledged),
+  onGenerationDelta: (handler: (event: GenerationDelta) => void) => {
+    const listener = (_event: Electron.IpcRendererEvent, delta: GenerationDelta) => handler(delta);
+    ipcRenderer.on("novel:generation-delta", listener);
+    return () => ipcRenderer.removeListener("novel:generation-delta", listener);
+  },
   onBeforeClose: (handler: () => void) => {
     const listener = () => handler();
     ipcRenderer.on("novel:before-close", listener);

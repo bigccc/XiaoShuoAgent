@@ -1,3 +1,4 @@
+import { LatestRefresh } from "./workspace-refresh";
 import {StructurePanel} from "./structure";
 import {VoicePanel} from "./voice";
 import {StoryStatePanel} from "./story-state";
@@ -17,7 +18,10 @@ import { Conversation } from "./conversation";
 import { Revisions } from "./revisions";
 import { authorError } from "./author-experience";
 import { WritingProgress } from "./writing-progress";
+import "./tokens.css";
 import "./style.css";
+import { initTheme } from "./theme";
+initTheme();
 type View =
   | "bookcase"
   | "structure"
@@ -60,21 +64,21 @@ function App() {
   const snapshotGeneration = useRef<number | undefined>(undefined);
   const flushers = useRef(new Set<Flush>()),
     pendingFlush = useRef<Promise<boolean> | null>(null),
-    refreshId = useRef(0);
+    refreshGate = useRef(new LatestRefresh<Awaited<ReturnType<Window["novel"]["workspaceSnapshot"]>>>());
   const register: Register = useCallback((flush) => {
     flushers.current.add(flush);
     return () => {
       flushers.current.delete(flush);
     };
   }, []);
-  const flush = useCallback(() => {
+  const flush = useCallback((reason: "save" | "leave" = "leave") => {
     if (pendingFlush.current) return pendingFlush.current;
     const handlers = [...flushers.current];
     pendingFlush.current = (async () => {
       await Promise.resolve();
       try {
         for (const handler of handlers) {
-          if (flushers.current.has(handler) && !(await handler())) return false;
+          if (flushers.current.has(handler) && !(await handler(reason))) return false;
         }
         return true;
       } finally {
@@ -83,23 +87,41 @@ function App() {
     })();
     return pendingFlush.current;
   }, []);
-  const refresh = useCallback(async () => {
-    const id = ++refreshId.current;
-    const result = await window.novel.workspaceSnapshot(
-      projectId || undefined,
-      snapshotGeneration.current,
-    );
-    if (id === refreshId.current) {
+  useEffect(() => {
+    const failed = (event: Event) => setError((event as CustomEvent<string>).detail);
+    window.addEventListener("novel-save-error", failed);
+    return () => window.removeEventListener("novel-save-error", failed);
+  }, []);
+  useEffect(() => {
+    let composing = false;
+    const start = () => { composing = true; }, end = () => { composing = false; };
+    const key = (event: KeyboardEvent) => {
+      if (!event.metaKey || event.ctrlKey || event.altKey || event.shiftKey || event.repeat || event.isComposing || composing || event.keyCode === 229 || document.querySelector("dialog[open], [aria-modal='true']")) return;
+      const key = event.key.toLowerCase();
+      if (key === "s") {
+        event.preventDefault();
+        void flush("save").then(ok => { if (!ok) setError(previous => previous || "保存未完成，内容仍保留，请检查表单或保存状态。"); }).catch(() => setError("保存失败，内容仍在编辑器中。"));
+      } else {
+        const destinations: Record<string, View> = { "1": "bookcase", "2": "conversation", "3": "reader", "4": "project", "5": "profiles" };
+        const next = destinations[key];
+        if (!next) return;
+        event.preventDefault();
+        if (["2", "3", "4"].includes(key) && !projectId) return;
+        void navigate(next).catch(() => setError("保存失败，内容仍在编辑器中。"));
+      }
+    };
+    window.addEventListener("compositionstart", start); window.addEventListener("compositionend", end); window.addEventListener("keydown", key);
+    return () => { window.removeEventListener("compositionstart", start); window.removeEventListener("compositionend", end); window.removeEventListener("keydown", key); };
+  }, [flush, projectId]);
+  const refresh = useCallback(() => refreshGate.current.run(
+    () => window.novel.workspaceSnapshot(projectId || undefined, snapshotGeneration.current),
+    result => {
       snapshotGeneration.current = result.revision;
       if (result.state)
-        setState((previous) =>
-          result.chaptersUnchanged
-            ? { ...result.state!, chapters: previous.chapters }
-            : result.state!,
-        );
+        setState(previous => result.chaptersUnchanged ? { ...result.state!, chapters: previous.chapters } : result.state!);
       setReady(true);
-    }
-  }, [projectId]);
+    },
+  ), [projectId]);
   const run: Run = useCallback(
     async (command: Command) => {
       let handled = false;
@@ -227,6 +249,7 @@ function App() {
               设置
             </button>
             <div className="local-state">
+              <span title="⌘S 保存 · ⌘1 书架 · ⌘2 创作 · ⌘3 看稿 · ⌘4 故事资料 · ⌘5 设置">⌘S 保存 · ⌘1–5 导航</span><br />
               ● 本机保存
               <br />
               <small>
@@ -241,13 +264,12 @@ function App() {
           </div>
         </nav>
         <div className="workspace">
-          {project && view !== "bookcase" && <div className="work-actions">
-            <span>{project.title}</span>
-            <button onClick={() => void navigate("tasks")}>待处理{pendingCount ? ` · ${pendingCount}` : ""}</button>
-            <button onClick={() => void navigate("files")}>导出</button>
-          </div>}
           {tabs.length > 0 && <nav className="context-tabs" aria-label={settingsView ? "设置分类" : storyView ? "故事资料分类" : "看稿分类"}>
             {tabs.map(([id, label]) => <button key={id} className={view === id ? "active" : ""} aria-current={view === id ? "page" : undefined} onClick={() => void navigate(id)}>{label}</button>)}
+            {project && <span className="tabs-actions">
+              <button onClick={() => void navigate("tasks")}>待处理{pendingCount ? ` · ${pendingCount}` : ""}</button>
+              <button className="subtle" onClick={() => void navigate("files")}>导出</button>
+            </span>}
           </nav>}
           {!project && ["materials", "tasks"].includes(view) && <button className="back-to-settings" onClick={() => void navigate("profiles")}>返回设置</button>}
           {error && (
@@ -287,9 +309,14 @@ function App() {
                   projectId={project.id}
                   run={run}
                   register={register}
+                  refresh={refresh}
                   flush={flush}
                   showProfiles={() => void navigate("profiles")}
                   showNotes={() => void navigate("notes")}
+                  showStoryState={() => void navigate("story-state")}
+                  pendingCount={pendingCount}
+                  showTasks={() => void navigate("tasks")}
+                  showFiles={() => void navigate("files")}
                 />
               ) : project && view === "structure" ? (
                 <StructurePanel key={project.id} state={state} projectId={project.id} run={run} register={register} flush={flush} showTasks={()=>void navigate("tasks")} openChapter={id=>{void flush().then(ok=>{if(ok){setChapterId(id);void navigate("chapters");}});}} />
@@ -328,6 +355,8 @@ function App() {
               ) : view === "tasks" ? (
                 <>
                 {!!writingJobs.length && <div className="work-progress-list">{[...writingJobs].reverse().map(job => <WritingProgress key={job.id} job={job} state={state} run={run} flush={flush}
+                  openStoryState={()=>void navigate("story-state")}
+                  openProfiles={()=>void navigate("profiles")}
                   otherBusy={writingJobs.some(j => j.id !== job.id && j.status === "running") || state.conversations.some(t => t.projectId === projectId && t.status === "running")}
                   openChapter={id => { void flush().then(ok => { if (ok) { setChapterId(id); void navigate("chapters"); } }); }} />)}</div>}
                 <Revisions state={state} projectId={project?.id ?? ""} run={run} /><Tasks
@@ -388,6 +417,7 @@ function App() {
                 flush={flush}
                 showTasks={() => void navigate("tasks")}
                 showProfiles={() => void navigate("profiles")}
+                showWriting={() => void navigate("conversation")}
               />
             </details>)}
           </div>
@@ -451,7 +481,7 @@ function Files({
               <span>
                 {c.ordinal}. {c.title}
               </span>
-              <span className="badge">
+              <span className={"badge " + (c.status === "confirmed" ? "ok" : drafts ? "warn" : "")}>
                 {c.status === "confirmed"
                   ? "已确认"
                   : drafts

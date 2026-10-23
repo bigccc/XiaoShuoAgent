@@ -1,0 +1,28 @@
+{
+  "date": "2026-10-16",
+  "isolated": true,
+  "productionModified": false,
+  "liveCalls": 1,
+  "reportedTokens": 14139,
+  "reproducedError": "连续写作回复字段不正确，进度已保留",
+  "responseKeys": [
+    "type",
+    "title",
+    "scenes",
+    "content",
+    "majorChange",
+    "reason",
+    "states"
+  ],
+  "extraField": {
+    "type": "json_object"
+  },
+  "bodyCharacters": 3065,
+  "offlineReplay": {
+    "additionalLiveCalls": 0,
+    "accepted": true,
+    "titleAndBodyUnchanged": true,
+    "stoppedBeforeChecks": true
+  },
+  "privateDiagnosticCopyRemoved": true
+}

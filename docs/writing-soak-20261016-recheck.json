@@ -1,0 +1,51 @@
+{
+  "run": "20261016-recheck",
+  "isolated": true,
+  "productionModified": false,
+  "responses": [
+    {
+      "number": 1,
+      "phase": "连续写作·独立复核",
+      "characters": 783,
+      "shape": {
+        "keys": [
+          "issues",
+          "majorChange",
+          "reason"
+        ],
+        "issues": [
+          {
+            "category": "timeline",
+            "impact": "blocking",
+            "evidence": 2
+          }
+        ],
+        "majorChange": false
+      },
+      "usage": {
+        "prompt_tokens": 18594,
+        "completion_tokens": 327,
+        "total_tokens": 18921,
+        "prompt_tokens_details": {
+          "cached_tokens": 0
+        },
+        "prompt_cache_hit_tokens": 0,
+        "prompt_cache_miss_tokens": 18594
+      }
+    }
+  ],
+  "startCalls": 27,
+  "startBudgetUsed": 408269,
+  "recheck": {
+    "issues": [
+      {
+        "category": "timeline",
+        "impact": "blocking"
+      }
+    ],
+    "majorChange": false,
+    "hasExplanation": false
+  },
+  "liveCalls": 1,
+  "replayedResponses": 0
+}

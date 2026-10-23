@@ -13,6 +13,7 @@ export const writingReviewInstruction =
   "style、pacing、length为局部待审建议，impact必须为local，至少引用一条直接相关原文。不能把人设、时间线、主线等事实冲突改称style或pacing来降低影响。篇幅以提供的实际字数和目标为准，不能仅凭感觉判断不足。" +
   "只检查本次指定章节；需要调整的章节依据放在本项evidence最后，应用由最后一条chapter来源定位章节，关联设定和前章证据放在它前面。" +
   "正常时间推进、人物移动、物品取放、已解释的状态变化不算冲突；多个故障可以同时存在，修好一处后发现另一处故障不是根因冲突；不同零件默认是不同对象，不能仅因故事先后提到两种零件就认定同一物体改名。区分回忆、角色猜测、说谎与叙述事实，不能凭空假设动作来消除明确矛盾，也不能把缺少后续描写当作已经发生的矛盾。" +
+  "本批新稿不是作者已经确认的设定。能够只修正新稿来保持既有人设、主线、结局和前文事实时，majorChange=false，保留具体问题交给应用修正；纠正本批草稿的错误不等同于推翻已确认方向。" +
   "无确定问题返回issues=[]，不得为凑类别制造问题。只有必须推翻已确认人设、主线或结局才能继续时majorChange=true，并在顶层reason明确要改变的已确认内容及原因，等待作者决定；普通细节补充、文风建议和一般疑点不能设为重大变更，无理由不得majorChange=true。";
 
 const factualCategories = new Set<WritingIssue["category"]>([
@@ -57,13 +58,42 @@ function parseEvidence(value: unknown, documents: ContextDocument[]): WritingIss
       return { quote: original, source: { ...document.source } as SourceRevision };
     }
   }
-  return formatError("依据无法对应本次输入原文及来源版本");
+  const matches = documents.filter(d => canonicalQuote(d.text, quote) !== undefined);
+  const hints = [...new Set(matches.map(d => `${d.source.kind}:${d.source.id}@${d.source.revision}`))];
+  return formatError(`依据无法对应本次输入原文及来源版本${hints.length ? `；该引文实际出现在 ${hints.slice(0, 3).join("、")}，请核对来源，不能把同一句话重复当作矛盾双方` : "；输入中不存在这段逐字引文，请重新核对，不得编造"}`);
+}
+
+export function normalizeWritingReviewFields(parsed: unknown): unknown {
+  // Absence is not a request to change the story. A reason without an explicit
+  // decision flag remains ambiguous and must not be defaulted away.
+  if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+    const candidate = parsed as Record<string, unknown>;
+    if (candidate.type === "json_object" && Array.isArray(candidate.issues) &&
+      Object.keys(candidate).every(k=>["type","issues","majorChange","reason"].includes(k))) delete candidate.type;
+    if (Object.keys(candidate).every(k=>["issues","majorChange","reason"].includes(k)) &&
+      candidate.majorChange === undefined && (candidate.reason === undefined || candidate.reason === "")) candidate.majorChange = false;
+    if (candidate.majorChange === false && candidate.reason === undefined) candidate.reason = "";
+  }
+  return parsed;
 }
 
 export function parseWritingReview(
   raw: string,
   documents: ContextDocument[],
-): { issues: WritingIssue[]; majorChange: boolean; reason: string } {
+  allowUnverified = false,
+): { issues: WritingIssue[]; majorChange: boolean; reason: string; unverified?: string[] } {
+  try { return parseReview(raw, documents, allowUnverified); }
+  catch (error) {
+    if (error instanceof ProviderError && error.code === "FORMAT" && typeof raw === "string") error.partial = raw;
+    throw error;
+  }
+}
+
+function parseReview(
+  raw: string,
+  documents: ContextDocument[],
+  allowUnverified: boolean,
+): { issues: WritingIssue[]; majorChange: boolean; reason: string; unverified?: string[] } {
   if (typeof raw !== "string" || raw.length > 262144)
     formatError("输出过长或格式不正确");
   const text = unwrapWritingJson(raw);
@@ -76,27 +106,43 @@ export function parseWritingReview(
   } catch {
     formatError("不是有效的完整 JSON，不能作为检查通过");
   }
+  parsed = normalizeWritingReviewFields(parsed);
   const result = record(parsed, ["issues", "majorChange", "reason"]);
   if (!Array.isArray(result.issues) || result.issues.length > 20 || typeof result.majorChange !== "boolean")
     formatError("问题列表或重大变更标记不正确");
   const reason = boundedText(result.reason, 2000, result.majorChange).trim();
-  const issues: WritingIssue[] = result.issues.map(value => {
+  const unverified: string[] = [];
+  const issues = result.issues.map((value, issueIndex) => {
     const issue = record(value, ["category", "impact", "reason", "evidence"]);
     const category = issue.category as WritingIssue["category"];
     if (!factualCategories.has(category) && !localCategories.has(category))
       formatError("问题类别不正确");
     const impact = factualCategories.has(category) ? "blocking" : "local";
-    if (issue.impact !== impact)
-      formatError("事实冲突必须为blocking，局部建议必须为local");
+    // Category defines the policy. A redundant model label must neither
+    // downgrade factual conflicts nor turn a prose suggestion into a blocker.
+    if (!["blocking", "local"].includes(String(issue.impact)))
+      formatError("问题影响标记不正确");
     const issueReason = boundedText(issue.reason, 2000).trim();
+    try {
     if (!Array.isArray(issue.evidence) || issue.evidence.length < (impact === "blocking" ? 2 : 1) || issue.evidence.length > 10)
       formatError("缺少问题原文依据；事实冲突必须提供双方证据");
-    const evidence = issue.evidence.map(item => parseEvidence(item, documents));
+    const evidence = issue.evidence.map((item, evidenceIndex) => {
+      try { return parseEvidence(item, documents); }
+      catch (error) {
+        if (error instanceof ProviderError) error.message = `第${issueIndex+1}项问题、第${evidenceIndex+1}条证据：${error.message}`;
+        throw error;
+      }
+    });
     const unique = new Set(evidence.map(item => JSON.stringify([item.source.kind, item.source.id, item.source.revision, item.quote])));
     if (unique.size !== evidence.length)
       formatError("存在重复证据，不能以同一处原文代替矛盾双方");
     const chapterId = evidence.filter(item => item.source.kind === "chapter").at(-1)?.source.id;
-    return { category, impact, reason: issueReason, evidence, ...(chapterId ? { chapterId } : {}) };
-  });
-  return { issues, majorChange: result.majorChange, reason };
+    return { category, impact, reason: issueReason, evidence, ...(chapterId ? { chapterId } : {}) } as WritingIssue;
+    } catch (error) {
+      if (!allowUnverified || !(error instanceof ProviderError) || !/依据无法对应|缺少问题原文依据|存在重复证据/.test(error.message)) throw error;
+      unverified.push(`尚未证实：${issueReason}。未找到充分、有效的原文依据，未据此改稿。`);
+      return null;
+    }
+  }).filter((issue): issue is WritingIssue => issue !== null);
+  return { issues, majorChange: result.majorChange, reason, ...(unverified.length ? {unverified} : {}) };
 }

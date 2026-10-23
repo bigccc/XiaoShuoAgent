@@ -46,13 +46,15 @@ export function Revisions({
   state,
   projectId,
   run,
+  excludeJobIds = [],
 }: {
   state: AppState;
   projectId: string;
   run: Run;
+  excludeJobIds?: string[];
 }) {
   const jobs = (state.revisionJobs ?? []).filter(
-    (j) => j.projectId === projectId,
+    (j) => j.projectId === projectId && !excludeJobIds.includes(j.id),
   );
   const [chosen, setChosen] = useState(""),
     [detail, setDetail] = useState<RevisionJob>(),
@@ -223,6 +225,7 @@ export function Revisions({
           </p>
           <div className="toolbar">
             <button
+              className="primary"
               disabled={!pendingCount}
               onClick={() => act("revision.accept")}
             >
@@ -235,6 +238,7 @@ export function Revisions({
               整批采纳及关联资料
             </button>
             <button
+              className="danger"
               disabled={!pendingCount}
               onClick={() => act("revision.reject")}
             >
@@ -261,12 +265,16 @@ export function Revisions({
               {c.status === "pending" && (
                 <div className="toolbar">
                   <button
+                    className="primary"
                     disabled={dependencyBlocked(c)}
                     onClick={() => act("revision.accept", [c.chapterId])}
                   >
                     采纳本章
                   </button>
-                  <button onClick={() => act("revision.reject", [c.chapterId])}>
+                  <button
+                    className="danger"
+                    onClick={() => act("revision.reject", [c.chapterId])}
+                  >
                     拒绝本章
                   </button>
                 </div>

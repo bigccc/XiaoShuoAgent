@@ -31,7 +31,9 @@
     "package": "npm run build && electron-forge package",
     "make": "npm run build && electron-forge make",
     "make:arm64": "npm run make -- --arch=arm64",
-    "make:x64": "npm run make -- --arch=x64"
+    "make:x64": "npm run make -- --arch=x64",
+    "audit:contrast": "node scripts/audit-contrast.mjs",
+    "check": "npm run typecheck && npm test && npm run audit:contrast && npm run build"
   },
   "devDependencies": {
     "@electron-forge/cli": "8.0.0",

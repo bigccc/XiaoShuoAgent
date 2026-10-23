@@ -44,6 +44,8 @@ export interface StoryProposal extends StoryEntry {
     quote: string;
 }
 export interface StoryRecordView extends StoryRecord {
+    /** Derived reference from a checked writing run; not an author confirmation. */
+    automatic?: boolean;
     needsReview: boolean;
     stable: boolean;
     sourceLabels: string[];

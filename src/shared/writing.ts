@@ -17,8 +17,10 @@ export interface WritingChapterProgress {
   existing: boolean;
   status: "pending" | "written" | "checked" | "needs-review";
   revisionRounds: number;
+  targetedRevisionRounds?: number;
   checkedRevision?: number;
   savedRevision?: number;
+  savedDraftDigest?: string;
 }
 
 export interface WritingIssue {
@@ -53,18 +55,31 @@ export interface WritingJob extends RecordMeta {
   issues: WritingIssue[];
   revisionJobIds: ID[];
   warnings: string[];
+  reviewNotes?: string[];
+  authorQuestion?: string;
   contextReferences?: RecallReference[];
   contextReferenceCall?: { number: number; phase: string; ordinal?: number };
   tokenBudget: number;
+  budgetMode?: "auto" | "manual";
+  targetWords?: number;
+  autoMaterials?: boolean;
+  reviewOnly?: boolean;
   budgetUsed: number;
   usage: TaskUsage | null;
   calls: number;
   reply: string;
   error?: string;
+  /** Diagnostic text only; never used as an applicable chapter or replay source. */
+  lastFailedResponse?: {
+    phase: WritingJob["phase"];
+    ordinal?: number;
+    rawResponse: string;
+    truncated: boolean;
+  };
 }
 
 export type WritingCommand =
-  | { type: "writing.start"; projectId: ID; text: string; goal: WritingGoal; profileId?: ID; tokenBudget: number; mode?: "quick" | "thorough" }
+  | { type: "writing.start"; projectId: ID; text: string; goal: WritingGoal; profileId?: ID; tokenBudget?: number; targetWords?: number; reviewOnly?: boolean; mode?: "quick" | "thorough" }
   | { type: "writing.pause" | "writing.cancel"; id: ID }
   | { type: "writing.resume"; id: ID; tokenBudget?: number; profileId?: ID; text?: string };
 
@@ -139,7 +154,7 @@ function array(value: unknown, max: number): asserts value is any[] {
 }
 
 export function validateWritingJob(value: unknown): asserts value is WritingJob {
-  object(value, ["id", "revision", "createdAt", "updatedAt", "projectId", "profileId", "checkingProfileId", "text", "goal", "status", "phase", "chapters", "cursor", "plan", "planningDone", "reviewCursor", "reviewRounds", "reviewSourceDigest", "checkCursor", "checkSourceDigest", "checkIssues", "issues", "revisionJobIds", "warnings", "contextReferences", "contextReferenceCall", "tokenBudget", "budgetUsed", "usage", "calls", "reply", "error", "mode", "checkCacheHits", "checkCacheMisses"]);
+  object(value, ["id", "revision", "createdAt", "updatedAt", "projectId", "profileId", "checkingProfileId", "text", "goal", "status", "phase", "chapters", "cursor", "plan", "planningDone", "reviewCursor", "reviewRounds", "reviewSourceDigest", "checkCursor", "checkSourceDigest", "checkIssues", "issues", "revisionJobIds", "warnings", "contextReferences", "contextReferenceCall", "tokenBudget", "budgetUsed", "usage", "calls", "reply", "error", "mode", "checkCacheHits", "checkCacheMisses", "lastFailedResponse", "budgetMode", "targetWords", "autoMaterials", "reviewNotes", "reviewOnly", "authorQuestion"]);
   for (const key of ["id", "projectId"]) string(value[key], 200);
   for (const key of ["profileId", "checkingProfileId"]) if (value[key] !== undefined) string(value[key], 200);
   integer(value.revision, 1);
@@ -151,6 +166,13 @@ export function validateWritingJob(value: unknown): asserts value is WritingJob 
   for(const field of ["checkCacheHits","checkCacheMisses"])if(value[field]!==undefined)integer(value[field],0);
   string(value.text, 10000); string(value.plan, 40000, true); string(value.reply, 12000, true);
   if (value.error !== undefined) string(value.error, 4000, true);
+  if (value.lastFailedResponse !== undefined) {
+    const failed = value.lastFailedResponse;
+    object(failed, ["phase", "ordinal", "rawResponse", "truncated"]);
+    if (!["planning", "writing", "checking", "revising", "reviewing", "done"].includes(failed.phase) || typeof failed.truncated !== "boolean") fail();
+    if (failed.ordinal !== undefined) integer(failed.ordinal, 1);
+    string(failed.rawResponse, 300000);
+  }
   object(value.goal, ["kind", "startOrdinal", "endOrdinal"]);
   const goal = value.goal;
   if (!["through", "append"].includes(goal.kind)) fail();
@@ -162,7 +184,7 @@ export function validateWritingJob(value: unknown): asserts value is WritingJob 
   if (value.chapters.length !== length) fail();
   const chapterIds = new Set<string>();
   for (const [index, chapter] of value.chapters.entries()) {
-    object(chapter, ["ordinal", "chapterId", "existing", "status", "revisionRounds", "checkedRevision", "savedRevision"]);
+    object(chapter, ["ordinal", "chapterId", "existing", "status", "revisionRounds", "targetedRevisionRounds", "checkedRevision", "savedRevision", "savedDraftDigest"]);
     if (chapter.ordinal !== goal.startOrdinal + index || typeof chapter.existing !== "boolean" || !["pending", "written", "checked", "needs-review"].includes(chapter.status)) fail();
     if (chapter.chapterId !== undefined) {
       string(chapter.chapterId, 200);
@@ -170,7 +192,9 @@ export function validateWritingJob(value: unknown): asserts value is WritingJob 
       chapterIds.add(chapter.chapterId);
     } else if (chapter.existing || chapter.status !== "pending") fail();
     integer(chapter.revisionRounds, 0, 2);
+    if (chapter.targetedRevisionRounds !== undefined) integer(chapter.targetedRevisionRounds, 0, 3);
     if (chapter.checkedRevision !== undefined) integer(chapter.checkedRevision, 1);
+    if (chapter.savedDraftDigest !== undefined && (typeof chapter.savedDraftDigest !== "string" || !/^[a-f0-9]{64}$/.test(chapter.savedDraftDigest))) fail();
     if (chapter.savedRevision !== undefined) integer(chapter.savedRevision, 1);
   }
   integer(value.cursor, 0, length); integer(value.reviewCursor, 0, 100000); integer(value.reviewRounds, 0, 200);
@@ -189,7 +213,7 @@ export function validateWritingJob(value: unknown): asserts value is WritingJob 
   }
   array(value.issues, 1000);
   if (value.checkIssues !== undefined) array(value.checkIssues, 1000);
-  if (value.status === "completed" && value.issues.length) fail();
+  if (value.status === "completed" && value.issues.some((issue: WritingIssue) => issue.impact === "blocking" || issue.category === "length")) fail();
   for (const issue of [...value.issues, ...(value.checkIssues ?? [])]) {
     object(issue, ["category", "impact", "reason", "evidence", "chapterId"]);
     if (!["character", "timeline", "plot", "world", "knowledge", "foreshadowing", "style", "pacing", "length"].includes(issue.category) || !["blocking", "local"].includes(issue.impact)) fail();
@@ -206,7 +230,13 @@ export function validateWritingJob(value: unknown): asserts value is WritingJob 
     array(value[key], 1000);
     value[key].forEach((item: unknown) => string(item, key === "warnings" ? 4000 : 200));
   }
+  if (value.authorQuestion !== undefined) string(value.authorQuestion, 2000);
+  if (value.reviewNotes !== undefined) { array(value.reviewNotes, 100); value.reviewNotes.forEach((note: unknown) => string(note, 4000)); }
   if (new Set(value.revisionJobIds).size !== value.revisionJobIds.length) fail();
+  if (value.budgetMode !== undefined && !["auto", "manual"].includes(value.budgetMode)) fail();
+  if (value.targetWords !== undefined) integer(value.targetWords, 1, 16000);
+  if (value.reviewOnly !== undefined && typeof value.reviewOnly !== "boolean") fail();
+  if (value.autoMaterials !== undefined && typeof value.autoMaterials !== "boolean") fail();
   integer(value.tokenBudget, 1, MAX_WRITING_TOKEN_BUDGET); integer(value.budgetUsed); integer(value.calls);
   if (value.usage !== null) {
     object(value.usage, ["inputTokens", "outputTokens", "totalTokens", "estimated"]);

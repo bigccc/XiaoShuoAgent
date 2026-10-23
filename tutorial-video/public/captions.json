@@ -1,0 +1,450 @@
+[
+  {
+    "text": "欢迎使用小说工坊。",
+    "startMs": 700,
+    "endMs": 2607,
+    "timestampMs": null,
+    "confidence": null,
+    "pageBreakAfter": true
+  },
+  {
+    "text": "接下来，用三分钟走一遍，",
+    "startMs": 2767,
+    "endMs": 5294,
+    "timestampMs": null,
+    "confidence": null,
+    "pageBreakAfter": true
+  },
+  {
+    "text": "从故事想法到稿件导出的创作流程。",
+    "startMs": 5454,
+    "endMs": 8818,
+    "timestampMs": null,
+    "confidence": null,
+    "pageBreakAfter": true
+  },
+  {
+    "text": "先打开设置，进入 AI 连接。",
+    "startMs": 13700,
+    "endMs": 16283,
+    "timestampMs": null,
+    "confidence": null,
+    "pageBreakAfter": true
+  },
+  {
+    "text": "点击添加 AI 连接，选择服务商。",
+    "startMs": 16443,
+    "endMs": 19540,
+    "timestampMs": null,
+    "confidence": null,
+    "pageBreakAfter": true
+  },
+  {
+    "text": "使用预设时，只需粘贴自己的密钥，",
+    "startMs": 19700,
+    "endMs": 22827,
+    "timestampMs": null,
+    "confidence": null,
+    "pageBreakAfter": true
+  },
+  {
+    "text": "再点击保存连接。",
+    "startMs": 22987,
+    "endMs": 24683,
+    "timestampMs": null,
+    "confidence": null,
+    "pageBreakAfter": true
+  },
+  {
+    "text": "测试连接会产生少量实际用量。",
+    "startMs": 24843,
+    "endMs": 27709,
+    "timestampMs": null,
+    "confidence": null,
+    "pageBreakAfter": true
+  },
+  {
+    "text": "其他服务可以在高级设置中填写。",
+    "startMs": 27869,
+    "endMs": 30790,
+    "timestampMs": null,
+    "confidence": null,
+    "pageBreakAfter": true
+  },
+  {
+    "text": "回到书架，点击新建作品。",
+    "startMs": 36700,
+    "endMs": 39292,
+    "timestampMs": null,
+    "confidence": null,
+    "pageBreakAfter": true
+  },
+  {
+    "text": "书名可以先留空，再慢慢确定。",
+    "startMs": 39452,
+    "endMs": 42382,
+    "timestampMs": null,
+    "confidence": null,
+    "pageBreakAfter": true
+  },
+  {
+    "text": "有想法，就点我有一个想法。",
+    "startMs": 42542,
+    "endMs": 45183,
+    "timestampMs": null,
+    "confidence": null,
+    "pageBreakAfter": true
+  },
+  {
+    "text": "还没想好，可以让助手推荐灵感。",
+    "startMs": 45343,
+    "endMs": 48512,
+    "timestampMs": null,
+    "confidence": null,
+    "pageBreakAfter": true
+  },
+  {
+    "text": "说清主角、冲突，以及想要的风格，",
+    "startMs": 48672,
+    "endMs": 52043,
+    "timestampMs": null,
+    "confidence": null,
+    "pageBreakAfter": true
+  },
+  {
+    "text": "然后点击发送。",
+    "startMs": 52203,
+    "endMs": 53707,
+    "timestampMs": null,
+    "confidence": null,
+    "pageBreakAfter": true
+  },
+  {
+    "text": "创作按照定故事、做准备、开始写推进。",
+    "startMs": 56700,
+    "endMs": 60657,
+    "timestampMs": null,
+    "confidence": null,
+    "pageBreakAfter": true
+  },
+  {
+    "text": "先阅读右侧的故事概要。",
+    "startMs": 60817,
+    "endMs": 62797,
+    "timestampMs": null,
+    "confidence": null,
+    "pageBreakAfter": true
+  },
+  {
+    "text": "方向合适，点确认方向，做准备。",
+    "startMs": 62957,
+    "endMs": 66389,
+    "timestampMs": null,
+    "confidence": null,
+    "pageBreakAfter": true
+  },
+  {
+    "text": "助手会集中准备人物设定和大纲。",
+    "startMs": 66549,
+    "endMs": 69464,
+    "timestampMs": null,
+    "confidence": null,
+    "pageBreakAfter": true
+  },
+  {
+    "text": "检查人物动机、主要转折和结局方向。",
+    "startMs": 69624,
+    "endMs": 73184,
+    "timestampMs": null,
+    "confidence": null,
+    "pageBreakAfter": true
+  },
+  {
+    "text": "需要调整，就直接在对话里说明。",
+    "startMs": 73344,
+    "endMs": 76556,
+    "timestampMs": null,
+    "confidence": null,
+    "pageBreakAfter": true
+  },
+  {
+    "text": "看好成果后，点击按推荐继续。",
+    "startMs": 76716,
+    "endMs": 79763,
+    "timestampMs": null,
+    "confidence": null,
+    "pageBreakAfter": true
+  },
+  {
+    "text": "进入开始写，右侧就是当前章节正文。",
+    "startMs": 83700,
+    "endMs": 87295,
+    "timestampMs": null,
+    "confidence": null,
+    "pageBreakAfter": true
+  },
+  {
+    "text": "正文会自动保存，也可以直接手改。",
+    "startMs": 87455,
+    "endMs": 90788,
+    "timestampMs": null,
+    "confidence": null,
+    "pageBreakAfter": true
+  },
+  {
+    "text": "展开写下一章、连续写作，",
+    "startMs": 90948,
+    "endMs": 93492,
+    "timestampMs": null,
+    "confidence": null,
+    "pageBreakAfter": true
+  },
+  {
+    "text": "设置一次几章、每章大约多少字。",
+    "startMs": 93652,
+    "endMs": 96698,
+    "timestampMs": null,
+    "confidence": null,
+    "pageBreakAfter": true
+  },
+  {
+    "text": "也可以直接说，写完前五章。",
+    "startMs": 96858,
+    "endMs": 99627,
+    "timestampMs": null,
+    "confidence": null,
+    "pageBreakAfter": true
+  },
+  {
+    "text": "接着写五章，则是在末章后新增五章。",
+    "startMs": 99787,
+    "endMs": 103266,
+    "timestampMs": null,
+    "confidence": null,
+    "pageBreakAfter": true
+  },
+  {
+    "text": "待处理里可查看进度、暂停或继续。",
+    "startMs": 103426,
+    "endMs": 106835,
+    "timestampMs": null,
+    "confidence": null,
+    "pageBreakAfter": true
+  },
+  {
+    "text": "已保存和已检查，要分别看。",
+    "startMs": 106995,
+    "endMs": 109753,
+    "timestampMs": null,
+    "confidence": null,
+    "pageBreakAfter": true
+  },
+  {
+    "text": "写完后，进入左侧的看稿。",
+    "startMs": 111700,
+    "endMs": 114179,
+    "timestampMs": null,
+    "confidence": null,
+    "pageBreakAfter": true
+  },
+  {
+    "text": "可以按章节定位，也可以搜索正文。",
+    "startMs": 114339,
+    "endMs": 117537,
+    "timestampMs": null,
+    "confidence": null,
+    "pageBreakAfter": true
+  },
+  {
+    "text": "字号、行距和阅读宽度都能调整。",
+    "startMs": 117697,
+    "endMs": 120852,
+    "timestampMs": null,
+    "confidence": null,
+    "pageBreakAfter": true
+  },
+  {
+    "text": "切换审阅，选中文字，就能添加批注，",
+    "startMs": 121012,
+    "endMs": 124758,
+    "timestampMs": null,
+    "confidence": null,
+    "pageBreakAfter": true
+  },
+  {
+    "text": "或把这段文字交给助手处理。",
+    "startMs": 124918,
+    "endMs": 127544,
+    "timestampMs": null,
+    "confidence": null,
+    "pageBreakAfter": true
+  },
+  {
+    "text": "本章看完后，标记本章已审。",
+    "startMs": 127704,
+    "endMs": 130449,
+    "timestampMs": null,
+    "confidence": null,
+    "pageBreakAfter": true
+  },
+  {
+    "text": "已审正文再次修改，会提醒待复核。",
+    "startMs": 130609,
+    "endMs": 134086,
+    "timestampMs": null,
+    "confidence": null,
+    "pageBreakAfter": true
+  },
+  {
+    "text": "回到创作，展开选择改稿范围。",
+    "startMs": 136700,
+    "endMs": 139884,
+    "timestampMs": null,
+    "confidence": null,
+    "pageBreakAfter": true
+  },
+  {
+    "text": "可以改当前章、指定多章，或全书。",
+    "startMs": 140044,
+    "endMs": 143614,
+    "timestampMs": null,
+    "confidence": null,
+    "pageBreakAfter": true
+  },
+  {
+    "text": "说明哪些地方需要调整，",
+    "startMs": 143774,
+    "endMs": 146031,
+    "timestampMs": null,
+    "confidence": null,
+    "pageBreakAfter": true
+  },
+  {
+    "text": "也说明哪些人物和情节必须保留。",
+    "startMs": 146191,
+    "endMs": 149169,
+    "timestampMs": null,
+    "confidence": null,
+    "pageBreakAfter": true
+  },
+  {
+    "text": "多章修改先生成待审稿，",
+    "startMs": 149329,
+    "endMs": 151752,
+    "timestampMs": null,
+    "confidence": null,
+    "pageBreakAfter": true
+  },
+  {
+    "text": "比较差异后，由你决定是否采纳。",
+    "startMs": 151912,
+    "endMs": 154958,
+    "timestampMs": null,
+    "confidence": null,
+    "pageBreakAfter": true
+  },
+  {
+    "text": "人物、世界和规划，在故事资料中维护。",
+    "startMs": 155118,
+    "endMs": 158793,
+    "timestampMs": null,
+    "confidence": null,
+    "pageBreakAfter": true
+  },
+  {
+    "text": "需要交稿时，点击作品顶部的导出。",
+    "startMs": 160700,
+    "endMs": 164109,
+    "timestampMs": null,
+    "confidence": null,
+    "pageBreakAfter": true
+  },
+  {
+    "text": "先确认是否包含未确认草稿，",
+    "startMs": 164269,
+    "endMs": 167085,
+    "timestampMs": null,
+    "confidence": null,
+    "pageBreakAfter": true
+  },
+  {
+    "text": "再选择文本，或 Word 文档。",
+    "startMs": 167245,
+    "endMs": 169846,
+    "timestampMs": null,
+    "confidence": null,
+    "pageBreakAfter": true
+  },
+  {
+    "text": "需要保留对话、设定和版本历史，",
+    "startMs": 170006,
+    "endMs": 173067,
+    "timestampMs": null,
+    "confidence": null,
+    "pageBreakAfter": true
+  },
+  {
+    "text": "请选择备份完整作品，保存作品包。",
+    "startMs": 173227,
+    "endMs": 176833,
+    "timestampMs": null,
+    "confidence": null,
+    "pageBreakAfter": true
+  },
+  {
+    "text": "导入作品包会创建独立副本。",
+    "startMs": 176993,
+    "endMs": 179660,
+    "timestampMs": null,
+    "confidence": null,
+    "pageBreakAfter": true
+  },
+  {
+    "text": "换电脑后，需要重新配置 AI 连接。",
+    "startMs": 179820,
+    "endMs": 183132,
+    "timestampMs": null,
+    "confidence": null,
+    "pageBreakAfter": true
+  },
+  {
+    "text": "重要修改和迁移前，记得另存备份。",
+    "startMs": 183292,
+    "endMs": 186671,
+    "timestampMs": null,
+    "confidence": null,
+    "pageBreakAfter": true
+  },
+  {
+    "text": "记住这条路线：",
+    "startMs": 188700,
+    "endMs": 190077,
+    "timestampMs": null,
+    "confidence": null,
+    "pageBreakAfter": true
+  },
+  {
+    "text": "创作里推进故事，看稿里审阅，",
+    "startMs": 190237,
+    "endMs": 193127,
+    "timestampMs": null,
+    "confidence": null,
+    "pageBreakAfter": true
+  },
+  {
+    "text": "故事资料里维护设定。",
+    "startMs": 193287,
+    "endMs": 195134,
+    "timestampMs": null,
+    "confidence": null,
+    "pageBreakAfter": true
+  },
+  {
+    "text": "把想法写下来，开始你的第一章吧。",
+    "startMs": 195294,
+    "endMs": 198421,
+    "timestampMs": null,
+    "confidence": null,
+    "pageBreakAfter": true
+  }
+]

@@ -1,0 +1,103 @@
+{
+  "run": "20261016-baseline",
+  "isolated": true,
+  "productionModified": false,
+  "responses": [
+    {
+      "number": 1,
+      "phase": "连续写作·检查",
+      "characters": 1468,
+      "shape": {
+        "keys": [
+          "issues",
+          "majorChange",
+          "reason"
+        ],
+        "issues": [
+          {
+            "category": "plot",
+            "impact": "blocking",
+            "evidence": 4
+          }
+        ],
+        "majorChange": false
+      },
+      "usage": {
+        "prompt_tokens": 14234,
+        "completion_tokens": 674,
+        "total_tokens": 14908,
+        "prompt_tokens_details": {
+          "cached_tokens": 14208
+        },
+        "prompt_cache_hit_tokens": 14208,
+        "prompt_cache_miss_tokens": 26
+      }
+    },
+    {
+      "number": 2,
+      "phase": "连续写作·修订",
+      "characters": 4949,
+      "shape": "not-json",
+      "usage": {
+        "prompt_tokens": 16406,
+        "completion_tokens": 3622,
+        "total_tokens": 20028,
+        "prompt_tokens_details": {
+          "cached_tokens": 256
+        },
+        "prompt_cache_hit_tokens": 256,
+        "prompt_cache_miss_tokens": 16150
+      }
+    }
+  ],
+  "startCalls": 13,
+  "startBudgetUsed": 173700,
+  "result": {
+    "status": "failed",
+    "phase": "revising",
+    "error": "连续写作回复不是完整 JSON，进度和原始回复已保留",
+    "calls": 15,
+    "usage": {
+      "inputTokens": 176263,
+      "outputTokens": 32373,
+      "totalTokens": 208636,
+      "estimated": false
+    },
+    "budgetUsed": 208636,
+    "chapters": [
+      {
+        "ordinal": 2,
+        "status": "checked",
+        "revisionRounds": 0,
+        "words": 2505
+      },
+      {
+        "ordinal": 3,
+        "status": "checked",
+        "revisionRounds": 1,
+        "words": 3037
+      },
+      {
+        "ordinal": 4,
+        "status": "written",
+        "revisionRounds": 0,
+        "words": 2467
+      },
+      {
+        "ordinal": 5,
+        "status": "pending",
+        "revisionRounds": 0,
+        "words": 0
+      }
+    ],
+    "issues": [
+      {
+        "category": "plot",
+        "impact": "blocking"
+      }
+    ],
+    "warningCount": 4
+  },
+  "workflowCompleted": false,
+  "liveCalls": 2
+}

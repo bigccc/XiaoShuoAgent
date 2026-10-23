@@ -1,0 +1,139 @@
+/* Design tokens — single source of truth for color, type, spacing.
+   Contrast notes are WCAG ratios measured against the light surfaces
+   (--bg-app / --bg-surface / --bg-subtle / --bg-sidebar / --bg-tint / --accent-soft);
+   every text token keeps >= 4.5:1 on all of them. */
+:root {
+  color-scheme: light;
+  /* surfaces */
+  --bg-app: #f6f3ec;
+  --bg-sidebar: #efeee6;
+  --bg-subtle: #f5f4ec;
+  --bg-tint: #eef2e8;
+  --bg-surface: #fffdf7;
+  --accent-soft: #e2ebdf;
+
+  /* borders */
+  --border: #dee2d6;
+  --border-strong: #7b8979;
+  --quote-border: #c6d2ba;
+
+  /* text (all >= 4.5:1 on every surface above) */
+  --text-primary: #263d3b;
+  --text-secondary: #52655a; /* >= 5.1 */
+  --text-muted: #5d6860; /* >= 4.75 */
+  --reader-text: #344337; /* 10.3 on --bg-surface */
+
+  /* brand accent */
+  --accent: #267568;
+  --accent-hover: #1e6156;
+  --accent-text: #17665b; /* >= 5.5 on soft fills */
+
+  /* semantic */
+  --success: #336b4b;
+  --success-bg: #e4f0e6;
+  --warn: #86591b;
+  --warn-bg: #f7eedb;
+  --warn-border: #eee1c9;
+  --danger: #9f4a3c;
+  --danger-bg: #f8e8e2;
+  --danger-border: #efd4c8;
+
+  /* diff */
+  --diff-add-bg: #e8f0e0;
+  --diff-add-border: #93b877;
+  --diff-remove-bg: #f5e6dc;
+  --diff-remove-border: #c9947b;
+
+  /* overlays & feedback */
+  --selection: #dce6d0;
+  --focus-ring: #528d80;
+  --scrim: #25392b55;
+  --shadow-modal: #263b3b33;
+
+  /* book cover & decorative marks (large display elements) */
+  --cover-bg: #e1e8d8;
+  --cover-spine: #ccd7c6;
+  --cover-text: #4d6c55;
+  --mark-welcome: #428372;
+  --mark-empty: #9bb79d;
+
+  /* type scale (11px floor for UI text) */
+  --text-xs: 11px;
+  --text-sm: 12px;
+  --text-md: 13px;
+  --text-base: 14px;
+  --text-lg: 16px;
+  --text-xl: 18px;
+  --text-2xl: 20px;
+  --text-3xl: 24px;
+  --text-4xl: 30px;
+  --font-ui:
+    -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei",
+    sans-serif;
+  --font-serif: "Songti SC", "Noto Serif SC", "STSong", serif;
+  --leading-ui: 1.5;
+  --leading-body: 1.75;
+  --leading-prose: 2.1;
+
+  /* spacing (4pt grid) */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 28px;
+  --space-8: 32px;
+  --space-9: 36px;
+  --space-10: 40px;
+  --space-11: 44px;
+  --space-12: 48px;
+
+  /* radius */
+  --radius-sm: 6px;
+  --radius-md: 9px;
+  --radius-lg: 12px;
+}
+
+/* Dark theme — same warm-green character, inverted. Every text token
+   keeps >= 4.5:1 on every dark surface (verified against the light script). */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg-app: #1f241f;
+  --bg-sidebar: #1a1f1a;
+  --bg-subtle: #242a24;
+  --bg-tint: #2a322a;
+  --bg-surface: #272d27;
+  --accent-soft: #2c3a31;
+  --border: #343b33;
+  --border-strong: #778772;
+  --quote-border: #46523f;
+  --text-primary: #e6e9e0;
+  --text-secondary: #b6c0b2;
+  --text-muted: #9dab97;
+  --reader-text: #dde2d5;
+  --accent: #267568;
+  --accent-hover: #2b806e;
+  --accent-text: #7fc4ae;
+  --success: #7fbd93;
+  --success-bg: #26382c;
+  --warn: #d3a356;
+  --warn-bg: #3a2f1e;
+  --warn-border: #54452a;
+  --danger: #e0937f;
+  --danger-bg: #3d2822;
+  --danger-border: #57352b;
+  --diff-add-bg: #2a3a2a;
+  --diff-add-border: #5a8a52;
+  --diff-remove-bg: #3e2c24;
+  --diff-remove-border: #a06850;
+  --selection: #303e30;
+  --focus-ring: #509380;
+  --scrim: #000000aa;
+  --shadow-modal: #00000066;
+  --cover-bg: #2c362c;
+  --cover-spine: #232b23;
+  --cover-text: #a8bf9f;
+  --mark-welcome: #5aa88f;
+  --mark-empty: #4a6653;
+}

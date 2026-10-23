@@ -1,3 +1,4 @@
+import type { GenerationPreviewService, PreviewSession } from "./generation-preview";
 import {voiceContext,voiceStampCurrent} from "./voice-context";
 import type {VoiceStamp} from "../shared/voice";
 import {storyContext,storyStampCurrent,type StoryStamp} from "./story-context";
@@ -134,6 +135,7 @@ export class ConversationRunner {
     private credentials?: CredentialCodec,
     private maxChars = 48000,
     private sync?: StageSyncService,
+    private previews?: GenerationPreviewService,
   ) {
     for (const turn of store.list("conversations"))
       if (turn.status === "running")
@@ -265,7 +267,10 @@ export class ConversationRunner {
     const controller = new AbortController();
     const promise = Promise.resolve()
       .then(() => this.run(turn, state, authorized, controller.signal))
-      .finally(() => this.active.delete(id));
+      .finally(() => {
+        this.previews?.finish("conversation", id, this.store.get("conversations", id)?.status === "completed" ? "completed" : "cancelled");
+        this.active.delete(id);
+      });
     this.active.set(id, { controller, promise });
     return id;
   }
@@ -305,6 +310,7 @@ export class ConversationRunner {
   cancel(id: string) {
     if (!this.store.get("conversations", id))
       throw new DomainError("NOT_FOUND", "对话不存在");
+    this.previews?.finish("conversation", id, "cancelled");
     this.active.get(id)?.controller.abort();
     if (this.store.get("conversations", id)?.status === "running")
       this.update(id, {
@@ -551,16 +557,28 @@ export class ConversationRunner {
       }
       const context = this.context(turn, state, authorized);
       this.update(turn.id, { contextWarnings: context.warnings, contextReferences: context.references });
+      let preview: PreviewSession | undefined, attemptCount = 0;
       let response = await completeConversation(this.provider, {
         baseUrl: profile.baseUrl,
         model: profile.model,
         key,
         messages: context.messages,
         jsonResponse: true,
+        onChunk: chunk => { if (!signal.aborted) preview?.feed(chunk); },
         maxTokens:
           authorized.count > 1 || authorized.ids.size > 1 ? 32000 : 16000,
         signal,
       }, (patch) => {
+        const latest = patch.attempts?.at(-1);
+        if (!signal.aborted && latest?.status === "running" && patch.attempts!.length !== attemptCount) {
+          attemptCount = patch.attempts!.length;
+          const repairing = latest.phase === "repair";
+          preview = this.previews?.begin({projectId:turn.projectId,taskId:turn.id,kind:"conversation",phase:repairing ? "正在整理回复格式" : "正在创作"}, key ? [key] : [], !repairing);
+        }
+        if (!signal.aborted && patch.recoveryPhase === "retrying" && latest?.status !== "running") {
+          preview?.cancel();
+          preview = this.previews?.begin({projectId:turn.projectId,taskId:turn.id,kind:"conversation",phase:"正在重新获取回复"}, [], false);
+        }
         // Cancellation stops writes, but still settles usage and preserves any
         // fragment already returned by the in-flight request.
         const current = this.store.get("conversations", turn.id);

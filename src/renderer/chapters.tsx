@@ -58,7 +58,7 @@ export function Chapters({
               {c.wordCount ?? c.content.replace(/\s/g, "").length} 字
             </small>
             <strong>{c.title}</strong>
-            <span className="badge">
+            <span className={"badge " + (c.status === "confirmed" ? "ok" : "info")}>
               {c.status === "confirmed" ? "已确认" : "草稿"}
             </span>
             {c.needsReview && <span className="badge warn">需要复核</span>}
@@ -203,7 +203,7 @@ function HydratedChapterEditor({
     <section className="page chapter-editor">
       <div className="chapter-toolbar">
         <span className="eyebrow">第 {chapter.ordinal} 章</span>
-        <span className="badge">
+        <span className={"badge " + (conversational ? (chapter.writingStage === "opening" ? "info" : "ok") : chapter.status === "confirmed" ? "ok" : "info")}>
           {conversational
             ? chapter.writingStage === "opening"
               ? "试写开篇"
@@ -213,7 +213,7 @@ function HydratedChapterEditor({
               : "草稿"}
         </span>
         <span>{v.content.replace(/\s/g, "").length.toLocaleString()} 字</span>
-        <button onClick={() => setHistory(!history)}>历史版本</button>
+        <button className="subtle" onClick={() => setHistory(!history)}>历史版本</button>
         {!conversational && (
           <button
             className="primary"
@@ -305,7 +305,7 @@ function HydratedChapterEditor({
               <p className="muted">
                 恢复会保留当前版本，之后可以接着编辑或继续创作。
               </p>
-              <button onClick={() => void restore().catch(() => {})}>
+              <button className="subtle" onClick={() => void restore().catch(() => {})}>
                 恢复此版本
               </button>
             </>

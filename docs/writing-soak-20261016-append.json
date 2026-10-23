@@ -1,0 +1,484 @@
+{
+  "run": "20261016-append",
+  "isolated": true,
+  "productionModified": false,
+  "responses": [
+    {
+      "number": 1,
+      "phase": "连续写作·规划",
+      "characters": 1660,
+      "shape": {
+        "keys": [
+          "plan",
+          "majorChange",
+          "reason"
+        ],
+        "majorChange": false
+      },
+      "usage": {
+        "prompt_tokens": 14620,
+        "completion_tokens": 1236,
+        "total_tokens": 15856,
+        "prompt_tokens_details": {
+          "cached_tokens": 0
+        },
+        "prompt_cache_hit_tokens": 0,
+        "prompt_cache_miss_tokens": 14620
+      }
+    },
+    {
+      "number": 2,
+      "phase": "连续写作·生成",
+      "characters": 4051,
+      "shape": {
+        "keys": [
+          "type",
+          "title",
+          "content",
+          "scenes",
+          "majorChange",
+          "reason"
+        ],
+        "majorChange": false
+      },
+      "usage": {
+        "prompt_tokens": 18098,
+        "completion_tokens": 2796,
+        "total_tokens": 20894,
+        "prompt_tokens_details": {
+          "cached_tokens": 256
+        },
+        "prompt_cache_hit_tokens": 256,
+        "prompt_cache_miss_tokens": 17842
+      }
+    },
+    {
+      "number": 3,
+      "phase": "连续写作·检查",
+      "characters": 58,
+      "shape": {
+        "keys": [
+          "issues",
+          "majorChange",
+          "reason"
+        ],
+        "issues": [],
+        "majorChange": false
+      },
+      "usage": {
+        "prompt_tokens": 17396,
+        "completion_tokens": 19,
+        "total_tokens": 17415,
+        "prompt_tokens_details": {
+          "cached_tokens": 640
+        },
+        "prompt_cache_hit_tokens": 640,
+        "prompt_cache_miss_tokens": 16756
+      }
+    },
+    {
+      "number": 4,
+      "phase": "连续写作·生成",
+      "characters": 4851,
+      "shape": {
+        "keys": [
+          "type",
+          "title",
+          "content",
+          "scenes",
+          "majorChange",
+          "reason",
+          "states"
+        ],
+        "majorChange": false
+      },
+      "usage": {
+        "prompt_tokens": 18370,
+        "completion_tokens": 2905,
+        "total_tokens": 21275,
+        "prompt_tokens_details": {
+          "cached_tokens": 256
+        },
+        "prompt_cache_hit_tokens": 256,
+        "prompt_cache_miss_tokens": 18114
+      }
+    },
+    {
+      "number": 5,
+      "phase": "连续写作·检查",
+      "characters": 58,
+      "shape": {
+        "keys": [
+          "issues",
+          "majorChange",
+          "reason"
+        ],
+        "issues": [],
+        "majorChange": false
+      },
+      "usage": {
+        "prompt_tokens": 16626,
+        "completion_tokens": 19,
+        "total_tokens": 16645,
+        "prompt_tokens_details": {
+          "cached_tokens": 640
+        },
+        "prompt_cache_hit_tokens": 640,
+        "prompt_cache_miss_tokens": 15986
+      }
+    },
+    {
+      "number": 6,
+      "phase": "连续写作·修订",
+      "characters": 6857,
+      "shape": {
+        "keys": [
+          "scenes",
+          "title",
+          "content",
+          "majorChange",
+          "reason"
+        ],
+        "majorChange": false
+      },
+      "usage": {
+        "prompt_tokens": 18504,
+        "completion_tokens": 4841,
+        "total_tokens": 23345,
+        "prompt_tokens_details": {
+          "cached_tokens": 256
+        },
+        "prompt_cache_hit_tokens": 256,
+        "prompt_cache_miss_tokens": 18248
+      }
+    },
+    {
+      "number": 7,
+      "phase": "连续写作·检查",
+      "characters": 705,
+      "shape": {
+        "keys": [
+          "issues",
+          "majorChange",
+          "reason"
+        ],
+        "issues": [
+          {
+            "category": "plot",
+            "impact": "blocking",
+            "evidence": 2
+          }
+        ],
+        "majorChange": false
+      },
+      "usage": {
+        "prompt_tokens": 17141,
+        "completion_tokens": 274,
+        "total_tokens": 17415,
+        "prompt_tokens_details": {
+          "cached_tokens": 6784
+        },
+        "prompt_cache_hit_tokens": 6784,
+        "prompt_cache_miss_tokens": 10357
+      }
+    },
+    {
+      "number": 8,
+      "phase": "连续写作·修订",
+      "characters": 5863,
+      "shape": {
+        "keys": [
+          "type",
+          "title",
+          "content",
+          "scenes",
+          "majorChange",
+          "reason",
+          "states"
+        ],
+        "majorChange": false
+      },
+      "usage": {
+        "prompt_tokens": 21152,
+        "completion_tokens": 3605,
+        "total_tokens": 24757,
+        "prompt_tokens_details": {
+          "cached_tokens": 256
+        },
+        "prompt_cache_hit_tokens": 256,
+        "prompt_cache_miss_tokens": 20896
+      }
+    },
+    {
+      "number": 9,
+      "phase": "连续写作·检查",
+      "characters": 58,
+      "shape": {
+        "keys": [
+          "issues",
+          "majorChange",
+          "reason"
+        ],
+        "issues": [],
+        "majorChange": false
+      },
+      "usage": {
+        "prompt_tokens": 17141,
+        "completion_tokens": 19,
+        "total_tokens": 17160,
+        "prompt_tokens_details": {
+          "cached_tokens": 14848
+        },
+        "prompt_cache_hit_tokens": 14848,
+        "prompt_cache_miss_tokens": 2293
+      }
+    },
+    {
+      "number": 10,
+      "phase": "连续写作·生成",
+      "characters": 4313,
+      "shape": {
+        "keys": [
+          "scenes",
+          "title",
+          "content"
+        ]
+      },
+      "usage": {
+        "prompt_tokens": 18206,
+        "completion_tokens": 2944,
+        "total_tokens": 21150,
+        "prompt_tokens_details": {
+          "cached_tokens": 256
+        },
+        "prompt_cache_hit_tokens": 256,
+        "prompt_cache_miss_tokens": 17950
+      }
+    },
+    {
+      "number": 11,
+      "phase": "连续写作·检查",
+      "characters": 13,
+      "shape": {
+        "keys": [
+          "issues"
+        ],
+        "issues": []
+      },
+      "usage": {
+        "prompt_tokens": 16537,
+        "completion_tokens": 5,
+        "total_tokens": 16542,
+        "prompt_tokens_details": {
+          "cached_tokens": 640
+        },
+        "prompt_cache_hit_tokens": 640,
+        "prompt_cache_miss_tokens": 15897
+      }
+    },
+    {
+      "number": 12,
+      "phase": "连续写作·检查整理",
+      "characters": 58,
+      "shape": {
+        "keys": [
+          "issues",
+          "majorChange",
+          "reason"
+        ],
+        "issues": [],
+        "majorChange": false
+      },
+      "usage": {
+        "prompt_tokens": 16665,
+        "completion_tokens": 19,
+        "total_tokens": 16684,
+        "prompt_tokens_details": {
+          "cached_tokens": 768
+        },
+        "prompt_cache_hit_tokens": 768,
+        "prompt_cache_miss_tokens": 15897
+      }
+    },
+    {
+      "number": 13,
+      "phase": "连续写作·生成",
+      "characters": 7010,
+      "shape": {
+        "keys": [
+          "scenes",
+          "title",
+          "content",
+          "majorChange",
+          "reason"
+        ],
+        "majorChange": false
+      },
+      "usage": {
+        "prompt_tokens": 17511,
+        "completion_tokens": 4963,
+        "total_tokens": 22474,
+        "prompt_tokens_details": {
+          "cached_tokens": 256
+        },
+        "prompt_cache_hit_tokens": 256,
+        "prompt_cache_miss_tokens": 17255
+      }
+    },
+    {
+      "number": 14,
+      "phase": "连续写作·检查",
+      "characters": 1242,
+      "shape": {
+        "keys": [
+          "issues",
+          "majorChange",
+          "reason"
+        ],
+        "issues": [
+          {
+            "category": "plot",
+            "impact": "blocking",
+            "evidence": 4
+          }
+        ],
+        "majorChange": false
+      },
+      "usage": {
+        "prompt_tokens": 17560,
+        "completion_tokens": 506,
+        "total_tokens": 18066,
+        "prompt_tokens_details": {
+          "cached_tokens": 640
+        },
+        "prompt_cache_hit_tokens": 640,
+        "prompt_cache_miss_tokens": 16920
+      }
+    },
+    {
+      "number": 15,
+      "phase": "连续写作·修订",
+      "characters": 5927,
+      "shape": {
+        "keys": [
+          "scenes",
+          "title",
+          "content",
+          "majorChange",
+          "reason",
+          "states"
+        ],
+        "majorChange": false
+      },
+      "usage": {
+        "prompt_tokens": 19131,
+        "completion_tokens": 3523,
+        "total_tokens": 22654,
+        "prompt_tokens_details": {
+          "cached_tokens": 256
+        },
+        "prompt_cache_hit_tokens": 256,
+        "prompt_cache_miss_tokens": 18875
+      }
+    },
+    {
+      "number": 16,
+      "phase": "连续写作·检查",
+      "characters": 45,
+      "shape": {
+        "keys": [
+          "issues",
+          "majorChange",
+          "reason"
+        ],
+        "issues": [],
+        "majorChange": false
+      },
+      "usage": {
+        "prompt_tokens": 15369,
+        "completion_tokens": 14,
+        "total_tokens": 15383,
+        "prompt_tokens_details": {
+          "cached_tokens": 4864
+        },
+        "prompt_cache_hit_tokens": 4864,
+        "prompt_cache_miss_tokens": 10505
+      }
+    },
+    {
+      "number": 17,
+      "phase": "连续写作·跨章复核",
+      "characters": 825,
+      "shape": {
+        "keys": [
+          "issues",
+          "majorChange",
+          "reason"
+        ],
+        "issues": [
+          {
+            "category": "character",
+            "impact": "blocking",
+            "evidence": 2
+          }
+        ],
+        "majorChange": true
+      },
+      "usage": {
+        "prompt_tokens": 15726,
+        "completion_tokens": 361,
+        "total_tokens": 16087,
+        "prompt_tokens_details": {
+          "cached_tokens": 640
+        },
+        "prompt_cache_hit_tokens": 640,
+        "prompt_cache_miss_tokens": 15086
+      }
+    }
+  ],
+  "startCalls": 37,
+  "startBudgetUsed": 585867,
+  "result": {
+    "status": "awaiting-author",
+    "phase": "reviewing",
+    "calls": 17,
+    "usage": {
+      "inputTokens": 295753,
+      "outputTokens": 28049,
+      "totalTokens": 323802,
+      "estimated": false
+    },
+    "budgetUsed": 323802,
+    "chapters": [
+      {
+        "ordinal": 6,
+        "status": "checked",
+        "revisionRounds": 0,
+        "words": 2716
+      },
+      {
+        "ordinal": 7,
+        "status": "checked",
+        "revisionRounds": 2,
+        "words": 2744
+      },
+      {
+        "ordinal": 8,
+        "status": "checked",
+        "revisionRounds": 0,
+        "words": 2851
+      },
+      {
+        "ordinal": 9,
+        "status": "checked",
+        "revisionRounds": 1,
+        "words": 2851
+      }
+    ],
+    "issues": [],
+    "warningCount": 5
+  },
+  "workflowCompleted": false,
+  "liveCalls": 17,
+  "replayedResponses": 0
+}

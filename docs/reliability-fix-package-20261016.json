@@ -1,0 +1,41 @@
+{
+  "date": "2026-10-16",
+  "architecture": "arm64",
+  "dmgVerified": true,
+  "installedAfterUnmount": true,
+  "installedDesktopTests": {
+    "passed": 11,
+    "suites": [
+      "writing",
+      "sync"
+    ]
+  },
+  "unitTests": {
+    "files": 39,
+    "passed": 624
+  },
+  "typecheck": true,
+  "build": true,
+  "runtimeFilesMatched": [
+    "out/main/index.js",
+    "out/preload/index.cjs",
+    "out/renderer/index.html"
+  ],
+  "mainSha256": "81d6fd117cc7e33e776fdf15ffa16d978a223bf5a8b94de5c13cdef8738272bd",
+  "validInternalSymlinks": 14,
+  "workspaceFilesExcluded": true,
+  "temporaryInstallRemoved": true,
+  "applicationsReplaced": false,
+  "assets": [
+    {
+      "path": "release/reliability-fix-20261016/make/dmg/arm64/XiaoShuoAgent-0.2.0-arm64.dmg",
+      "bytes": 162753783,
+      "sha256": "64ccd6159b58b15978891218ee572004858d4c10e85f08b42cf7d896c18b7058"
+    },
+    {
+      "path": "release/reliability-fix-20261016/make/zip/darwin/arm64/XiaoShuoAgent-darwin-arm64-0.2.0.zip",
+      "bytes": 145084328,
+      "sha256": "d4fc57fb7230d6bd26298656052c739e341461c9979cee2c7113318cb92714b8"
+    }
+  ]
+}

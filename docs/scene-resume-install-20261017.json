@@ -1,0 +1,34 @@
+{
+  "date": "2026-10-17T08:19:49.046Z",
+  "authorizedByUser": true,
+  "backupDir": "/Users/dave/Dev/XiaoShuoAgent/release/installed-backups/scene-resume-20261017-1792225188433",
+  "databaseBackupIntegrity": "ok",
+  "oldAppPreserved": "/Users/dave/Dev/XiaoShuoAgent/release/installed-backups/scene-resume-20261017-1792225188433/XiaoShuoAgent.app",
+  "dailyApp": "/Applications/XiaoShuoAgent.app",
+  "mainSha256": "47b9a4e2735c59329fa8625938f38978b5ddc2c083cf8e3f4958f4cf55cd19e8",
+  "before": {
+    "projects": "bb5c1f4700dc5bba62a0aa82f8b4d6d9d11cee83563ed0475af26bfeae81ca44",
+    "chapters": "21315767ba1dc7a7a5726481af48e69bb787add9fe9052ccb8ded4ca90ae5ac5",
+    "notes": "9c667f5ae9a4d6dad8e81f3bd6f6c1614faa49140135d70b7f2b70fe7bd08c16",
+    "profiles": "31439e42f21e7d29f05a0213691262f9c80625b1a91de7be69d88f042072019e",
+    "credentials": "dd7bff2382beed7c7b41d0c507f7ffa6e090da3558dd81000e1a2bf01c846952",
+    "writingJobs": "2624bf0e1f150c5574c73d7aff36388d1bef3b71628f388ce1e54e487450d68a",
+    "scenePlans": "29790a4ed9598fb3d2b92b1aac04ed273fb2cc1f6b2a9285d4f8fc7149a64c8a",
+    "revisionJobs": "d83caf2a393317f2768a1dc40a54e95e1360c1629cf02ad3c7239cbde90ec55e"
+  },
+  "after": {
+    "projects": "bb5c1f4700dc5bba62a0aa82f8b4d6d9d11cee83563ed0475af26bfeae81ca44",
+    "chapters": "21315767ba1dc7a7a5726481af48e69bb787add9fe9052ccb8ded4ca90ae5ac5",
+    "notes": "9c667f5ae9a4d6dad8e81f3bd6f6c1614faa49140135d70b7f2b70fe7bd08c16",
+    "profiles": "31439e42f21e7d29f05a0213691262f9c80625b1a91de7be69d88f042072019e",
+    "credentials": "dd7bff2382beed7c7b41d0c507f7ffa6e090da3558dd81000e1a2bf01c846952",
+    "writingJobs": "2624bf0e1f150c5574c73d7aff36388d1bef3b71628f388ce1e54e487450d68a",
+    "scenePlans": "29790a4ed9598fb3d2b92b1aac04ed273fb2cc1f6b2a9285d4f8fc7149a64c8a",
+    "revisionJobs": "d83caf2a393317f2768a1dc40a54e95e1360c1629cf02ad3c7239cbde90ec55e"
+  },
+  "modelCallsStartedByUpdate": 0,
+  "restarted": true,
+  "databaseTablesUnchanged": true,
+  "originalWorkOpened": true,
+  "recoveryButtonVisibleAndEnabled": true
+}

@@ -1,3 +1,5 @@
+import { GenerationPreviewService } from "./generation-preview";
+import type { GenerationDelta } from "../shared/generation-preview";
 import {StructureService} from "./structure";
 import type {StructureCommand,StructureQuery} from "../shared/structure";
 import {VoiceExtractionRunner} from "./voice-extraction";
@@ -38,7 +40,7 @@ import { RevisionRunner, detectRevisionRequest } from "./revision";
 import type { ReaderCommand } from "../shared/reader";
 import type { RevisionCommand } from "../shared/revision";
 import { WritingRunner } from "./writing";
-import { detectWritingGoal, hasUnresolvedWritingGoal, DEFAULT_WRITING_TOKEN_BUDGET, type WritingCommand } from "../shared/writing";
+import { detectWritingGoal, hasUnresolvedWritingGoal, type WritingCommand } from "../shared/writing";
 export interface FileDialogAdapter {
   open: (kind: "material" | "backup") => Promise<string | null>;
   save: (
@@ -66,6 +68,7 @@ export class AppServices {
   private reading: ReadingService;
   private revisions: RevisionRunner;
   private writing: WritingRunner;
+  private previews = new GenerationPreviewService();
   private story:StoryStateService;
   private scenes:SceneService;
   private voices:VoiceService;
@@ -133,10 +136,11 @@ export class AppServices {
       options.credentials,
       options.maxContextChars ?? 48000,
       this.sync,
+      this.previews,
     );
     this.reading = new ReadingService(this.store, this.domain);
     this.revisions = new RevisionRunner(this.store, this.domain, new ChatProvider({ ...options.provider, fetch: options.fetch }), options.credentials, this.sync, options.maxContextChars ?? 48000);
-    this.writing = new WritingRunner(this.store, this.domain, new ChatProvider({ ...options.provider, fetch: options.fetch }), options.credentials, options.maxContextChars ?? 48000);
+    this.writing = new WritingRunner(this.store, this.domain, new ChatProvider({ ...options.provider, fetch: options.fetch }), options.credentials, options.maxContextChars ?? 48000, this.previews);
     this.timer = setInterval(
       () => {
         if (!this.recovering && !this.disposed) {
@@ -148,6 +152,12 @@ export class AppServices {
       options.recoveryIntervalMs ?? 15 * 60 * 1000,
     );
     this.timer.unref();
+  }
+  onGenerationDelta(handler: (event: GenerationDelta) => void) { return this.previews.subscribe(handler); }
+  generationPreview(projectId: string, acknowledged?: string) {
+    if (typeof projectId !== "string" || !projectId || !this.store.get("projects", projectId)) throw new DomainError("VALIDATION", "预览作品不存在");
+    if(acknowledged !== undefined && (typeof acknowledged !== "string" || acknowledged.length > 200))throw new DomainError("VALIDATION", "预览确认参数不正确");
+    return this.previews.snapshot(projectId, acknowledged);
   }
   snapshot(): AppState {
     return { ...this.domain.snapshot(), persistence: { ...this.persistence } };
@@ -173,6 +183,12 @@ export class AppServices {
     const turn = this.store.get("conversations", id);
     if (!turn) throw new DomainError("NOT_FOUND", "对话不存在");
     return turn;
+  }
+  writingIssues(id: string) {
+    if (typeof id !== "string" || !id || id.length > 200) throw new DomainError("VALIDATION", "连续写作任务编号不正确");
+    const job = this.store.get("writingJobs", id);
+    if (!job) throw new DomainError("NOT_FOUND", "连续写作任务不存在");
+    return { revision: job.revision, issues: job.issues };
   }
   search(projectId: string, query: string, offset = 0) { return this.reading.search(projectId, query, offset); }
   revisionJob(id: string, offset = 0, limit = 20) {
@@ -334,7 +350,7 @@ export class AppServices {
             throw new DomainError("VALIDATION", "对话参数不正确");
           const explicitRevision = command.revisionScope || command.selection || command.annotationIds?.length || command.revisionChapterIds?.length || command.proposalTurnId;
           const goal = !explicitRevision ? detectWritingGoal(command.text, Math.max(0, ...this.store.chapterMetadata(command.projectId).map(ch => ch.ordinal))) : null;
-          if (goal) return { ok: true, entityId: this.writing.start({ type: "writing.start", projectId: command.projectId, text: command.text, goal, profileId: command.profileId, tokenBudget: command.tokenBudget ?? DEFAULT_WRITING_TOKEN_BUDGET }) };
+          if (goal) return { ok: true, entityId: this.writing.start({ type: "writing.start", projectId: command.projectId, text: command.text, goal, profileId: command.profileId, tokenBudget: command.tokenBudget }) };
           if (!explicitRevision && hasUnresolvedWritingGoal(command.text))
             throw new DomainError("VALIDATION", "需要明确连续写作范围：例如“写完前五章”表示补齐到第5章，“接着写五章”表示新增5章；一次最多100章");
           const revision = detectRevisionRequest(command, this.store);
@@ -545,6 +561,7 @@ export class AppServices {
       await this.sync.dispose();
       await this.recovering;
       await this.recovery();
+      this.previews.dispose();
       this.store.close();
     })();
     return this.disposePromise;

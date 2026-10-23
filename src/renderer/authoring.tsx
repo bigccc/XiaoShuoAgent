@@ -56,7 +56,7 @@ export function StageEditor({
               ? "必要设定"
               : "故事大纲"}
         </h2>
-        <span className="badge">
+        <span className={"badge " + (document?.sync?.status === "conflict" ? "warn" : document?.needsReview ? "warn" : document?.approved ? "ok" : "")}>
           {document?.sync?.status === "conflict"
             ? "待选择"
             : document?.needsReview

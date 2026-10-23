@@ -3,6 +3,7 @@ import type { AppState, ModelProfile, ModelPurpose } from "../shared/types";
 import type { Run } from "./api";
 import { Empty, Field } from "./ui";
 import { useManualGuard, type Register, type Flush } from "./editing";
+import { getThemeChoice, setThemeChoice, type ThemeChoice } from "./theme";
 const purposes = { planning: "规划", writing: "正文", checking: "检查" };
 export function Profiles({
   state,
@@ -16,6 +17,7 @@ export function Profiles({
   flush: Flush;
 }) {
   const [selected, setSelected] = useState<string | null>(null);
+  const [theme, setTheme] = useState<ThemeChoice>(getThemeChoice);
   const profile = state.profiles.find((p) => p.id === selected);
   return (
     <div className="split-page">
@@ -37,11 +39,25 @@ export function Profiles({
               {purposes[p.purpose]}用 AI
             </small>
             <strong>{p.name}</strong>
-            <span className="badge">
+            <span className={"badge " + (p.hasKey ? "ok" : "warn")}>
               {p.hasKey ? "密钥已保护" : "未配置密钥"}
             </span>
           </button>
         ))}
+        <Field label="外观">
+          <select
+            value={theme}
+            onChange={(e) => {
+              const choice = e.target.value as ThemeChoice;
+              setTheme(choice);
+              setThemeChoice(choice);
+            }}
+          >
+            <option value="system">跟随系统</option>
+            <option value="light">浅色</option>
+            <option value="dark">深色</option>
+          </select>
+        </Field>
       </aside>
       {selected ? (
         <ProfileForm
@@ -118,10 +134,11 @@ function ProfileForm({
       <form
         onSubmit={(e) => {
           e.preventDefault();
-          void save().catch(() => {});
+          void guard.save();
         }}
       >
         {guard.dialog}
+      <fieldset className="manual-save-fields" disabled={guard.busy}>
         {guard.dirty && <p className="small warn">此配置有未保存的修改</p>}
         <Field label="服务商">
           <select value={service} onChange={e => {
@@ -217,6 +234,7 @@ function ProfileForm({
             </>
           )}
         </div>
+      </fieldset>
       </form>
       {test && (
         <div className="card" role="status">

@@ -102,7 +102,7 @@ it("validates progress and rejects corrupt, excessive or misleading completed st
   ]) expect(() => validateWritingJob({ ...value, ...change })).toThrow();
 });
 
-it("tracks review windows independently of chapter count and only completes checked issue-free chapters", () => {
+it("tracks review windows independently of chapter count and only completes checked chapters with optional advice", () => {
   const value = job("p");
   value.status = "completed"; value.phase = "done"; value.planningDone = true;
   value.cursor = 5; value.reviewCursor = 12; value.reviewRounds = 6;
@@ -110,7 +110,8 @@ it("tracks review windows independently of chapter count and only completes chec
   expect(() => validateWritingJob(value)).not.toThrow();
   for (const change of [
     { reviewCursor: 100001 }, { reviewRounds: 201 },
-    { issues: [{ category: "style", impact: "local", reason: "仍有重复", evidence: [] }] },
+    { issues: [{ category: "plot", impact: "blocking", reason: "事实矛盾", evidence: [] }] },
+    { issues: [{ category: "length", impact: "local", reason: "篇幅未完成", evidence: [] }] },
     { chapters: value.chapters.map(chapter => ({ ...chapter, status: "needs-review" })) },
     { chapters: value.chapters.map(chapter => ({ ...chapter, revisionRounds: 3 })) },
   ]) expect(() => validateWritingJob({ ...value, ...change })).toThrow();
@@ -151,6 +152,7 @@ it("projects writing progress without the plan or evidence text and preserves fu
 it("round-trips jobs with new identities, no model ids and no running state", async () => {
   const { store, projectId, chapterId } = setup();
   const value = job(projectId, chapterId);
+  value.lastFailedResponse = { phase: "writing", ordinal: 2, rawResponse: '{"content":"保留但不自动应用的失败原文","unexpected":true}', truncated: false };
   value.issues = [{ category: "timeline", impact: "blocking", reason: "时间矛盾", chapterId, evidence: [{ quote: "作者正文", source: { kind: "chapter", id: chapterId, revision: 1 } }] }];
   store.put("writingJobs", value);
   const path = join(directory(), "writing.novel");
@@ -165,6 +167,8 @@ it("round-trips jobs with new identities, no model ids and no running state", as
   expect(imported.id).not.toBe(value.id);
   expect(imported.status).toBe("interrupted");
   expect(imported.budgetUsed).toBe(1800);
+  expect(imported.lastFailedResponse).toEqual(value.lastFailedResponse);
+  expect(store.workspaceSnapshot(importedId).state!.writingJobs![0].lastFailedResponse).not.toHaveProperty("rawResponse");
   expect(imported.chapters[0].chapterId).not.toBe(chapterId);
   expect(imported.issues[0].chapterId).toBe(imported.chapters[0].chapterId);
   expect(imported.issues[0].evidence[0].source.id).toBe(imported.chapters[0].chapterId);

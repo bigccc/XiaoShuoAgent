@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import type { Command, RecordMeta } from "../shared/types";
 import type { Run } from "./api";
-export type Flush = () => Promise<boolean>;
+import { Modal } from "./modal";
+export type Flush = (reason?: "save" | "leave") => Promise<boolean>;
 export type Register = (flush: Flush) => () => void;
 export function useEditor<T extends RecordMeta, V>(
   entity: T,
@@ -94,23 +95,53 @@ export function useManualGuard<V>(
   const checkpoint = useRef(JSON.stringify(value)),
     valueRef = useRef(value),
     saveRef = useRef(save),
-    resolver = useRef<((ok: boolean) => void) | null>(null);
+    resolver = useRef<((ok: boolean) => void) | null>(null),
+    optionsRef = useRef(options),
+    saving = useRef<Promise<boolean> | null>(null),
+    anchor = useRef<HTMLSpanElement>(null);
   const [visible, setVisible] = useState(false),
     [busy, setBusy] = useState(false),
+    [saveError, setSaveError] = useState(""),
     [, redraw] = useState(0);
   valueRef.current = value;
   saveRef.current = save;
+  optionsRef.current = options;
   const dirty = JSON.stringify(value) !== checkpoint.current;
   useEffect(() => {
     if (!register) return;
-    return register(async () => {
+    return register(async (reason) => {
       if (JSON.stringify(valueRef.current) === checkpoint.current) return true;
+      if (saving.current) return saving.current;
+      if (reason === "save") return performSave();
+      if (resolver.current) return false;
       setVisible(true);
       return new Promise<boolean>((resolve) => {
         resolver.current = resolve;
       });
     });
   }, [register]);
+  useEffect(() => () => { resolver.current?.(false); resolver.current = null; }, []);
+  function performSave(): Promise<boolean> {
+    if (saving.current) return saving.current;
+    if (optionsRef.current.canSave === false) {
+      window.dispatchEvent(new CustomEvent("novel-save-error", { detail: "这份表单尚未填写完整，请检查必填字段后保存。" }));
+      return Promise.resolve(false);
+    }
+    const form = anchor.current?.closest("form");
+    if (form && !form.reportValidity()) {
+      setSaveError("请返回编辑，检查必填字段后保存。");
+      return Promise.resolve(false);
+    }
+    setSaveError("");
+    setBusy(true);
+    saving.current = Promise.resolve().then(() => saveRef.current()).then(() => true).catch((error: unknown) => {
+      const message = error instanceof Error ? error.message : "保存失败，内容仍在编辑器中，请检查后重试。";
+      setSaveError(message);
+      window.dispatchEvent(new CustomEvent("novel-save-error", { detail: message }));
+      return false;
+    }).finally(() => { saving.current = null; setBusy(false); });
+    return saving.current;
+  }
   const markSaved = (saved: V) => {
     checkpoint.current = JSON.stringify(saved);
     redraw((x) => x + 1);
@@ -120,16 +151,11 @@ export function useManualGuard<V>(
     resolver.current = null;
     setVisible(false);
   }
-  const dialog = visible ? (
-    <div className="modal-scrim">
-      <section
-        className="card modal"
-        role="dialog"
-        aria-modal="true"
-        aria-label="尚有未保存的修改"
-      >
+  const dialog = <><span ref={anchor} hidden />{visible ? (
+    <Modal label="尚有未保存的修改" busy={busy} onClose={() => finish(false)}>
         <h2>尚有未保存的修改</h2>
         <p>{options.description ?? "保存这份表单后再离开，或返回继续编辑。"}</p>
+        {saveError && <p className="error" role="alert">{saveError}</p>}
         <div className="toolbar">
           <button
             type="button"
@@ -137,12 +163,7 @@ export function useManualGuard<V>(
             disabled={busy || options.canSave === false}
             autoFocus
             onClick={() => {
-              setBusy(true);
-              void saveRef
-                .current()
-                .then(() => finish(true))
-                .catch(() => finish(false))
-                .finally(() => setBusy(false));
+              void performSave().then(ok => { if (ok) finish(true); });
             }}
           >
             {options.saveLabel ?? "保存后离开"}
@@ -150,12 +171,16 @@ export function useManualGuard<V>(
           <button type="button" disabled={busy} onClick={() => finish(false)}>
             返回编辑
           </button>
-          <button type="button" disabled={busy} onClick={() => finish(true)}>
+          <button
+            type="button"
+            className="danger"
+            disabled={busy}
+            onClick={() => finish(true)}
+          >
             放弃修改并离开
           </button>
         </div>
-      </section>
-    </div>
-  ) : null;
-  return { dirty, markSaved, dialog };
+    </Modal>
+  ) : null}</>;
+  return { dirty, markSaved, dialog, busy, save: performSave };
 }

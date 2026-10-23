@@ -1,0 +1,195 @@
+{
+  "run": "20261016-targeted3",
+  "isolated": true,
+  "productionModified": false,
+  "responses": [
+    {
+      "number": 1,
+      "phase": "连续写作·定点修正",
+      "characters": 941,
+      "shape": {
+        "keys": [
+          "edits",
+          "majorChange",
+          "reason"
+        ],
+        "majorChange": false
+      },
+      "usage": {
+        "prompt_tokens": 0,
+        "completion_tokens": 0,
+        "total_tokens": 0
+      }
+    },
+    {
+      "number": 2,
+      "phase": "连续写作·检查",
+      "characters": 13,
+      "shape": {
+        "keys": [
+          "issues"
+        ],
+        "issues": []
+      },
+      "usage": {
+        "prompt_tokens": 18048,
+        "completion_tokens": 5,
+        "total_tokens": 18053,
+        "prompt_tokens_details": {
+          "cached_tokens": 13568
+        },
+        "prompt_cache_hit_tokens": 13568,
+        "prompt_cache_miss_tokens": 4480
+      }
+    },
+    {
+      "number": 3,
+      "phase": "连续写作·检查整理",
+      "characters": 58,
+      "shape": {
+        "keys": [
+          "issues",
+          "majorChange",
+          "reason"
+        ],
+        "issues": [],
+        "majorChange": false
+      },
+      "usage": {
+        "prompt_tokens": 18176,
+        "completion_tokens": 19,
+        "total_tokens": 18195,
+        "prompt_tokens_details": {
+          "cached_tokens": 512
+        },
+        "prompt_cache_hit_tokens": 512,
+        "prompt_cache_miss_tokens": 17664
+      }
+    },
+    {
+      "number": 4,
+      "phase": "连续写作·跨章复核",
+      "characters": 1673,
+      "shape": {
+        "keys": [
+          "issues",
+          "majorChange",
+          "reason"
+        ],
+        "issues": [
+          {
+            "category": "character",
+            "impact": "blocking",
+            "evidence": 3
+          },
+          {
+            "category": "timeline",
+            "impact": "blocking",
+            "evidence": 2
+          }
+        ],
+        "majorChange": false
+      },
+      "usage": {
+        "prompt_tokens": 18045,
+        "completion_tokens": 703,
+        "total_tokens": 18748,
+        "prompt_tokens_details": {
+          "cached_tokens": 640
+        },
+        "prompt_cache_hit_tokens": 640,
+        "prompt_cache_miss_tokens": 17405
+      }
+    },
+    {
+      "number": 5,
+      "phase": "连续写作·检查整理",
+      "characters": 1673,
+      "shape": {
+        "keys": [
+          "issues",
+          "majorChange",
+          "reason"
+        ],
+        "issues": [
+          {
+            "category": "character",
+            "impact": "blocking",
+            "evidence": 3
+          },
+          {
+            "category": "timeline",
+            "impact": "blocking",
+            "evidence": 2
+          }
+        ],
+        "majorChange": false
+      },
+      "usage": {
+        "prompt_tokens": 18957,
+        "completion_tokens": 703,
+        "total_tokens": 19660,
+        "prompt_tokens_details": {
+          "cached_tokens": 640
+        },
+        "prompt_cache_hit_tokens": 640,
+        "prompt_cache_miss_tokens": 18317
+      }
+    }
+  ],
+  "startCalls": 31,
+  "startBudgetUsed": 493152,
+  "result": {
+    "status": "failed",
+    "phase": "reviewing",
+    "error": "连续写作检查依据无法对应本次输入原文及来源版本",
+    "calls": 36,
+    "usage": {
+      "inputTokens": 507916,
+      "outputTokens": 59892,
+      "totalTokens": 567808,
+      "estimated": false
+    },
+    "budgetUsed": 567808,
+    "chapters": [
+      {
+        "ordinal": 2,
+        "status": "checked",
+        "revisionRounds": 0,
+        "words": 2505
+      },
+      {
+        "ordinal": 3,
+        "status": "checked",
+        "revisionRounds": 1,
+        "words": 3037
+      },
+      {
+        "ordinal": 4,
+        "status": "needs-review",
+        "revisionRounds": 2,
+        "words": 3704
+      },
+      {
+        "ordinal": 5,
+        "status": "needs-review",
+        "revisionRounds": 2,
+        "words": 4217
+      }
+    ],
+    "issues": [
+      {
+        "category": "length",
+        "impact": "local"
+      },
+      {
+        "category": "length",
+        "impact": "local"
+      }
+    ],
+    "warningCount": 9
+  },
+  "workflowCompleted": false,
+  "liveCalls": 4,
+  "replayedResponses": 1
+}

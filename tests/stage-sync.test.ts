@@ -102,6 +102,366 @@ const settings = {
   ],
 };
 
+it("repairs an invented note reference without rewriting generated content", async () => {
+  let repairs = 0;
+  const { app, projectId } = setup((req) => {
+    if (req.messages[0].content.includes("STAGE_SYNC_REFERENCES")) {
+      repairs++;
+      return { references: [{ blockIndex: 1, noteId: null }] };
+    }
+    return {
+      message: "设定准备好了",
+      artifacts: [
+        {
+          stage: "settings",
+          blocks: [
+            { kind: "field", field: "style", text: "轻松幽默" },
+            {
+              kind: "note",
+              noteId: "loc_oldport",
+              noteType: "location",
+              title: "旧港",
+              text: "潮落后才能进入。",
+            },
+          ],
+        },
+      ],
+    };
+  });
+  const turn = await send(app, projectId);
+  expect(turn.status, turn.error).toBe("completed");
+  expect(repairs).toBe(1);
+  const state = app.snapshot();
+  expect(state.notes).toHaveLength(1);
+  expect(state.notes[0]).toMatchObject({
+    projectId,
+    type: "location",
+    title: "旧港",
+    body: "潮落后才能进入。",
+  });
+  expect(state.notes[0].id).not.toBe("loc_oldport");
+  expect(state.projects[0].style).toBe("轻松幽默");
+  expect(state.projects[0].authoring!.documents.settings!.sync!.status).toBe(
+    "synced",
+  );
+  expect(state.syncJobs[0]).toMatchObject({
+    status: "succeeded",
+    calls: 1,
+    usage: { totalTokens: 30 },
+  });
+  expect(turn.rawResponse).toContain("loc_oldport");
+  expect(JSON.stringify(turn.response)).not.toContain("loc_oldport");
+});
+
+it("reuses an existing identity after reference repair and keeps manual differences for confirmation", async () => {
+  let noteId = "";
+  const { app, projectId } = setup((req) => {
+    if (req.messages[0].content.includes("STAGE_SYNC_REFERENCES"))
+      return { references: [{ blockIndex: 0, noteId }] };
+    return {
+      message: "修改地点",
+      artifacts: [
+        {
+          stage: "settings",
+          blocks: [
+            {
+              kind: "note",
+              noteId: "loc_oldport",
+              noteType: "location",
+              title: "新港",
+              text: "改名后的港口。",
+            },
+          ],
+        },
+      ],
+    };
+  });
+  noteId = id(
+    app.domain.execute({
+      type: "note.save",
+      projectId,
+      noteType: "location",
+      title: "旧港",
+      body: "作者手工设定。",
+      sources: [],
+    }),
+  );
+  const turn = await send(app, projectId);
+  expect(turn.status).toBe("failed");
+  expect(app.snapshot().notes).toHaveLength(1);
+  expect(app.snapshot().notes[0].body).toBe("作者手工设定。");
+  const job = app.snapshot().syncJobs[0];
+  expect(job.status).toBe("conflict");
+  expect(job.proposal!.blocks[0].noteId).toBe(noteId);
+  id(
+    await app.dispatch({
+      type: "authoring.resolveSync",
+      id: job.id,
+      resolution: "draft",
+    }),
+  );
+  expect(app.snapshot().notes).toHaveLength(1);
+  expect(app.snapshot().notes[0]).toMatchObject({
+    id: noteId,
+    title: "新港",
+    body: "改名后的港口。",
+  });
+});
+
+it.each([
+  { references: [{ blockIndex: 0, noteId: "still-invented" }] },
+  { references: [{ blockIndex: 0, noteId: "unresolved" }] },
+  { references: [{ blockIndex: 1, noteId: null }] },
+  { references: [] },
+  { references: [{ blockIndex: 0, noteId: null, text: "被改写" }] },
+])(
+  "bounds invalid reference repair and retains the original draft: %j",
+  async (repair) => {
+    let calls = 0;
+    const { app, projectId } = setup((req) => {
+      calls++;
+      if (req.messages[0].content.includes("STAGE_SYNC_REFERENCES"))
+        return repair;
+      return {
+        message: "设定",
+        artifacts: [
+          {
+            stage: "settings",
+            blocks: [
+              {
+                kind: "note",
+                noteId: "loc_oldport",
+                noteType: "location",
+                title: "旧港",
+                text: "不能丢掉的地点原文。",
+              },
+            ],
+          },
+        ],
+      };
+    });
+    const turn = await send(app, projectId);
+    expect(turn.status).toBe("failed");
+    expect(turn.response).toBeUndefined();
+    expect(turn.rawResponse).toContain("loc_oldport");
+    expect(calls).toBe(2);
+    expect(app.snapshot().notes).toHaveLength(0);
+    expect(
+      app.snapshot().projects[0].authoring!.documents.settings,
+    ).toMatchObject({
+      content: "## 旧港\n不能丢掉的地点原文。",
+      approved: false,
+      sync: { status: "failed" },
+    });
+    expect(app.snapshot().syncJobs[0]).toMatchObject({
+      status: "failed",
+      calls: 1,
+      usage: { totalTokens: 30 },
+    });
+  },
+);
+
+it.each(["foreign", "wrong-type"])(
+  "rejects %s references before attempting recovery of another unknown reference",
+  async (mode) => {
+    let noteId = "",
+      calls = 0;
+    const { app, projectId } = setup(() => {
+      calls++;
+      return {
+        message: "设定",
+        artifacts: [
+          {
+            stage: "settings",
+            blocks: [
+              {
+                kind: "note",
+                noteId: "invented",
+                noteType: "location",
+                title: "旧港",
+                text: "未知编号",
+              },
+              {
+                kind: "note",
+                noteId,
+                noteType: "location",
+                title: "港口",
+                text: "不能覆盖",
+              },
+            ],
+          },
+        ],
+      };
+    });
+    const targetProject =
+      mode === "foreign"
+        ? id(app.domain.execute({ type: "project.create", title: "其他作品" }))
+        : projectId;
+    noteId = id(
+      app.domain.execute({
+        type: "note.save",
+        projectId: targetProject,
+        noteType: mode === "foreign" ? "location" : "character",
+        title: "原资料",
+        body: "必须保持",
+        sources: [],
+      }),
+    );
+    const turn = await send(app, projectId);
+    expect(turn.status).toBe("failed");
+    expect(calls).toBe(1);
+    expect(app.snapshot().notes).toHaveLength(1);
+    expect(app.snapshot().notes[0].body).toBe("必须保持");
+  },
+);
+
+it("rejects two repaired blocks mapped to the same existing record", async () => {
+  let noteId = "";
+  const { app, projectId } = setup((req) => {
+    if (req.messages[0].content.includes("STAGE_SYNC_REFERENCES"))
+      return {
+        references: [
+          { blockIndex: 0, noteId },
+          { blockIndex: 1, noteId },
+        ],
+      };
+    return {
+      message: "设定",
+      artifacts: [
+        {
+          stage: "settings",
+          blocks: [
+            {
+              kind: "note",
+              noteId: "invented-1",
+              noteType: "location",
+              title: "港口一",
+              text: "第一份",
+            },
+            {
+              kind: "note",
+              noteId: "invented-2",
+              noteType: "location",
+              title: "港口二",
+              text: "第二份",
+            },
+          ],
+        },
+      ],
+    };
+  });
+  noteId = id(
+    app.domain.execute({
+      type: "note.save",
+      projectId,
+      noteType: "location",
+      title: "港口",
+      body: "原设定",
+      sources: [],
+    }),
+  );
+  expect((await send(app, projectId)).status).toBe("failed");
+  expect(app.snapshot().notes).toHaveLength(1);
+  expect(app.snapshot().notes[0].body).toBe("原设定");
+});
+
+it.each(["cancel", "edit"])(
+  "does not apply a late reference repair after %s",
+  async (action) => {
+    let release!: () => void;
+    const { app, projectId } = setup(async (req) => {
+      if (req.messages[0].content.includes("STAGE_SYNC_REFERENCES")) {
+        await new Promise<void>((resolve) => {
+          release = resolve;
+        });
+        return { references: [{ blockIndex: 0, noteId: null }] };
+      }
+      return {
+        message: "设定",
+        artifacts: [
+          {
+            stage: "settings",
+            blocks: [
+              {
+                kind: "note",
+                noteId: "loc_oldport",
+                noteType: "location",
+                title: "旧港",
+                text: "等待修复的原文",
+              },
+            ],
+          },
+        ],
+      };
+    });
+    const turnId = id(
+      await app.dispatch({
+        type: "conversation.send",
+        projectId,
+        text: "生成设定",
+      }),
+    );
+    await expect.poll(() => !!release).toBe(true);
+    const jobId = app.snapshot().syncJobs[0].id;
+    if (action === "cancel")
+      id(await app.dispatch({ type: "authoring.cancelSync", id: jobId }));
+    else
+      id(
+        await app.dispatch({
+          type: "authoring.save",
+          id: projectId,
+          revision: app.snapshot().projects[0].revision,
+          stage: "settings",
+          content: "作者刚刚写的新草稿",
+        }),
+      );
+    release();
+    await expect
+      .poll(
+        () => app.snapshot().conversations.find((t) => t.id === turnId)!.status,
+      )
+      .not.toBe("running");
+    expect(app.snapshot().notes).toHaveLength(0);
+    const doc = app.snapshot().projects[0].authoring!.documents.settings!;
+    expect(doc.content).toBe(
+      action === "edit" ? "作者刚刚写的新草稿" : "## 旧港\n等待修复的原文",
+    );
+    expect(doc.sync!.status).not.toBe("synced");
+    expect(app.snapshot().syncJobs[0].status).toBe("cancelled");
+  },
+);
+
+it("keeps oversized repaired output in job history without persisting an invalid stage document", async () => {
+  const body = "甲".repeat(29999);
+  const { app, projectId } = setup((req) => {
+    if (req.messages[0].content.includes("STAGE_SYNC_REFERENCES"))
+      return { references: [{ blockIndex: 0, noteId: null }] };
+    return {
+      message: "设定",
+      artifacts: [
+        {
+          stage: "settings",
+          blocks: [
+            {
+              kind: "note",
+              noteId: "invented",
+              noteType: "location",
+              title: "旧港",
+              text: body,
+            },
+          ],
+        },
+      ],
+    };
+  });
+  expect((await send(app, projectId)).status).toBe("failed");
+  expect(app.snapshot().notes).toHaveLength(0);
+  expect(
+    app.snapshot().projects[0].authoring?.documents.settings,
+  ).toBeUndefined();
+  expect(app.snapshot().syncJobs[0].sourceContent).toBe(`## 旧港\n${body}`);
+});
+
 it("commits structured settings and auxiliary records as one canonical version, including supplements", async () => {
   const { app, projectId } = setup(() => settings);
   expect((await send(app, projectId)).status).toBe("completed");

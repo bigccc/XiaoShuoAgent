@@ -1,0 +1,118 @@
+{
+  "run": "20261016-targeted",
+  "isolated": true,
+  "productionModified": false,
+  "responses": [
+    {
+      "number": 1,
+      "phase": "连续写作·定点修正",
+      "characters": 210,
+      "shape": {
+        "keys": [
+          "edits",
+          "majorChange",
+          "reason"
+        ],
+        "majorChange": false
+      },
+      "usage": {
+        "prompt_tokens": 23529,
+        "completion_tokens": 121,
+        "total_tokens": 23650,
+        "prompt_tokens_details": {
+          "cached_tokens": 0
+        },
+        "prompt_cache_hit_tokens": 0,
+        "prompt_cache_miss_tokens": 23529
+      }
+    },
+    {
+      "number": 2,
+      "phase": "连续写作·检查",
+      "characters": 727,
+      "shape": {
+        "keys": [
+          "issues",
+          "majorChange",
+          "reason"
+        ],
+        "issues": [
+          {
+            "category": "character",
+            "impact": "blocking",
+            "evidence": 2
+          }
+        ],
+        "majorChange": false
+      },
+      "usage": {
+        "prompt_tokens": 18041,
+        "completion_tokens": 302,
+        "total_tokens": 18343,
+        "prompt_tokens_details": {
+          "cached_tokens": 13568
+        },
+        "prompt_cache_hit_tokens": 13568,
+        "prompt_cache_miss_tokens": 4473
+      }
+    }
+  ],
+  "startCalls": 28,
+  "startBudgetUsed": 427190,
+  "result": {
+    "status": "awaiting-author",
+    "phase": "checking",
+    "calls": 30,
+    "usage": {
+      "inputTokens": 411339,
+      "outputTokens": 57844,
+      "totalTokens": 469183,
+      "estimated": false
+    },
+    "budgetUsed": 469183,
+    "chapters": [
+      {
+        "ordinal": 2,
+        "status": "checked",
+        "revisionRounds": 0,
+        "words": 2505
+      },
+      {
+        "ordinal": 3,
+        "status": "checked",
+        "revisionRounds": 1,
+        "words": 3037
+      },
+      {
+        "ordinal": 4,
+        "status": "needs-review",
+        "revisionRounds": 2,
+        "words": 3704
+      },
+      {
+        "ordinal": 5,
+        "status": "written",
+        "revisionRounds": 2,
+        "words": 4207
+      }
+    ],
+    "issues": [
+      {
+        "category": "length",
+        "impact": "local"
+      },
+      {
+        "category": "character",
+        "impact": "blocking"
+      },
+      {
+        "category": "length",
+        "impact": "local"
+      }
+    ],
+    "warningCount": 8
+  },
+  "workflowCompleted": false,
+  "liveCalls": 2,
+  "replayedResponses": 0
+}
