@@ -19,13 +19,17 @@ import type {
   CommandResult,
 } from "../src/shared/types";
 
+const directories: string[] = [];
 let store: Store;
 let domain: DomainService;
 beforeEach(() => {
   store = new Store(":memory:");
   domain = new DomainService(store);
 });
-afterEach(() => store.close());
+afterEach(() => {
+  store.close();
+  for (const dir of directories.splice(0)) rmSync(dir, { recursive: true, force: true });
+});
 function success(result: CommandResult) {
   expect(result.ok).toBe(true);
   if (!result.ok) throw new Error(result.error.message);
@@ -430,42 +434,39 @@ it("requires actual chapter boundaries and rejects missing volume and annotation
 
 it("persists reading position across database reopen and clamps to prose length", () => {
   const dir = mkdtempSync(join(tmpdir(), "novel-reader-"));
+  directories.push(dir);
   store.close();
   store = new Store(join(dir, "reader.sqlite"));
   domain = new DomainService(store);
-  try {
-    const projectId = project(),
-      c = chapter(projectId, "五个中文字"),
-      read = service();
-    success(
-      read.dispatch({
-        type: "reading.position",
-        projectId,
-        chapterId: c.id,
-        offset: 999,
-        mode: "review",
-      }),
-    );
-    store.close();
-    store = new Store(join(dir, "reader.sqlite"));
-    expect(workspace(projectId)!.position).toEqual({
+  const projectId = project(),
+    c = chapter(projectId, "五个中文字"),
+    read = service();
+  success(
+    read.dispatch({
+      type: "reading.position",
+      projectId,
       chapterId: c.id,
-      offset: 5,
+      offset: 999,
       mode: "review",
-    });
-    success(
-      new ReadingService(store, new DomainService(store)).dispatch({
-        type: "reading.position",
-        projectId,
-        chapterId: c.id,
-        offset: -20,
-        mode: "reading",
-      }),
-    );
-    expect(workspace(projectId)!.position!.offset).toBe(0);
-  } finally {
-    rmSync(dir, { recursive: true, force: true });
-  }
+    }),
+  );
+  store.close();
+  store = new Store(join(dir, "reader.sqlite"));
+  expect(workspace(projectId)!.position).toEqual({
+    chapterId: c.id,
+    offset: 5,
+    mode: "review",
+  });
+  success(
+    new ReadingService(store, new DomainService(store)).dispatch({
+      type: "reading.position",
+      projectId,
+      chapterId: c.id,
+      offset: -20,
+      mode: "reading",
+    }),
+  );
+  expect(workspace(projectId)!.position!.offset).toBe(0);
 });
 
 it("validates all runtime command fields and leaves storage unchanged", () => {

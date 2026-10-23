@@ -2,7 +2,7 @@
   "name": "xiaoshuo-agent",
   "version": "0.3.2",
   "private": true,
-  "description": "小说工坊：本机保存作品、支持长篇阅读与 AI 连续创作的 macOS 桌面应用",
+  "description": "小说工坊：本机保存作品、支持长篇阅读与 AI 连续创作的桌面应用",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -33,13 +33,17 @@
     "make:arm64": "npm run make -- --arch=arm64",
     "make:x64": "npm run make -- --arch=x64",
     "audit:contrast": "node scripts/audit-contrast.mjs",
-    "check": "npm run typecheck && npm test && npm run audit:contrast && npm run build"
+    "check": "npm run typecheck && npm test && npm run audit:contrast && npm run build",
+    "make:win": "npm run make -- --platform=win32 --arch=x64",
+    "make:win:zip": "npm run make -- --platform=win32 --arch=x64 --targets=@electron-forge/maker-zip"
   },
   "devDependencies": {
     "@electron-forge/cli": "8.0.0",
     "@electron-forge/maker-base": "8.0.0",
+    "@electron-forge/maker-squirrel": "8.0.0",
     "@electron-forge/maker-zip": "8.0.0",
     "@playwright/test": "1.58.2",
+    "@types/electron-squirrel-startup": "1.0.2",
     "@types/node": "22.19.15",
     "@types/react": "19.2.14",
     "@types/react-dom": "19.2.3",
@@ -52,6 +56,7 @@
   "dependencies": {
     "@langchain/core": "1.2.17",
     "@langchain/langgraph": "1.4.21",
+    "electron-squirrel-startup": "1.0.1",
     "fast-xml-parser": "5.11.2",
     "fflate": "0.8.3",
     "react": "19.2.4",

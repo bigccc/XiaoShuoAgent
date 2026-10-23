@@ -1,6 +1,6 @@
 # 下载与安装小说工坊
 
-当前版本为 **v0.3.2 预览版**（2026-10-24），支持 macOS 13.0 及以上。应用包含所需运行环境，不需要安装 Node.js、Python 或数据库。
+当前版本为 **v0.3.2 预览版**（2026-10-24），提供 macOS 13.0 及以上版本，以及 Windows x64 预览构建。应用包含所需运行环境，不需要安装 Node.js、Python 或数据库。
 
 ## 选择下载包
 
@@ -24,6 +24,12 @@
 若显示文件损坏，请重新下载并核对 SHA-256；仍有问题时，在 [Issues](https://github.com/bigccc/XiaoShuoAgent/issues) 附上 macOS 版本、芯片类型、包名和提示截图。
 
 可以使用 `shasum -a 256 下载文件路径` 计算下载包的 SHA-256，与发布页 `SHA256SUMS.txt` 中同名文件那一行对照。
+
+## Windows x64
+
+下载 [EXE 安装包](https://github.com/bigccc/XiaoShuoAgent/releases/download/v0.3.2/XiaoShuoAgent-0.3.2-win32-x64-Setup.exe)，或完整解压 [免安装 ZIP](https://github.com/bigccc/XiaoShuoAgent/releases/download/v0.3.2/XiaoShuoAgent-win32-x64-0.3.2.zip) 后运行 `XiaoShuoAgent.exe`。Windows 下载使用 [SHA256SUMS-windows.txt](https://github.com/bigccc/XiaoShuoAgent/releases/download/v0.3.2/SHA256SUMS-windows.txt) 校验。
+
+当前 Windows 包未签名；仅在 Windows 11 ARM 的 x64 兼容环境完成验收，原生 Intel/AMD Windows 电脑尚未验收。卸载会移除快捷方式和注册项，但有程序文件残留；详细限制与清理范围见 [Windows 说明](windows.md)。
 
 ## 开始使用
 

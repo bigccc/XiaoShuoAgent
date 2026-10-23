@@ -6,7 +6,7 @@ import { detectWritingGoal, hasUnresolvedWritingGoal, validateWritingJob, type W
 import { DatabaseSync } from "node:sqlite";
 import { mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { createHash } from "node:crypto";
 
 const stores: Store[] = [];
@@ -126,9 +126,9 @@ it("migrates a v4 database after making a readable backup", () => {
   stores.push(store);
   expect(store.snapshot().projects[0].title).toBe("旧书保留");
   expect(store.snapshot().writingJobs).toEqual([]);
-  const backup = readdirSync(path.slice(0, path.lastIndexOf("/"))).find(name => name.includes("before-v5"));
+  const backup = readdirSync(dirname(path)).find(name => name.includes("before-v5"));
   expect(backup).toBeTruthy();
-  const saved = new DatabaseSync(join(path.slice(0, path.lastIndexOf("/")), backup!), { readOnly: true });
+  const saved = new DatabaseSync(join(dirname(path), backup!), { readOnly: true });
   expect(saved.prepare("PRAGMA user_version").get()?.user_version).toBe(4);
   saved.close();
 });

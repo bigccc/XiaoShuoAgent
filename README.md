@@ -12,6 +12,8 @@
 
 当前预览版没有 Developer ID 签名或 Apple 公证，首次打开可能需要在系统设置中确认。Intel 包在 Apple Silicon 的 Rosetta 环境验证，原生 Intel 设备尚未验收；详见 [验证记录](docs/verification.md)。
 
+Windows x64：[EXE 安装包](https://github.com/bigccc/XiaoShuoAgent/releases/download/v0.3.2/XiaoShuoAgent-0.3.2-win32-x64-Setup.exe) · [免安装 ZIP](https://github.com/bigccc/XiaoShuoAgent/releases/download/v0.3.2/XiaoShuoAgent-win32-x64-0.3.2.zip) · [Windows 校验文件](https://github.com/bigccc/XiaoShuoAgent/releases/download/v0.3.2/SHA256SUMS-windows.txt)。未签名，已在 Windows 11 ARM 的 x64 兼容模式验证，原生 Intel/AMD 设备尚未验收。卸载残留等限制见 [Windows 说明](docs/windows.md)。
+
 1. 在书架新建作品，书名可留空。作品内只显示「创作、看稿、故事资料」三项主菜单，设置位于底部，导出和待处理位于作品顶部。
 2. 在「设置 → AI 连接」选择服务商、粘贴密钥。DeepSeek 预设自动填写地址与创作模型；预设依据 [官方首次调用文档](https://api-docs.deepseek.com/zh-cn/)（2026-10-13 核对）。其他服务在高级设置中填写。原有连接继续保留，密钥留空保留已有保护；保存不调用模型，测试连接会产生少量实际用量。
 3. 新书可选「我有一个想法」或「帮我找个灵感」。作者看到「定故事 → 做准备 → 开始写」三步。确认故事方向后，助手集中准备必要设定与大纲，作者查看后整体确认；仍可随时「先写一段看看」。空白、待同步或失效的成果不会自动确认。底层四份阶段成果及历史仍可在「查看具体成果」中单独编辑。
@@ -104,9 +106,11 @@ npm run typecheck
 npm test            # 真实 SQLite / loopback HTTP 服务层测试
 npm run e2e         # 构建并运行真实 Electron 控件工作流
 npm run benchmark:scenes # 历史写作器与场景响应的固定协议对照（需完整Git历史）
-npm run package     # 当前架构 .app
+npm run package     # 当前平台、架构的应用目录
 npm run make:arm64   # Forge .app + ZIP + DMG
 npm run make:x64
+npm run make:win     # 在 Windows 上生成 x64 安装 EXE + ZIP
+npm run make:win:zip # 仅生成 Windows x64 ZIP（也可从 macOS 交叉打包）
 ```
 
 开发主进程和界面职责分离；只经 `window.novel.invoke(command)` 与 `snapshot()` 调用受控 AppServices。主进程验证发送者主框架及 URL，禁用 Node 集成、启用隔离与沙箱；无任意路径或凭据读取接口。SQLite 使用 Electron 内置 `node:sqlite`，不需要原生数据库重建。

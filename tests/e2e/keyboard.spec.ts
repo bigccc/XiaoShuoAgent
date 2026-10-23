@@ -17,13 +17,26 @@ async function connection() {
   await page.getByRole("button",{name:"添加 AI 连接",exact:true}).first().click();
   await page.getByLabel("API 密钥").fill("fixture-key");
 }
-test("Cmd S saves a manual form in place and Cmd navigation protects unsaved edits",async()=>{
-  await connection(); await page.keyboard.press("Meta+s");
+test("Windows Ctrl save and navigation retain unsaved edit protection", async () => {
+  await page.evaluate(() => Object.defineProperty(navigator, "platform", { value: "Win32", configurable: true }));
+  await connection();
+  await page.keyboard.press("Control+s");
+  await expect.poll(async () => (await page.evaluate(() => window.novel.snapshot())).profiles.length).toBe(1);
+  await page.getByText("高级设置", { exact: true }).click();
+  await page.getByLabel("配置名称").fill("Windows 未保存连接");
+  await page.keyboard.press("Control+1");
+  const dialog = page.getByRole("dialog", { name: "尚有未保存的修改" });
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole("button", { name: "返回编辑", exact: true }).click();
+  await expect(page.getByLabel("配置名称")).toHaveValue("Windows 未保存连接");
+});
+test("primary shortcut saves a manual form in place and primary navigation protects unsaved edits",async()=>{
+  await connection(); await page.keyboard.press("ControlOrMeta+s");
   await expect.poll(async()=> (await page.evaluate(()=>window.novel.snapshot())).profiles.length).toBe(1);
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await page.getByText("高级设置",{exact:true}).click();
   await page.getByLabel("配置名称").fill("未保存连接");
-  await page.keyboard.press("Meta+1");
+  await page.keyboard.press("ControlOrMeta+1");
   const dialog=page.getByRole("dialog",{name:"尚有未保存的修改"});
   await expect(dialog).toBeVisible();
   await expect(dialog).toHaveJSProperty("tagName","DIALOG");
@@ -31,11 +44,11 @@ test("Cmd S saves a manual form in place and Cmd navigation protects unsaved edi
   await expect(dialog.getByRole("button",{name:"保存后离开",exact:true})).toBeFocused();
   await page.keyboard.press("Shift+Tab"); await expect(dialog.getByRole("button",{name:"放弃修改并离开",exact:true})).toBeFocused();
   await page.keyboard.press("Tab"); await expect(dialog.getByRole("button",{name:"保存后离开",exact:true})).toBeFocused();
-  await page.keyboard.press("Meta+5"); await expect(dialog).toBeVisible();
+  await page.keyboard.press("ControlOrMeta+5"); await expect(dialog).toBeVisible();
   await page.keyboard.press("Escape"); await expect(dialog).toHaveCount(0);
   await expect(page.getByLabel("配置名称")).toHaveValue("未保存连接");
   await expect(page.getByLabel("配置名称")).toBeFocused();
-  await page.keyboard.press("Meta+1"); await expect(dialog).toBeVisible();
+  await page.keyboard.press("ControlOrMeta+1"); await expect(dialog).toBeVisible();
   await dialog.getByRole("button",{name:"放弃修改并离开",exact:true}).click();
   await expect(page.getByRole("button",{name:"新建作品",exact:true})).toBeVisible();
 });
@@ -47,11 +60,11 @@ test("diagnostics uses native focus containment and restores the trigger on Esca
   await page.keyboard.press("Escape"); await expect(dialog).toHaveCount(0); await expect(trigger).toBeFocused();
 });
 test("global shortcuts ignore composition, repeat and unavailable project destinations",async()=>{
-  await page.keyboard.press("Meta+2"); await expect(page.getByRole("button",{name:"新建作品",exact:true})).toBeVisible();
-  await page.evaluate(()=>{ window.dispatchEvent(new KeyboardEvent("keydown",{key:"5",metaKey:true,repeat:true,bubbles:true})); window.dispatchEvent(new CompositionEvent("compositionstart",{bubbles:true})); window.dispatchEvent(new KeyboardEvent("keydown",{key:"5",metaKey:true,bubbles:true})); });
+  await page.keyboard.press("ControlOrMeta+2"); await expect(page.getByRole("button",{name:"新建作品",exact:true})).toBeVisible();
+  await page.evaluate((mac)=>{ window.dispatchEvent(new KeyboardEvent("keydown",{key:"5",metaKey:mac,ctrlKey:!mac,repeat:true,bubbles:true})); window.dispatchEvent(new CompositionEvent("compositionstart",{bubbles:true})); window.dispatchEvent(new KeyboardEvent("keydown",{key:"5",metaKey:mac,ctrlKey:!mac,bubbles:true})); }, process.platform === "darwin");
   await expect(page.getByRole("button",{name:"新建作品",exact:true})).toBeVisible();
   await page.evaluate(()=>window.dispatchEvent(new CompositionEvent("compositionend",{bubbles:true})));
-  await page.keyboard.press("Meta+5"); await expect(page.getByRole("heading",{name:"AI 连接",exact:true})).toBeVisible();
+  await page.keyboard.press("ControlOrMeta+5"); await expect(page.getByRole("heading",{name:"AI 连接",exact:true})).toBeVisible();
 });
 test("save failure preserves manual text and busy leave dialog rejects Escape and repeated actions", async () => {
   await connection();
@@ -62,34 +75,34 @@ test("save failure preserves manual text and busy leave dialog rejects Escape an
       return {ok:false,error:{code:"IO",message:"回归：磁盘写入失败"}};
     });
   });
-  await page.keyboard.press("Meta+s");
+  await page.keyboard.press("ControlOrMeta+s");
   await expect(page.getByRole("alert")).toBeVisible();
   await expect(page.getByLabel("API 密钥")).toHaveValue("fixture-key");
   await expect(page.getByRole("dialog")).toHaveCount(0);
-  await page.keyboard.press("Meta+1");
+  await page.keyboard.press("ControlOrMeta+1");
   const dialog=page.getByRole("dialog",{name:"尚有未保存的修改"});
   await dialog.getByRole("button",{name:"保存后离开",exact:true}).click();
   await expect(dialog.getByRole("button",{name:"返回编辑",exact:true})).toBeDisabled();
-  await page.keyboard.press("Escape"); await page.keyboard.press("Meta+1");
+  await page.keyboard.press("Escape"); await page.keyboard.press("ControlOrMeta+1");
   await expect(dialog).toBeVisible();
   await expect(dialog.getByRole("button",{name:"返回编辑",exact:true})).toBeEnabled();
   await dialog.getByRole("button",{name:"返回编辑",exact:true}).click();
   await expect(page.getByLabel("API 密钥")).toHaveValue("fixture-key");
 });
-test("Cmd S flushes automatic editors before protected navigation", async () => {
+test("primary shortcut flushes automatic editors before protected navigation", async () => {
   await page.getByRole("button",{name:"新建作品",exact:true}).click(); await page.getByRole("button",{name:"创建作品",exact:true}).click();
   await expect(page.getByLabel("创作消息")).toBeVisible();
-  await page.keyboard.press("Meta+4");
+  await page.keyboard.press("ControlOrMeta+4");
   await page.getByLabel("简介与背景",{exact:true}).fill("键盘自动保存正文");
-  await page.keyboard.press("Meta+s");
+  await page.keyboard.press("ControlOrMeta+s");
   await expect.poll(async()=> (await page.evaluate(()=>window.novel.snapshot())).projects[0].background).toBe("键盘自动保存正文");
-  await page.keyboard.press("Meta+3"); await expect(page.getByText("先在创作中写下第一章，再来看稿。")).toBeVisible();
-  await page.keyboard.press("Meta+2"); await expect(page.getByLabel("创作消息")).toBeVisible();
+  await page.keyboard.press("ControlOrMeta+3"); await expect(page.getByText("先在创作中写下第一章，再来看稿。")).toBeVisible();
+  await page.keyboard.press("ControlOrMeta+2"); await expect(page.getByLabel("创作消息")).toBeVisible();
 });
 test("manual shortcut runs native required-field validation before saving", async () => {
   await connection(); await page.getByText("高级设置",{exact:true}).click();
   await page.getByLabel("配置名称").fill(""); await page.getByLabel("API 密钥").focus();
-  await page.keyboard.press("Meta+s");
+  await page.keyboard.press("ControlOrMeta+s");
   await expect(page.getByLabel("配置名称")).toBeFocused();
   expect((await page.evaluate(()=>window.novel.snapshot())).profiles).toHaveLength(0);
   await expect(page.getByRole("dialog")).toHaveCount(0);
@@ -111,7 +124,7 @@ test("diagnostics Tab reaches recovery details before wrapping to close", async 
     await page.keyboard.press("Tab"); await expect(page.getByLabel("关闭诊断")).toBeFocused();
   } finally { await new Promise<void>(r=>{server.closeAllConnections();server.close(()=>r());}); }
 });
-test("ordinary manual submit and Cmd S share one busy save and lock editable fields", async () => {
+test("ordinary manual submit and primary shortcut share one busy save and lock editable fields", async () => {
   await connection();
   await app.evaluate(({ipcMain})=>{
     const fixture=globalThis as typeof globalThis & {keyboardCalls?:number}; fixture.keyboardCalls=0;
@@ -119,7 +132,7 @@ test("ordinary manual submit and Cmd S share one busy save and lock editable fie
   });
   await page.getByRole("button",{name:"保存连接",exact:true}).click();
   await expect(page.getByLabel("API 密钥")).toBeDisabled();
-  await page.keyboard.press("Meta+s");
+  await page.keyboard.press("ControlOrMeta+s");
   expect(await app.evaluate(()=> (globalThis as typeof globalThis & {keyboardCalls?:number}).keyboardCalls)).toBe(1);
   await expect(page.getByLabel("API 密钥")).toBeEnabled();
   await expect(page.getByLabel("API 密钥")).toHaveValue("fixture-key");

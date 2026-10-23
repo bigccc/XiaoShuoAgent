@@ -10,6 +10,10 @@ import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { AppServices } from "./services";
 import type { Command } from "../shared/types";
+import squirrelStartup from "electron-squirrel-startup";
+
+if (process.platform === "win32")
+  app.setAppUserModelId("com.squirrel.XiaoShuoAgent.XiaoShuoAgent");
 
 // Only the explicit test/development launch may move user data. Packaged ordinary launches use Electron userData.
 if (process.env.NOVEL_TEST === "1" && process.env.NOVEL_DATA_DIR)
@@ -34,6 +38,9 @@ function trusted(event: Electron.IpcMainInvokeEvent | Electron.IpcMainEvent) {
 app
   .whenReady()
   .then(() => {
+    // Squirrel creates/removes shortcuts and quits when finished. Maintenance
+    // launches must not open the database or enter the normal close/save flow.
+    if (squirrelStartup) return;
     // Keychain availability can block on macOS (including under Rosetta). Never
     // initialize it while opening offline works; only touch it on credential use.
     const requireProtectedStorage = () => {
@@ -146,7 +153,7 @@ app
       minHeight: 680,
       title: "小说工坊",
       backgroundColor: "#f6f3ec",
-      titleBarStyle: "hiddenInset",
+      titleBarStyle: process.platform === "darwin" ? "hiddenInset" : "default",
       webPreferences: {
         preload: join(import.meta.dirname, "../preload/index.cjs"),
         contextIsolation: true,
@@ -204,6 +211,7 @@ app
     app.quit();
   });
 app.on("before-quit", (event) => {
+  if (squirrelStartup) return;
   if (!quitting) {
     event.preventDefault();
     win?.close();

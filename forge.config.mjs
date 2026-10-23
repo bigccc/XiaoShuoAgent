@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { MakerZIP } from "@electron-forge/maker-zip";
+import { MakerSquirrel } from "@electron-forge/maker-squirrel";
 import { NativeDmgMaker } from "./scripts/native-dmg-maker.mjs";
 const appVersion = JSON.parse(readFileSync(new URL("./package.json", import.meta.url), "utf8")).version;
 const signingIdentity = process.env.MAC_SIGN_IDENTITY || "-";
@@ -10,6 +11,11 @@ export default {
     name: "XiaoShuoAgent",
     appBundleId: "cn.xiaoshuoagent.desktop",
     appVersion,
+    win32metadata: {
+      CompanyName: "XiaoShuoAgent contributors",
+      ProductName: "小说工坊",
+      FileDescription: "小说工坊",
+    },
     asar: true,
     appCategoryType: "public.app-category.productivity",
     ignore: [
@@ -53,5 +59,15 @@ export default {
         }
       : {}),
   },
-  makers: [new MakerZIP({}, ["darwin"]), new NativeDmgMaker({})],
+  makers: [
+    new MakerZIP({}, ["darwin", "win32"]),
+    new NativeDmgMaker({}),
+    new MakerSquirrel((arch) => ({
+      name: "XiaoShuoAgent",
+      authors: "XiaoShuoAgent contributors",
+      description: "小说工坊：本机保存作品、支持长篇阅读与 AI 连续创作的桌面应用",
+      setupExe: `XiaoShuoAgent-${appVersion}-win32-${arch}-Setup.exe`,
+      noMsi: true,
+    })),
+  ],
 };

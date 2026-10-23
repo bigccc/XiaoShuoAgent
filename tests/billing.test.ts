@@ -9,7 +9,7 @@ import { billable, costMicros } from '../src/shared/billing';
 import type { ModelPricing, TaskUsage } from '../src/shared/types';
 import type { ChatRequest } from '../src/main/provider';
 const cleanups: (()=>void)[]=[];
-afterEach(()=>{ for(const close of cleanups.splice(0))close(); });
+afterEach(()=>{ for(const close of cleanups.splice(0).reverse())close(); });
 const pricing: ModelPricing={ currency:'CNY', input:1.5, output:3, cachedInput:0.25 };
 const command={type:'model.test',profileId:'profile',billing:{budgetMicros:0}};
 const request:ChatRequest={baseUrl:'https://example.com',model:'model',messages:[{role:'system',content:'测试'}],maxTokens:10};

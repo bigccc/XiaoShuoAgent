@@ -96,7 +96,10 @@ function App() {
     let composing = false;
     const start = () => { composing = true; }, end = () => { composing = false; };
     const key = (event: KeyboardEvent) => {
-      if (!event.metaKey || event.ctrlKey || event.altKey || event.shiftKey || event.repeat || event.isComposing || composing || event.keyCode === 229 || document.querySelector("dialog[open], [aria-modal='true']")) return;
+      const primaryModifier = navigator.platform.startsWith("Mac")
+        ? event.metaKey && !event.ctrlKey
+        : event.ctrlKey && !event.metaKey;
+      if (!primaryModifier || event.altKey || event.shiftKey || event.repeat || event.isComposing || composing || event.keyCode === 229 || document.querySelector("dialog[open], [aria-modal='true']")) return;
       const key = event.key.toLowerCase();
       if (key === "s") {
         event.preventDefault();
@@ -249,7 +252,7 @@ function App() {
               设置
             </button>
             <div className="local-state">
-              <span title="⌘S 保存 · ⌘1 书架 · ⌘2 创作 · ⌘3 看稿 · ⌘4 故事资料 · ⌘5 设置">⌘S 保存 · ⌘1–5 导航</span><br />
+              <span title={`${navigator.platform.startsWith("Mac") ? "⌘" : "Ctrl+"}S 保存 · 1 书架 · 2 创作 · 3 看稿 · 4 故事资料 · 5 设置`}>{navigator.platform.startsWith("Mac") ? "⌘" : "Ctrl+"}S 保存 · {navigator.platform.startsWith("Mac") ? "⌘" : "Ctrl+"}1–5 导航</span><br />
               ● 本机保存
               <br />
               <small>
