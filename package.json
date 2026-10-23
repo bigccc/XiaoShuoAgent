@@ -1,6 +1,6 @@
 {
   "name": "xiaoshuo-agent",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "description": "小说工坊：本机保存作品、支持长篇阅读与 AI 连续创作的 macOS 桌面应用",
   "license": "MIT",

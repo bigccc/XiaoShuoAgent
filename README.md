@@ -6,7 +6,7 @@
 
 ## 使用与安装
 
-下载 [v0.2.0 预览版](https://github.com/bigccc/XiaoShuoAgent/releases/tag/v0.2.0)：[Apple Silicon DMG](https://github.com/bigccc/XiaoShuoAgent/releases/download/v0.2.0/XiaoShuoAgent-0.2.0-arm64.dmg) · [Intel DMG](https://github.com/bigccc/XiaoShuoAgent/releases/download/v0.2.0/XiaoShuoAgent-0.2.0-x64.dmg)。发布页另有 ZIP 与 SHA-256 校验文件，详见[首次安装指南](docs/installation.md)。
+下载 [v0.3.0 预览版](https://github.com/bigccc/XiaoShuoAgent/releases/tag/v0.3.0)：[Apple Silicon DMG](https://github.com/bigccc/XiaoShuoAgent/releases/download/v0.3.0/XiaoShuoAgent-0.3.0-arm64.dmg) · [Intel DMG](https://github.com/bigccc/XiaoShuoAgent/releases/download/v0.3.0/XiaoShuoAgent-0.3.0-x64.dmg)。发布页另有 ZIP 与 SHA-256 校验文件，详见[首次安装指南](docs/installation.md)。
 
 要求 macOS 13.0 或更新版本（依据 Electron 44.5.1 的应用 Info.plist）。Apple Silicon 使用 arm64 包，Intel 使用 x64 包。将 DMG 中的 `XiaoShuoAgent.app` 拖到 Applications，或解压 ZIP 后复制应用。使用者无需安装 Node、Python或数据库。
 
