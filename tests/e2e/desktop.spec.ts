@@ -50,7 +50,7 @@ test("segmented check shows incomplete coverage and resumes to the chapter endin
     await createWork("长篇检查覆盖");
     await page.evaluate(async (url) => {
       const projectId = (await window.novel.snapshot()).projects[0].id;
-      await window.novel.invoke({ type: "profile.save", name: "检查回归", baseUrl: url, model: "fixture", purpose: "checking" });
+      await window.novel.invoke({ type: "profile.save", pricing: { currency: "CNY", input: 0, output: 0 }, name: "检查回归", baseUrl: url, model: "fixture", purpose: "checking" });
       const created = await window.novel.invoke({ type: "chapter.create", projectId, ordinal: 1, title: "长章节" });
       if (!created.ok) throw Error(created.error.message);
       await window.novel.invoke({ type: "chapter.save", id: created.entityId, revision: 1, content: "甲".repeat(50000) + "最后一句必须检查" });
@@ -1082,7 +1082,7 @@ test("planning continuation preserves two interrupted fragments in actual task r
     await page.evaluate(
       async (url) =>
         window.novel.invoke({
-          type: "profile.save",
+          type: "profile.save", pricing: { currency: "CNY", input: 0, output: 0 },
           name: "无密钥规划回归",
           baseUrl: url,
           model: "fixture",
@@ -1123,7 +1123,7 @@ test("malformed valid-checksum task import is atomic and corrupt stored task rev
     await page.evaluate(
       async (url) =>
         window.novel.invoke({
-          type: "profile.save",
+          type: "profile.save", pricing: { currency: "CNY", input: 0, output: 0 },
           name: "无密钥任务校验",
           baseUrl: url,
           model: "fixture",

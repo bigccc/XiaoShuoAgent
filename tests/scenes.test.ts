@@ -1,5 +1,5 @@
 import {afterEach,expect,it} from "vitest";
-import {AppServices} from "../src/main/services";
+import {AppServices} from "./support/test-app";
 import {mkdtempSync,rmSync,readdirSync} from "node:fs";
 import {tmpdir} from "node:os";
 import {join} from "node:path";

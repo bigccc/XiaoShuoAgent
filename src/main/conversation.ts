@@ -559,7 +559,7 @@ export class ConversationRunner {
       this.update(turn.id, { contextWarnings: context.warnings, contextReferences: context.references });
       let preview: PreviewSession | undefined, attemptCount = 0;
       let response = await completeConversation(this.provider, {
-        baseUrl: profile.baseUrl,
+        billingProfileId: profile.id, baseUrl: profile.baseUrl,
         model: profile.model,
         key,
         messages: context.messages,

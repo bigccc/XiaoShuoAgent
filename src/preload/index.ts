@@ -3,6 +3,8 @@ import { contextBridge, ipcRenderer } from "electron";
 import type { Command } from "../shared/types";
 contextBridge.exposeInMainWorld("novel", {
   invoke: (command: Command) => ipcRenderer.invoke("novel:invoke", command),
+  billingQuote: (command:unknown) => ipcRenderer.invoke("novel:billing-quote", command),
+  billingSummary: (id:string) => ipcRenderer.invoke("novel:billing-summary", id),
   snapshot: () => ipcRenderer.invoke("novel:snapshot"),
   workspaceSnapshot: (projectId?: string, since?: number) => ipcRenderer.invoke("novel:workspace", projectId, since),
   chapter: (id: string) => ipcRenderer.invoke("novel:chapter", id),

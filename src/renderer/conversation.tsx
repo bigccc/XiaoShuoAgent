@@ -1,3 +1,4 @@
+import { CostSummary } from "./billing";
 import { GenerationPreviews } from "./generation-preview";
 import { Modal } from "./modal";
 import { ContextReferences } from "./context-references";
@@ -296,6 +297,7 @@ export function Conversation({
                 ))}
           </Modal>
         )}
+        {last && <CostSummary ownerId={last.id} />}
         <div
           className="conversation-log"
           ref={log}

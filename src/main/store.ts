@@ -50,6 +50,7 @@ const collections: Collection[] = [
 ];
 export class Store {
   private db: DatabaseSync;
+  billingDatabase() { return this.db; }
   private depth = 0;
   private generation = 0;
   private chapterGeneration = 0;

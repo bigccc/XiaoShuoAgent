@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { StageSyncService } from "../src/main/stage-sync";
-import { AppServices } from "../src/main/services";
+import { AppServices } from "./support/test-app";
 import { Store } from "../src/main/store";
 import { ProjectFiles } from "../src/main/files";
 import type { Command, CommandResult } from "../src/shared/types";
@@ -47,7 +47,7 @@ function setup(handler: (request: any) => any | Promise<any>, extra = {}) {
   );
   id(
     app.domain.execute({
-      type: "profile.save",
+      type: "profile.save", pricing: { currency: "CNY", input: 0, output: 0 },
       name: "同步模型",
       baseUrl: "http://127.0.0.1:1234/v1",
       model: "fixture",
@@ -660,7 +660,7 @@ it("archives removed managed notes, keeps independent notes and can restore stag
   ).toContain("遗物整理师");
 });
 
-it("merges rapid local saves into one five-second scheduled normalization of the latest revision", async () => {
+it("requires an explicit budget to normalize the latest of rapid local saves", async () => {
   let normalizations = 0;
   const { app, projectId } = setup(
     (req) => {
@@ -703,7 +703,11 @@ it("merges rapid local saves into one five-second scheduled normalization of the
       () =>
         app.snapshot().projects[0].authoring!.documents.settings!.sync!.status,
     )
-    .toBe("synced");
+    .toBe("failed");
+  expect(normalizations).toBe(0);
+  expect(app.snapshot().projects[0].authoring!.documents.settings!.sync!.error).toContain("金额预算");
+  const syncId = id(await app.dispatch({type: "authoring.sync", projectId, stage: "settings"}));
+  await expect.poll(() => app.snapshot().syncJobs.find(j => j.id === syncId)!.status).toBe("succeeded");
   expect(app.snapshot().projects[0].style).toBe("最新文风");
   expect(normalizations).toBe(1);
 });
@@ -954,7 +958,7 @@ it("refuses cross-project record references and preserves first-association manu
   ).toContain("作者的原人物设定");
 });
 
-it("waits the default five seconds and stores only the latest rapid edit", async () => {
+it("waits five seconds without issuing a paid background normalization, then accepts explicit authorization", async () => {
   let count = 0;
   const { app, projectId } = setup((req) => {
     if (req.messages[0].content.includes("STAGE_SYNC_NORMALIZE")) {
@@ -1002,11 +1006,15 @@ it("waits the default five seconds and stores only the latest rapid edit", async
     await vi.advanceTimersByTimeAsync(4999);
     expect(count).toBe(0);
     await vi.advanceTimersByTimeAsync(1);
-    expect(count).toBe(1);
-    expect(app.snapshot().projects[0].style).toBe("最新版");
+    expect(count).toBe(0);
+    expect(app.snapshot().projects[0].authoring!.documents.settings!.sync!.status).toBe("failed");
   } finally {
     vi.useRealTimers();
   }
+  const syncId = id(await app.dispatch({type: "authoring.sync", projectId, stage: "settings"}));
+  await expect.poll(() => app.snapshot().syncJobs.find(j => j.id === syncId)!.status).toBe("succeeded");
+  expect(count).toBe(1);
+  expect(app.snapshot().projects[0].style).toBe("最新版");
 });
 
 it("updates every synced view of a shared supplement and only unlinks it when another stage still refers to it", async () => {
@@ -1502,6 +1510,8 @@ it("renormalizes the latest draft instead of rebaselining an obsolete conflict p
   await expect
     .poll(() => app.snapshot().syncJobs.find((j) => j.id === next)!.status)
     .toBe("succeeded");
+  expect(app.billingSummary(next).budgetMicros).toBe(0);
+  expect(app.billingSummary(next)).toEqual(app.billingSummary(jobId));
   expect(
     app.snapshot().projects[0].authoring!.documents.settings!.content,
   ).toBe("作者最新草稿");

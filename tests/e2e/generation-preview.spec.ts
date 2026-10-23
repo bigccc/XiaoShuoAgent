@@ -30,7 +30,7 @@ async function setup(port: number) {
   await page.evaluate(async baseUrl => {
     const project = await window.novel.invoke({ type: "project.create", title: "流式预览验收", chapterWords: 100 });
     if (!project.ok) throw Error(project.error.message);
-    const profile = await window.novel.invoke({ type: "profile.save", name: "流式验收模型", baseUrl, model: "fixture", purpose: "writing" });
+    const profile = await window.novel.invoke({ type: "profile.save", pricing: { currency: "CNY", input: 0, output: 0 }, name: "流式验收模型", baseUrl, model: "fixture", purpose: "writing" });
     if (!profile.ok) throw Error(profile.error.message);
   }, `http://127.0.0.1:${port}/v1`);
   await page.getByRole("button", { name: "打开 流式预览验收" }).click();

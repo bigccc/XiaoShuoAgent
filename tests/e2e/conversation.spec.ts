@@ -51,7 +51,7 @@ test("conversation recovery shows progress, saves once and loads the original re
     await page.getByRole("button", { name: "新建作品", exact: true }).click();
     await page.getByRole("button", { name: "创建作品", exact: true }).click();
     await page.evaluate(async baseUrl => {
-      await window.novel.invoke({ type: "profile.save", name: "恢复验收", baseUrl, model: "fixture", purpose: "writing" });
+      await window.novel.invoke({ type: "profile.save", pricing: { currency: "CNY", input: 0, output: 0 }, name: "恢复验收", baseUrl, model: "fixture", purpose: "writing" });
     }, `http://127.0.0.1:${(server.address() as { port: number }).port}/v1`);
     await page.getByLabel("创作消息").fill("先试写一段雨夜书店的开篇");
     await page.getByRole("button", { name: "发送", exact: true }).click();
@@ -152,7 +152,7 @@ test("title-optional conversation creates, edits, continues and restores a manus
     await page.evaluate(
       async (baseUrl) => {
         await window.novel.invoke({
-          type: "profile.save",
+          type: "profile.save", pricing: { currency: "CNY", input: 0, output: 0 },
           name: "本地验收",
           baseUrl,
           model: "fixture",
@@ -334,7 +334,7 @@ test("rewrite approval, setting history and cancellation stay inside the convers
         });
         if (!n.ok) throw Error();
         await window.novel.invoke({
-          type: "profile.save",
+          type: "profile.save", pricing: { currency: "CNY", input: 0, output: 0 },
           name: "对话验收",
           baseUrl,
           model: "fixture",

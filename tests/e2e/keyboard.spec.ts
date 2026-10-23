@@ -99,7 +99,7 @@ test("diagnostics Tab reaches recovery details before wrapping to close", async 
   const server=createServer(async(req,res)=>{ for await(const _ of req) {} res.writeHead(401,{"Content-Type":"application/json"});res.end(JSON.stringify({error:{message:"fixture unauthorized"}})); });
   await new Promise<void>(r=>server.listen(0,"127.0.0.1",r));
   try {
-    await page.evaluate(async(baseUrl)=>{await window.novel.invoke({type:"profile.save",name:"键盘诊断",baseUrl,model:"fixture",purpose:"writing"});},`http://127.0.0.1:${(server.address() as {port:number}).port}/v1`);
+    await page.evaluate(async(baseUrl)=>{await window.novel.invoke({type:"profile.save", pricing: { currency: "CNY", input: 0, output: 0 },name:"键盘诊断",baseUrl,model:"fixture",purpose:"writing"});},`http://127.0.0.1:${(server.address() as {port:number}).port}/v1`);
     await page.getByRole("button",{name:"新建作品",exact:true}).click(); await page.getByRole("button",{name:"创建作品",exact:true}).click();
     await page.getByLabel("创作消息").fill("诊断焦点回归"); await page.getByRole("button",{name:"发送",exact:true}).click();
     await expect.poll(async()=> (await page.evaluate(()=>window.novel.snapshot())).conversations[0]?.status).toBe("failed");

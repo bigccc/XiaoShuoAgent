@@ -458,6 +458,7 @@ export class DomainService {
           baseUrl: c.baseUrl,
           model: c.model,
           purpose: c.purpose,
+          ...(c.pricing ? { pricing: structuredClone(c.pricing) } : old?.pricing ? { pricing: old.pricing } : {}),
           hasKey: old ? this.store.hasProfileKey(old.id) : false,
         };
         if (c.apiKey !== undefined) {

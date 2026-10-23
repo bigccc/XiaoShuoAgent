@@ -21,7 +21,7 @@ test("authors can inspect actual remote evidence, see changed sources and reopen
   try {
     const seed=await page.evaluate(async(baseUrl)=>{
       const p=await window.novel.invoke({type:"project.create",title:"远章召回验收"}); if(!p.ok)throw Error(p.error.message);
-      await window.novel.invoke({type:"profile.save",name:"fixture",model:"fixture",purpose:"writing",baseUrl});
+      await window.novel.invoke({type:"profile.save", pricing: { currency: "CNY", input: 0, output: 0 },name:"fixture",model:"fixture",purpose:"writing",baseUrl});
       let oldId="";
       for(const ordinal of [8,117,118,119,120]) {
         const c=await window.novel.invoke({type:"chapter.create",projectId:p.entityId,ordinal,title:`验收${ordinal}`}); if(!c.ok)throw Error(c.error.message);

@@ -4,6 +4,7 @@ import type {
   DomainCommand,
   ErrorCode,
   JsonValue,
+  ModelPricing,
   SourceRevision,
 } from "./types";
 export class DomainError extends Error {
@@ -16,6 +17,16 @@ export class DomainError extends Error {
 }
 export function invalid(message = "输入格式不正确，请检查填写内容"): never {
   throw new DomainError("VALIDATION", message);
+}
+export function validateModelPricing(x: unknown): asserts x is ModelPricing {
+  object(x);
+  if (Object.keys(x).some((key) => !["currency", "input", "output", "cachedInput"].includes(key)) || x.currency !== "CNY")
+    invalid("模型价格必须以人民币填写");
+  for (const key of ["input", "output", ...(x.cachedInput !== undefined ? ["cachedInput"] : [])]) {
+    const price = x[key];
+    if (typeof price !== "number" || !Number.isFinite(price) || price < 0 || price > 1000000)
+      invalid("模型单价必须为 0 至 1000000 之间的金额；免费模型请明确填写 0");
+  }
 }
 function object(x: unknown): asserts x is Record<string, unknown> {
   if (!x || typeof x !== "object" || Array.isArray(x)) invalid();
@@ -118,6 +129,7 @@ export function validateCommand(x: unknown): asserts x is DomainCommand {
       "model",
       "purpose",
       "apiKey",
+      "pricing",
     ],
     "profile.delete": ["id", "revision"],
     "issue.resolve": ["id", "revision", "status"],
@@ -233,6 +245,7 @@ export function validateCommand(x: unknown): asserts x is DomainCommand {
       text(c.projectId, true);
       break;
     case "profile.save":
+      if (c.pricing !== undefined) validateModelPricing(c.pricing);
       text(c.name, true);
       text(c.model, true);
       text(c.baseUrl, true);
@@ -503,7 +516,8 @@ function validateTaskPayload(task: Record<string, any>): void {
   }
   for (const field of ["profile", "checkingProfile"]) {
     const profile = taskObject(request[field]);
-    taskFields(profile, ["id", "name", "baseUrl", "model", "purpose"]);
+    taskFields(profile, ["id", "name", "baseUrl", "model", "purpose", "pricing"]);
+    if (profile.pricing !== undefined) validateModelPricing(profile.pricing);
     for (const key of ["id", "name", "baseUrl", "model"])
       text(profile[key], true);
     if (!["planning", "writing", "checking"].includes(profile.purpose))

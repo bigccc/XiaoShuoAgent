@@ -353,7 +353,7 @@ test("reading selection reaches Agent unchanged, multi-chapter drafts need adopt
     await page.evaluate(
       async (baseUrl) => {
         await window.novel.invoke({
-          type: "profile.save",
+          type: "profile.save", pricing: { currency: "CNY", input: 0, output: 0 },
           name: "本机改稿验收",
           purpose: "writing",
           baseUrl,
@@ -523,7 +523,7 @@ test("revision budget pause, author clarification and cancellation retain checke
     await page.evaluate(
       async (baseUrl) => {
         const profile = await window.novel.invoke({
-          type: "profile.save",
+          type: "profile.save", pricing: { currency: "CNY", input: 0, output: 0 },
           name: "澄清测试",
           baseUrl,
           model: "fixture",
@@ -551,7 +551,7 @@ test("revision budget pause, author clarification and cancellation retain checke
           });
         }
         const job = await window.novel.invoke({
-          type: "revision.start",
+          type: "revision.start", billing: { budgetMicros: 0 },
           projectId: p.entityId,
           scope: "all",
           profileId: profile.entityId,

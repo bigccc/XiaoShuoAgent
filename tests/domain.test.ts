@@ -198,7 +198,7 @@ describe("author-controlled durable domain", () => {
   });
   it("masks encrypted credentials in snapshots and preserves key on profile edit", () => {
     const r = domain.execute({
-      type: "profile.save",
+      type: "profile.save", pricing: { currency: "CNY", input: 0, output: 0 },
       name: "个人模型",
       baseUrl: "https://example.com/v1",
       model: "model",
@@ -210,7 +210,7 @@ describe("author-controlled durable domain", () => {
     expect(profile.hasKey).toBe(true);
     expect(
       domain.execute({
-        type: "profile.save",
+        type: "profile.save", pricing: { currency: "CNY", input: 0, output: 0 },
         id: profile.id,
         revision: 1,
         name: "改名",
@@ -297,7 +297,7 @@ it("does not invalidate an outline immediately after the author saves it", () =>
 });
 it("rejects an update revision without an object ID rather than creating a duplicate", () => {
   const r = domain.execute({
-    type: "profile.save",
+    type: "profile.save", pricing: { currency: "CNY", input: 0, output: 0 },
     revision: 1,
     name: "模型",
     baseUrl: "https://example.com",
@@ -398,7 +398,7 @@ it("keeps linked material provenance on edits and guards both material/profile d
     domain.execute({ type: "material.delete", id: m.entityId, revision: 4 }).ok,
   ).toBe(true);
   const profile = domain.execute({
-    type: "profile.save",
+    type: "profile.save", pricing: { currency: "CNY", input: 0, output: 0 },
     name: "模型",
     baseUrl: "https://example.com",
     model: "m",

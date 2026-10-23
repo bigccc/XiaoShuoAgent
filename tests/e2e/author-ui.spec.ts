@@ -79,7 +79,7 @@ test("a new author confirms direction and preparation, then gets a saved first c
   });
   await new Promise<void>(r => server.listen(0, "127.0.0.1", r));
   try {
-    await page.evaluate(async baseUrl => { await window.novel.invoke({ type: "profile.save", name: "创作连接", baseUrl, model: "fixture", purpose: "writing" }); }, `http://127.0.0.1:${(server.address() as { port: number }).port}/v1`);
+    await page.evaluate(async baseUrl => { await window.novel.invoke({ type: "profile.save", pricing: { currency: "CNY", input: 0, output: 0 }, name: "创作连接", baseUrl, model: "fixture", purpose: "writing" }); }, `http://127.0.0.1:${(server.address() as { port: number }).port}/v1`);
     await page.getByRole("button", { name: "新建作品", exact: true }).click();
     await page.getByRole("button", { name: "创建作品", exact: true }).click();
     await page.getByLabel("创作消息").fill("我想写少女寻找猫的故事");

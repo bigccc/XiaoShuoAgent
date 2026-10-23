@@ -1,3 +1,4 @@
+import { BillingService } from "./billing";
 import { GenerationPreviewService } from "./generation-preview";
 import type { GenerationDelta } from "../shared/generation-preview";
 import {StructureService} from "./structure";
@@ -60,6 +61,7 @@ export interface AppServicesOptions {
 }
 export class AppServices {
   readonly domain: DomainService;
+  private billing: BillingService;
   private store: Store;
   private files: ProjectFiles;
   private tasks: TaskRunner;
@@ -89,6 +91,7 @@ export class AppServices {
       throw new DomainError("STORAGE", "应用数据目录必须是绝对路径");
     mkdirSync(options.dataDir, { recursive: true, mode: 0o700 });
     this.store = new Store(join(options.dataDir, "works.sqlite"));
+    this.billing = new BillingService(this.store);
     this.domain = new DomainService(this.store, {
       encryptKey: options.credentials?.encrypt,
       onContentChange: (command, before) =>
@@ -97,21 +100,21 @@ export class AppServices {
     this.files = new ProjectFiles(this.store);
     this.scenes=new SceneService(this.store);
     this.voices=new VoiceService(this.store);
-    this.voiceExtraction=new VoiceExtractionRunner(this.store,this.voices,new ChatProvider({...options.provider,fetch:options.fetch}),options.credentials);
-    this.scenePlanning=new ScenePlanningRunner(this.store,this.scenes,new ChatProvider({...options.provider,fetch:options.fetch}),options.credentials,options.maxContextChars??48000);
+    this.voiceExtraction=new VoiceExtractionRunner(this.store,this.voices,new ChatProvider({...options.provider,fetch:options.fetch,billing:this.billing}),options.credentials);
+    this.scenePlanning=new ScenePlanningRunner(this.store,this.scenes,new ChatProvider({...options.provider,fetch:options.fetch,billing:this.billing}),options.credentials,options.maxContextChars??48000);
     this.story=new StoryStateService(this.store);
-    this.storyExtraction=new StoryExtractionRunner(this.store,this.story,new ChatProvider({...options.provider,fetch:options.fetch}),options.credentials);
+    this.storyExtraction=new StoryExtractionRunner(this.store,this.story,new ChatProvider({...options.provider,fetch:options.fetch,billing:this.billing}),options.credentials);
     this.tasks = new TaskRunner(
       this.store,
       this.domain,
-      new ChatProvider({ ...options.provider, fetch: options.fetch }),
+      new ChatProvider({ ...options.provider, fetch: options.fetch,billing:this.billing }),
       options.credentials,
       options.maxContextChars ?? 24000,
     );
     this.sync = new StageSyncService(
       this.store,
       this.domain,
-      new ChatProvider({ ...options.provider, fetch: options.fetch }),
+      new ChatProvider({ ...options.provider, fetch: options.fetch,billing:this.billing }),
       options.credentials,
       options.syncDebounceMs ?? 5000,
       (id) =>
@@ -132,15 +135,15 @@ export class AppServices {
     this.conversations = new ConversationRunner(
       this.store,
       this.domain,
-      new ChatProvider({ ...options.provider, fetch: options.fetch }),
+      new ChatProvider({ ...options.provider, fetch: options.fetch,billing:this.billing }),
       options.credentials,
       options.maxContextChars ?? 48000,
       this.sync,
       this.previews,
     );
     this.reading = new ReadingService(this.store, this.domain);
-    this.revisions = new RevisionRunner(this.store, this.domain, new ChatProvider({ ...options.provider, fetch: options.fetch }), options.credentials, this.sync, options.maxContextChars ?? 48000);
-    this.writing = new WritingRunner(this.store, this.domain, new ChatProvider({ ...options.provider, fetch: options.fetch }), options.credentials, options.maxContextChars ?? 48000, this.previews);
+    this.revisions = new RevisionRunner(this.store, this.domain, new ChatProvider({ ...options.provider, fetch: options.fetch,billing:this.billing }), options.credentials, this.sync, options.maxContextChars ?? 48000);
+    this.writing = new WritingRunner(this.store, this.domain, new ChatProvider({ ...options.provider, fetch: options.fetch,billing:this.billing }), options.credentials, options.maxContextChars ?? 48000, this.previews);
     this.timer = setInterval(
       () => {
         if (!this.recovering && !this.disposed) {
@@ -202,7 +205,12 @@ export class AppServices {
   scenePlan(id:string){if(typeof id!=="string"||!id)throw new DomainError("VALIDATION","场景编号不正确");return this.scenes.record(id);}
   storyWorkspace(query:StoryQuery){return this.story.workspace(query);}
   storyRecord(id:string){if(typeof id!=="string"||!id)throw new DomainError("VALIDATION","状态编号不正确");return this.story.record(id);}
+  billingQuote(command: unknown) { return this.billing.quote(command); }
+  billingSummary(ownerId:string) { return this.billing.summary(ownerId); }
   async dispatch(command: Command): Promise<CommandResult> {
+    return this.billing.dispatch(command,c=>this.dispatchAuthorized(c));
+  }
+  private async dispatchAuthorized(command: Command): Promise<CommandResult> {
     try {
       if (this.disposed) throw new DomainError("STORAGE", "应用正在关闭");
       if (

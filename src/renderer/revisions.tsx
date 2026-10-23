@@ -1,13 +1,13 @@
+import { CostSummary } from "./billing";
 import { useEffect, useState } from "react";
 import type { AppState } from "../shared/types";
 import {
   paragraphDiff,
-  MAX_REVISION_TOKEN_BUDGET,
   type RevisionCandidate,
   type RevisionJob,
 } from "../shared/revision";
 import type { Run } from "./api";
-import { authorError, budgetStopped, continuationBudget } from "./author-experience";
+import { authorError } from "./author-experience";
 
 export function ParagraphChanges({
   before,
@@ -60,10 +60,8 @@ export function Revisions({
     [detail, setDetail] = useState<RevisionJob>(),
     [error, setError] = useState("");
   const [clarification, setClarification] = useState("");
-  const [budget, setBudget] = useState(0);
   const [candidatePage, setCandidatePage] = useState(0);
   const selected = jobs.find((j) => j.id === chosen) ?? jobs.at(-1);
-  useEffect(() => setBudget(selected?.tokenBudget ?? 0), [selected?.id]);
   useEffect(() => {
     let current = true;
     setDetail(undefined);
@@ -112,20 +110,18 @@ export function Revisions({
       | "revision.reject",
     chapterIds?: string[],
     includeMaterials = false,
-    increase = false,
   ) =>
     void run({
       type,
       id: job.id,
       ...(chapterIds ? { chapterIds } : {}),
       ...(includeMaterials ? { includeMaterials: true } : {}),
-      ...(type === "revision.resume"
-        ? { tokenBudget: increase ? continuationBudget(job.tokenBudget, MAX_REVISION_TOKEN_BUDGET) : Math.max(job.tokenBudget, budget) }
-        : {}),
+
     }).catch(() => {});
   return (
     <section className="revision-jobs" aria-label="Agent 改稿任务">
       <h3>改稿与待审稿</h3>
+      <CostSummary ownerId={job.id} />
       <select
         aria-label="查看改稿任务"
         value={job.id}
@@ -162,7 +158,7 @@ export function Revisions({
           <button onClick={() => act("revision.pause")}>暂停</button>
         ) : (
           ["paused", "interrupted", "failed"].includes(job.status) && (
-              <><button onClick={() => act("revision.resume")}>手动续跑</button>{budgetStopped(job.error || job.reply) && job.tokenBudget < MAX_REVISION_TOKEN_BUDGET && <button onClick={() => act("revision.resume", undefined, false, true)}>增加本次调用额度并继续</button>}</>
+              <button onClick={() => act("revision.resume")}>查看费用并继续</button>
           )
         )}
         {!["completed", "cancelled"].includes(job.status) && (
@@ -197,19 +193,6 @@ export function Revisions({
             </button>
           </div>
         )}
-      {["paused", "interrupted", "failed"].includes(job.status) && (
-        <details><summary>高级设置</summary><label>
-          续跑 Token 总预算
-          <input
-            aria-label="续跑 Token 总预算"
-            type="number"
-            min={job.tokenBudget}
-            max={MAX_REVISION_TOKEN_BUDGET}
-            value={Math.max(budget, job.tokenBudget)}
-            onChange={(e) => setBudget(Number(e.target.value))}
-          />
-        </label></details>
-      )}
       {job.reply && <p>{authorError(job.reply)}</p>}
       {(job.error || error) && <p className="error">{authorError(job.error || error || "")}</p>}
       {job.warnings.map((w, i) => (

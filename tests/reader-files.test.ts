@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createHash } from "node:crypto";
-import { AppServices } from "../src/main/services";
+import { AppServices } from "./support/test-app";
 import type { CommandResult } from "../src/shared/types";
 const apps: AppServices[] = [],
   dirs: string[] = [];
@@ -224,7 +224,7 @@ it("can adopt pending candidates and resume paused jobs restored as a renamed co
   );
   id(
     await app.dispatch({
-      type: "profile.save",
+      type: "profile.save", pricing: { currency: "CNY", input: 0, output: 0 },
       name: "改稿模型",
       baseUrl: "http://localhost/v1",
       model: "fixture",

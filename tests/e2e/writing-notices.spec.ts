@@ -357,7 +357,7 @@ test("one Continue click visibly resumes a paused task with stale automatic scen
   try{
     const card=await seed("auto-scene-paused");
     await page.evaluate(async baseUrl=>{
-      const r=await window.novel.invoke({type:"profile.save",name:"场景续跑验收",model:"fixture",baseUrl,purpose:"writing"});if(!r.ok)throw Error(r.error.message);
+      const r=await window.novel.invoke({type:"profile.save", pricing: { currency: "CNY", input: 0, output: 0 },name:"场景续跑验收",model:"fixture",baseUrl,purpose:"writing"});if(!r.ok)throw Error(r.error.message);
     },`http://127.0.0.1:${(server.address() as {port:number}).port}`);
     await expect(card).toContainText("过期的自动场景卡不会作为依据");
     await card.getByRole("button",{name:"重新检查并继续",exact:true}).click();
@@ -376,7 +376,7 @@ test("budget pause presents one paid primary action and keeps optional controls 
   try{
     const card=await seed("budget");
     await page.evaluate(async baseUrl=>{
-      const r=await window.novel.invoke({type:"profile.save",name:"额度界面验收",model:"fixture",baseUrl,purpose:"writing"});if(!r.ok)throw Error(r.error.message);
+      const r=await window.novel.invoke({type:"profile.save", pricing: { currency: "CNY", input: 0, output: 0 },name:"额度界面验收",model:"fixture",baseUrl,purpose:"writing"});if(!r.ok)throw Error(r.error.message);
     },`http://127.0.0.1:${(server.address() as {port:number}).port}`);
     const primary=card.getByRole("button",{name:"继续完成",exact:true});
     await expect(primary).toHaveClass(/primary/);

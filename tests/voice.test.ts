@@ -1,5 +1,5 @@
 import {afterEach,expect,it} from "vitest";
-import {AppServices} from "../src/main/services";import {Store} from "../src/main/store";
+import {AppServices} from "./support/test-app";import {Store} from "../src/main/store";
 import {mkdtempSync,rmSync,readdirSync} from "node:fs";import {tmpdir} from "node:os";import {join} from "node:path";import {DatabaseSync} from "node:sqlite";
 const apps:AppServices[]=[],dirs:string[]=[];afterEach(async()=>{for(const a of apps.splice(0))await a.dispose();dirs.splice(0).forEach(d=>rmSync(d,{recursive:true,force:true}));});
 const fields=(rhythm="短句克制")=>({rhythm,sentenceLength:"短句为主",dialogueRatio:"对话简洁",descriptionDensity:"少量动作",vocabulary:"具体口语",avoid:"不堆砌修辞",addresses:"",catchphrases:"",emotion:""});

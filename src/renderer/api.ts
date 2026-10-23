@@ -7,10 +7,14 @@ import type { AppState, Command, CommandResult, Chapter, ChapterVersion, Convers
 import type { SearchResult } from "../shared/reader";
 import type { RevisionJob } from "../shared/revision";
 import type { WritingIssue } from "../shared/writing";
+import type { BillingQuote, BillingSummary } from "../shared/billing";
+export type { BillingQuote, BillingSummary } from "../shared/billing";
 declare global {
   interface Window {
     novel: {
-      invoke(command: Command): Promise<CommandResult>;
+      invoke(command: Command & { billing?: { budgetMicros: number } }): Promise<CommandResult>;
+      billingQuote(command: Command): Promise<BillingQuote>;
+      billingSummary(ownerId: string): Promise<BillingSummary>;
       snapshot(): Promise<AppState>;
       workspaceSnapshot(projectId?: string, since?: number): Promise<{ revision: number; state?: AppState; chaptersUnchanged?: boolean }>;
       chapter(id: string): Promise<Chapter>;

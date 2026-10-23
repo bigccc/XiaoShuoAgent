@@ -1,3 +1,4 @@
+import { CostSummary } from "./billing";
 import {useEffect,useRef,useState} from "react";
 import type {AppState,Chapter,Command} from "../shared/types";
 import type {SceneCardDraft,ScenePlan,SceneWorkspace} from "../shared/scenes";
@@ -16,7 +17,7 @@ export function ScenePanel({state,chapter,run,register,flush,flushChapter}:{stat
   const [data,setData]=useState<SceneWorkspace>(),[editor,setEditor]=useState<Editor>(()=>initial(target));
   const [pending,setPending]=useState(false),[error,setError]=useState(""),[notice,setNotice]=useState(""),[history,setHistory]=useState<ScenePlan>();
   const [cardIndex,setCardIndex]=useState(0),[matches,setMatches]=useState<SceneCardDraft["anchor"][]>([]),[matchIndex,setMatchIndex]=useState(0);
-  const [budget,setBudget]=useState(100000),[direction,setDirection]=useState("补足目标与阻力"),[request,setRequest]=useState(()=>readDraft(`scene-request:${chapter.id}`)),[decision,setDecision]=useState(()=>readDraft(`scene-decision:${chapter.id}`));
+  const [budget]=useState(100000),[direction,setDirection]=useState("补足目标与阻力"),[request,setRequest]=useState(()=>readDraft(`scene-request:${chapter.id}`)),[decision,setDecision]=useState(()=>readDraft(`scene-decision:${chapter.id}`));
   const sequence=useRef(0),dirty=useRef(false);
   useEffect(()=>keepDraft(`scene-request:${chapter.id}`,request),[chapter.id,request]);
   useEffect(()=>keepDraft(`scene-decision:${chapter.id}`,decision),[chapter.id,decision]);
@@ -63,8 +64,8 @@ export function ScenePanel({state,chapter,run,register,flush,flushChapter}:{stat
       <label>本场景修改要求<textarea aria-label="本场景修改要求" maxLength={6000} value={request} onChange={e=>setRequest(e.target.value)} placeholder="说明希望怎样变化，已绑定片段以外的文字不变"/></label>
       <button disabled={pending||!editor.id||!selected?.id||!selected.anchor||!request.trim()||data?.needsReview} onClick={()=>void action({type:"scene.revise",id:editor.id!,revision:editor.revision!,cardId:selected.id!,text:`${direction}：${request}`,tokenBudget:budget},"场景待审稿已建立，请在待审稿与记录中查看")}>生成场景待审稿</button>
     </section>
-    <details><summary>场景调用设置</summary><label>本次场景Token总预算<input aria-label="本次场景Token总预算" type="number" min={1} max={1000000} value={budget} onChange={e=>setBudget(Number(e.target.value))}/></label><p>调用上限，不是账户余额或精确费用封顶。</p></details>
-    {data?.jobs.map(j=><article className="scene-job" key={j.id}><strong>{names[j.status]}</strong><p role="status">{j.reply}</p>{j.warnings.map((w,i)=><p key={i} className="hint warn">{w}</p>)}<details><summary>场景调用详情</summary><p>{j.calls}次请求 · 占用{j.budgetUsed}/{j.tokenBudget} Token · {j.usage?.estimated?"含估算或预留":"已报告"}用量</p></details>{j.status==="awaiting-author"&&<label>场景规划决定<textarea maxLength={4000} value={decision} onChange={e=>setDecision(e.target.value)}/></label>}<div className="toolbar">{j.status==="running"&&<button disabled={pending} onClick={()=>void action({type:"scene.pause",id:j.id})}>暂停场景规划</button>}{["paused","failed","interrupted","awaiting-author"].includes(j.status)&&<><button disabled={pending||j.status==="awaiting-author"&&!decision.trim()} onClick={()=>void action({type:"scene.resume",id:j.id,...(j.status==="awaiting-author"&&decision?{text:decision}:{})})}>继续场景规划</button>{j.tokenBudget<1000000&&<button disabled={pending||j.status==="awaiting-author"&&!decision.trim()} onClick={()=>void action({type:"scene.resume",id:j.id,tokenBudget:Math.min(1000000,j.tokenBudget+100000),...(j.status==="awaiting-author"&&decision?{text:decision}:{})})}>增加场景额度并继续</button>}</>}{!["completed","cancelled"].includes(j.status)&&<button disabled={pending} onClick={()=>void action({type:"scene.cancel",id:j.id})}>取消场景规划</button>}</div></article>)}
+    <p className="muted">开始前将展示预计花费，可设置本次金额预算。</p>
+    {data?.jobs.map(j=><article className="scene-job" key={j.id}><strong>{names[j.status]}</strong><p role="status">{j.reply}</p><CostSummary ownerId={j.id} />{j.warnings.map((w,i)=><p key={i} className="hint warn">{w}</p>)}<details><summary>技术详情 · 场景调用</summary><p>{j.calls}次请求 · 占用{j.budgetUsed}/{j.tokenBudget} Token · {j.usage?.estimated?"含估算或预留":"已报告"}用量</p></details>{j.status==="awaiting-author"&&<label>场景规划决定<textarea maxLength={4000} value={decision} onChange={e=>setDecision(e.target.value)}/></label>}<div className="toolbar">{j.status==="running"&&<button disabled={pending} onClick={()=>void action({type:"scene.pause",id:j.id})}>暂停场景规划</button>}{["paused","failed","interrupted","awaiting-author"].includes(j.status)&&<><button disabled={pending||j.status==="awaiting-author"&&!decision.trim()} onClick={()=>void action({type:"scene.resume",id:j.id,...(j.status==="awaiting-author"&&decision?{text:decision}:{})})}>继续场景规划</button></>}{!["completed","cancelled"].includes(j.status)&&<button disabled={pending} onClick={()=>void action({type:"scene.cancel",id:j.id})}>取消场景规划</button>}</div></article>)}
     {guard.dialog}
   </section>;
 }

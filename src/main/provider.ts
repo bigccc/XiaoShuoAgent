@@ -28,6 +28,7 @@ export interface ChatMessage {
   content: string;
 }
 export interface ChatRequest {
+  billingProfileId?: string;
   baseUrl: string;
   model: string;
   key?: string;
@@ -47,6 +48,7 @@ export interface ChatResult {
   diagnostics?: ResponseDiagnostics;
 }
 export interface ProviderOptions {
+  billing?: { moneyControlsTokens?():boolean; reserve(request: ChatRequest): string; settle(id:string, usage?:TaskUsage):void };
   fetch?: typeof fetch;
   timeoutMs?: number;
   retryDelayMs?: number;
@@ -87,6 +89,7 @@ function usage(raw: any): TaskUsage {
         inputTokens: value(raw.prompt_tokens),
         outputTokens: value(raw.completion_tokens),
         totalTokens: value(raw.total_tokens),
+        cachedInputTokens: value(raw.prompt_tokens_details?.cached_tokens ?? raw.prompt_cache_hit_tokens),
         estimated: false,
       }
     : unknownUsage();
@@ -96,6 +99,7 @@ export class ChatProvider {
   constructor(private options: ProviderOptions = {}) {
     this.fetcher = options.fetch ?? fetch;
   }
+  moneyControlsTokens() { return this.options.billing?.moneyControlsTokens?.() ?? false; }
   async complete(request: ChatRequest): Promise<ChatResult> {
     const url = chatUrl(request.baseUrl);
     if (
@@ -111,9 +115,16 @@ export class ChatProvider {
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
       if (request.signal?.aborted)
         throw new ProviderError("CANCELLED", "任务已取消");
+      const billingId = this.options.billing?.reserve(request);
+      let sending = false;
       try {
-        return await this.once(url, request);
+        const result = await this.once(url, {...request,onAttempt:()=>{ request.onAttempt?.(); sending=true; }});
+        if(billingId) this.options.billing!.settle(billingId,result.usage);
+        delete result.usage.cachedInputTokens;
+        return result;
       } catch (error) {
+        if(billingId) this.options.billing!.settle(billingId,!sending ? {inputTokens:0,outputTokens:0,totalTokens:0,estimated:false} : error instanceof ProviderError ? error.usage : undefined);
+        if(error instanceof ProviderError && error.usage) delete error.usage.cachedInputTokens;
         if (
           !(error instanceof ProviderError) ||
           !error.transient ||

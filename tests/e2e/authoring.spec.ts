@@ -82,7 +82,7 @@ test("visible stage progression, editable upstream artifacts and restart retain 
     await page.evaluate(
       async (baseUrl) => {
         await window.novel.invoke({
-          type: "profile.save",
+          type: "profile.save", pricing: { currency: "CNY", input: 0, output: 0 },
           name: "阶段验收",
           baseUrl,
           model: "fixture",

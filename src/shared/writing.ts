@@ -19,6 +19,7 @@ export interface WritingChapterProgress {
   revisionRounds: number;
   targetedRevisionRounds?: number;
   checkedRevision?: number;
+  checkedDraftDigest?: string;
   savedRevision?: number;
   savedDraftDigest?: string;
 }
@@ -184,7 +185,7 @@ export function validateWritingJob(value: unknown): asserts value is WritingJob 
   if (value.chapters.length !== length) fail();
   const chapterIds = new Set<string>();
   for (const [index, chapter] of value.chapters.entries()) {
-    object(chapter, ["ordinal", "chapterId", "existing", "status", "revisionRounds", "targetedRevisionRounds", "checkedRevision", "savedRevision", "savedDraftDigest"]);
+    object(chapter, ["ordinal", "chapterId", "existing", "status", "revisionRounds", "targetedRevisionRounds", "checkedRevision", "checkedDraftDigest", "savedRevision", "savedDraftDigest"]);
     if (chapter.ordinal !== goal.startOrdinal + index || typeof chapter.existing !== "boolean" || !["pending", "written", "checked", "needs-review"].includes(chapter.status)) fail();
     if (chapter.chapterId !== undefined) {
       string(chapter.chapterId, 200);
@@ -193,6 +194,7 @@ export function validateWritingJob(value: unknown): asserts value is WritingJob 
     } else if (chapter.existing || chapter.status !== "pending") fail();
     integer(chapter.revisionRounds, 0, 2);
     if (chapter.targetedRevisionRounds !== undefined) integer(chapter.targetedRevisionRounds, 0, 3);
+    if (chapter.checkedDraftDigest !== undefined && !/^[a-f0-9]{64}$/.test(chapter.checkedDraftDigest)) fail();
     if (chapter.checkedRevision !== undefined) integer(chapter.checkedRevision, 1);
     if (chapter.savedDraftDigest !== undefined && (typeof chapter.savedDraftDigest !== "string" || !/^[a-f0-9]{64}$/.test(chapter.savedDraftDigest))) fail();
     if (chapter.savedRevision !== undefined) integer(chapter.savedRevision, 1);
@@ -202,7 +204,7 @@ export function validateWritingJob(value: unknown): asserts value is WritingJob 
   for (const field of ["reviewSourceDigest", "checkSourceDigest"])
     if (value[field] !== undefined && (typeof value[field] !== "string" || !/^[a-f0-9]{64}$/i.test(value[field]))) fail();
   if (typeof value.planningDone !== "boolean") fail();
-  if (value.status === "completed" && (value.phase !== "done" || !value.planningDone || value.cursor !== length || value.chapters.some(chapter => chapter.status !== "checked"))) fail();
+  if (value.status === "completed" && (value.phase !== "done" || !value.planningDone || value.cursor !== length || value.chapters.some(chapter => !["checked","needs-review"].includes(chapter.status)))) fail();
   if (value.contextReferences !== undefined) validateRecallReferences(value.contextReferences);
   if (value.contextReferenceCall !== undefined) {
     object(value.contextReferenceCall,["number","phase","ordinal"]);
@@ -213,7 +215,7 @@ export function validateWritingJob(value: unknown): asserts value is WritingJob 
   }
   array(value.issues, 1000);
   if (value.checkIssues !== undefined) array(value.checkIssues, 1000);
-  if (value.status === "completed" && value.issues.some((issue: WritingIssue) => issue.impact === "blocking" || issue.category === "length")) fail();
+  if (value.status === "completed" && value.issues.some((issue: WritingIssue) => issue.impact === "blocking")) fail();
   for (const issue of [...value.issues, ...(value.checkIssues ?? [])]) {
     object(issue, ["category", "impact", "reason", "evidence", "chapterId"]);
     if (!["character", "timeline", "plot", "world", "knowledge", "foreshadowing", "style", "pacing", "length"].includes(issue.category) || !["blocking", "local"].includes(issue.impact)) fail();

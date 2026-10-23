@@ -19,7 +19,7 @@ async function openProject(server: Server, existingContent = "") {
   await page.evaluate(async ({ baseUrl, existingContent }) => {
     const project = await window.novel.invoke({ type: "project.create", title: "连续写作验收", chapterWords: 100 });
     if (!project.ok) throw Error(project.error.message);
-    const profile = await window.novel.invoke({ type: "profile.save", name: "写作验收模型", baseUrl, model: "fixture", purpose: "writing" });
+    const profile = await window.novel.invoke({ type: "profile.save", pricing: { currency: "CNY", input: 0, output: 0 }, name: "写作验收模型", baseUrl, model: "fixture", purpose: "writing" });
     if (!profile.ok) throw Error(profile.error.message);
     if (existingContent) {
       const chapter = await window.novel.invoke({ type: "chapter.create", projectId: project.entityId, ordinal: 1, title: "已有第一章" });
@@ -97,7 +97,7 @@ test("legacy explicit budgets remain bounded and can be increased without losing
     await openProject(server);
     await page.evaluate(async () => {
       const state = await window.novel.snapshot();
-      const result = await window.novel.invoke({type:"conversation.send",projectId:state.projects[0].id,text:"写完前五章",tokenBudget:1000});
+      const result = await window.novel.invoke({type:"conversation.send", billing: { budgetMicros: 0 },projectId:state.projects[0].id,text:"写完前五章",tokenBudget:1000});
       if (!result.ok) throw Error(result.error.message);
     });
     const card = page.getByRole("region", { name: "连续写作任务" });

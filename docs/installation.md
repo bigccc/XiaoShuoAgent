@@ -1,6 +1,6 @@
 # 下载与安装小说工坊
 
-当前版本为 **v0.3.0 预览版**（2026-10-23），支持 macOS 13.0 及以上。应用包含所需运行环境，不需要安装 Node.js、Python 或数据库。
+当前版本为 **v0.3.1 预览版**（2026-10-23），支持 macOS 13.0 及以上。应用包含所需运行环境，不需要安装 Node.js、Python 或数据库。
 
 ## 选择下载包
 
@@ -8,10 +8,10 @@
 
 | 电脑 | 安装包 |
 | --- | --- |
-| Apple Silicon（M 系列芯片） | [arm64 DMG](https://github.com/bigccc/XiaoShuoAgent/releases/download/v0.3.0/XiaoShuoAgent-0.3.0-arm64.dmg) |
-| Intel 处理器 | [x64 DMG](https://github.com/bigccc/XiaoShuoAgent/releases/download/v0.3.0/XiaoShuoAgent-0.3.0-x64.dmg) |
+| Apple Silicon（M 系列芯片） | [arm64 DMG](https://github.com/bigccc/XiaoShuoAgent/releases/download/v0.3.1/XiaoShuoAgent-0.3.1-arm64.dmg) |
+| Intel 处理器 | [x64 DMG](https://github.com/bigccc/XiaoShuoAgent/releases/download/v0.3.1/XiaoShuoAgent-0.3.1-x64.dmg) |
 
-[完整发布页](https://github.com/bigccc/XiaoShuoAgent/releases/tag/v0.3.0) 同时提供 ZIP 备用包和 `SHA256SUMS.txt`。DMG 和 ZIP 安装的是相同应用，只需选择一种。
+[完整发布页](https://github.com/bigccc/XiaoShuoAgent/releases/tag/v0.3.1) 同时提供 ZIP 备用包和 `SHA256SUMS.txt`。DMG 和 ZIP 安装的是相同应用，只需选择一种。
 
 ## 安装和首次打开
 
@@ -37,7 +37,7 @@
 
 更新前在「导出 → 备份完整作品」保存 `.novel` 备份，退出应用，再用新版本覆盖 Applications 中的应用。不要直接复制正在运行的 `works.sqlite` 主文件。应用数据目录通常为 `~/Library/Application Support/小说工坊`；覆盖应用本身不会主动清空作品。模型密钥不进入作品包，换机后需要重新配置。
 
-v0.2.0包含远章召回、故事状态与伏笔、场景卡、文风/角色声音、检查复用与快速试写、结构导航。v0.3.0增加简化写作与审核流程、流式生成预览、⌘S与导航快捷键、深色主题和更聚焦的连续写作任务操作。此次版本未增加数据库迁移；升级前仍建议手动导出完整作品。旧版本不能直接读取已升级的数据目录；如需回滚，请使用升级前备份的独立副本。
+v0.2.0包含远章召回、故事状态与伏笔、场景卡、文风/角色声音、检查复用与快速试写、结构导航。v0.3.1增加简化写作与审核流程、流式生成预览、⌘S与导航快捷键、深色主题和更聚焦的连续写作任务操作。v0.3.1增加有限自动修正和人民币金额预算；旧模型需补齐单价后才能调用，首次建立费用账本前自动备份数据库。作品数据库版本仍为v9；升级前仍建议手动导出完整作品。旧版本不能直接读取已升级的数据目录；如需回滚，请使用升级前备份的独立副本。
 
 ## 验证范围
 

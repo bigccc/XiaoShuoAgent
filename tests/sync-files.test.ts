@@ -6,7 +6,7 @@ import { createHash } from "node:crypto";
 import { Store } from "../src/main/store";
 import { DomainService } from "../src/main/domain";
 import { ProjectFiles } from "../src/main/files";
-import { AppServices } from "../src/main/services";
+import { AppServices } from "./support/test-app";
 import type { StageSyncJob, StageSyncBatch, Note, CommandResult } from "../src/shared/types";
 const dirs: string[] = [], stores: Store[] = [];
 afterEach(() => { stores.splice(0).forEach(s => s.close()); dirs.splice(0).forEach(d => rmSync(d, { recursive: true, force: true })); });
@@ -197,7 +197,7 @@ it.each(["xiaoshuo-project", "xiaoshuo-recovery"])("preserves historical charact
   const entityId = (result: CommandResult) => { if (!result.ok) throw Error(result.error.message); return result.entityId!; };
   try {
     const projectId = entityId(app.domain.execute({ type: "project.create", title: "类型调整作品" }));
-    entityId(app.domain.execute({ type: "profile.save", name: "测试模型", baseUrl: "http://127.0.0.1:1234/v1", model: "fixture", purpose: "writing" }));
+    entityId(app.domain.execute({ type: "profile.save", pricing: { currency: "CNY", input: 0, output: 0 }, name: "测试模型", baseUrl: "http://127.0.0.1:1234/v1", model: "fixture", purpose: "writing" }));
     existingNoteId = entityId(app.domain.execute({ type: "note.save", projectId, noteType: "character", title: "人物", body: "原设定", sources: [] }));
     const turnId = entityId(await app.dispatch({ type: "conversation.send", projectId, text: "生成设定" }));
     await expect.poll(() => app.snapshot().conversations.find(t => t.id === turnId)?.status).toBe("completed");

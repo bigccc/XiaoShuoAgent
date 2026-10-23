@@ -1,3 +1,4 @@
+import { CostCancelled, useCostApproval } from "./billing";
 import { LatestRefresh } from "./workspace-refresh";
 import {StructurePanel} from "./structure";
 import {VoicePanel} from "./voice";
@@ -122,11 +123,15 @@ function App() {
       setReady(true);
     },
   ), [projectId]);
+  const costs = useCostApproval();
   const run: Run = useCallback(
     async (command: Command) => {
       let handled = false;
       try {
-        const result = await window.novel.invoke(command);
+        const billing = await costs.approve(command);
+        const approved = { ...command, ...(billing ? { billing } : {}) };
+        if (billing && "tokenBudget" in approved) delete approved.tokenBudget;
+        const result = await window.novel.invoke(approved);
         if (!result.ok) {
           handled = true;
           setError(
@@ -140,11 +145,12 @@ function App() {
         await refresh();
         return result;
       } catch (e) {
+        if (e instanceof CostCancelled) throw e;
         if (!handled) setError("本机操作失败，请重试并检查磁盘空间。");
         throw e;
       }
     },
-    [refresh],
+    [refresh, costs.approve],
   );
   useEffect(() => {
     snapshotGeneration.current = undefined;
@@ -201,6 +207,7 @@ function App() {
     ["project", "notes", "planning", "chapters", "issues", "materials", "tasks"].includes(view);
   return (
     <>
+      {costs.dialog}
       <header className="window-header">
         <span>✦ 小说工坊</span>
         <span className="window-subtitle">

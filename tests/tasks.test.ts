@@ -11,7 +11,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { AppServices } from "../src/main/services";
+import { AppServices } from "./support/test-app";
 import type { TaskRecord, Command, CommandResult } from "../src/shared/types";
 import { validateTask } from "../src/shared/validation";
 const apps: AppServices[] = [],
@@ -86,7 +86,7 @@ function model(
 ) {
   return ok(
     app.domain.execute({
-      type: "profile.save",
+      type: "profile.save", pricing: { currency: "CNY", input: 0, output: 0 },
       name: "测试模型",
       baseUrl: url,
       model: "fixture",
@@ -297,7 +297,7 @@ describe("author-controlled orchestration", () => {
     const p = app.snapshot().profiles[0];
     ok(
       app.domain.execute({
-        type: "profile.save",
+        type: "profile.save", pricing: { currency: "CNY", input: 0, output: 0 },
         id: profileId,
         revision: p.revision,
         name: p.name,
@@ -1655,7 +1655,7 @@ describe("author-controlled orchestration", () => {
     const p = app.snapshot().profiles[0];
     ok(
       app.domain.execute({
-        type: "profile.save",
+        type: "profile.save", pricing: { currency: "CNY", input: 0, output: 0 },
         id: p.id,
         revision: p.revision,
         name: p.name,
@@ -2031,7 +2031,7 @@ describe("author-controlled orchestration", () => {
       const { app, projectId } = setup();
       const profileId = ok(
         app.domain.execute({
-          type: "profile.save",
+          type: "profile.save", pricing: { currency: "CNY", input: 0, output: 0 },
           name: "无密钥本地规划",
           baseUrl: url,
           model: "fixture",

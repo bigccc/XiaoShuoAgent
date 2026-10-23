@@ -109,7 +109,7 @@ export class StoryExtractionRunner {
             const chapter = this.store.get("chapters", j.chapterIds[j.cursor])!, start = j.offset, end = Math.min(chapter.content.length, start + 16000), text = chapter.content.slice(start, end);
             const messages = [{ role: "system" as const, content: instruction }, { role: "user" as const, content: JSON.stringify({ chapter: { id: chapter.id, ordinal: chapter.ordinal, title: chapter.title }, passage: { start, end, text } }) }];
             const reservation = Math.ceil(messages.reduce((n, m) => n + m.content.length, 0) * 1.2) + 4000;
-            if (j.budgetUsed + reservation > j.tokenBudget) {
+            if (!this.provider.moneyControlsTokens?.() && j.budgetUsed + reservation > j.tokenBudget) {
                 this.update(id, { status: "paused", reply: "本次调用额度不足，候选和进度已保存；可增加本次额度后继续" });
                 return;
             }
@@ -131,7 +131,7 @@ export class StoryExtractionRunner {
             this.update(id, { reply: `正在提取第${chapter.ordinal}章，第${Math.floor(start / 15700) + 1}段` });
             let requested = false, result;
             try {
-                result = await this.provider.complete({ baseUrl: profile.baseUrl, model: profile.model, key, messages, maxTokens: 4000, jsonResponse: true, maxAttempts: 1, signal, onAttempt: () => { this.running(id, signal); this.sourceCurrent(this.job(id)); const current = this.job(id); this.update(id, { calls: current.calls + 1, budgetUsed: current.budgetUsed + reservation }); requested = true; } });
+                result = await this.provider.complete({ billingProfileId: profile.id, baseUrl: profile.baseUrl, model: profile.model, key, messages, maxTokens: 4000, jsonResponse: true, maxAttempts: 1, signal, onAttempt: () => { this.running(id, signal); this.sourceCurrent(this.job(id)); const current = this.job(id); this.update(id, { calls: current.calls + 1, budgetUsed: current.budgetUsed + reservation }); requested = true; } });
             }
             catch (e) {
                 if (requested)

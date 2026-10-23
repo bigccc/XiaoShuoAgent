@@ -140,7 +140,7 @@ describe("portable files", () => {
       approved: true,
     });
     domain.execute({
-      type: "profile.save",
+      type: "profile.save", pricing: { currency: "CNY", input: 0, output: 0 },
       name: "私密配置",
       baseUrl: "https://example.test/v1",
       model: "m",

@@ -1,3 +1,4 @@
+import { CostSummary } from "./billing";
 import {useEffect,useRef,useState} from "react";
 import {emptyVoiceFields,voiceFieldNames} from "../shared/voice";
 import type {VoiceRecord,VoiceRecordView,VoiceSampleInput,VoiceWorkspace,VoiceFields} from "../shared/voice";
@@ -10,7 +11,7 @@ const fromRecord=(r:VoiceRecord):Editor=>({id:r.id,revision:r.revision,kind:r.ki
 const jobNames={running:"正在提取",paused:"已暂停",interrupted:"等待手动继续",failed:"提取未完成",cancelled:"已取消",completed:"候选已保存"};
 export function VoicePanel({state,projectId,run,register,flush,openChapter}:{state:AppState;projectId:string;run:Run;register:Register;flush:Flush;openChapter:(id:string)=>void}){
  const [data,setData]=useState<VoiceWorkspace>(),[offset,setOffset]=useState(0),[archived,setArchived]=useState(false),[editor,setEditor]=useState<Editor>(blank);
- const [pending,setPending]=useState(false),[error,setError]=useState(""),[notice,setNotice]=useState(""),[matches,setMatches]=useState<VoiceSampleInput[]>([]),[matchIndex,setMatchIndex]=useState(0),[history,setHistory]=useState<Record<string,VoiceRecord>>({}),[budget,setBudget]=useState(100000);
+ const [pending,setPending]=useState(false),[error,setError]=useState(""),[notice,setNotice]=useState(""),[matches,setMatches]=useState<VoiceSampleInput[]>([]),[matchIndex,setMatchIndex]=useState(0),[history,setHistory]=useState<Record<string,VoiceRecord>>({}),[budget]=useState(100000);
  const editorRef=useRef(editor),dirty=useRef(false),busy=useRef(pending);editorRef.current=editor;busy.current=pending;
  const lastSave=useRef<{id:string;previous?:number;revision:number;sequence:number}>(undefined);
  const sequence=useRef(0),chapters=state.chapters.filter(c=>c.projectId===projectId).sort((a,b)=>a.ordinal-b.ordinal),notes=state.notes.filter(n=>n.projectId===projectId&&n.type==="character"&&!n.archived);
@@ -46,7 +47,7 @@ export function VoicePanel({state,projectId,run,register,flush,openChapter}:{sta
      <button className="primary" disabled={!canSave}>保存文风候选</button>
     </fieldset>
     <div className="toolbar"><button type="button" disabled={pending||!extractable} onClick={()=>void action({type:"voice.extract",id:editor.id!,revision:editor.revision!,tokenBudget:budget})}>提取表达规则</button></div><p className="muted">提取会发送已认可选段，产生一次AI请求；结果仍需核对。生成不会自动学习文风。</p>
-    <details><summary>文风提取设置</summary><label>本次文风Token总预算<input aria-label="本次文风Token总预算" type="number" min={1} max={1000000} value={budget} onChange={e=>setBudget(Number(e.target.value))}/></label><p>调用上限，不是账户余额或费用封顶。</p></details>
+    <p className="muted">开始前将展示预计花费，可设置本次金额预算。</p>
    </form>
    <section className="card" aria-label="文风档案列表"><h3>文风档案 · {data?.total??0}</h3><label>文风记录筛选<select aria-label="文风记录筛选" value={archived?"archived":"active"} onChange={e=>{setArchived(e.target.value==="archived");setOffset(0);}}><option value="active">当前档案</option><option value="archived">已归档档案</option></select></label>
     {data?.records.map(r=><article className="voice-record" key={r.id}><h4>{r.name}</h4><p>{r.status==="confirmed"?"已确认":r.status==="candidate"?"待审候选":"已拒绝"} · {r.enabled?"允许参考":"已关闭使用"}</p>{r.needsReview&&<p className="hint warn">来源需复核，旧规则不会自动继续使用。</p>}{voiceFieldNames.filter(k=>r.fields[k]).map(k=><p key={k}><strong>{labels[k]}：</strong>{r.fields[k]}</p>)}
@@ -58,6 +59,6 @@ export function VoicePanel({state,projectId,run,register,flush,openChapter}:{sta
     <div className="toolbar"><button disabled={offset===0} onClick={()=>setOffset(Math.max(0,offset-40))}>上一页文风</button><button disabled={data?.nextOffset==null} onClick={()=>setOffset(data!.nextOffset!)}>下一页文风</button></div>
    </section>
   </div>
-  <section className="card" aria-label="文风提取任务"><h3>文风提取任务</h3>{data?.jobs.map(j=><article className="voice-job" key={j.id}><strong>{jobNames[j.status]}</strong><p role="status">{j.reply}</p>{j.warnings.map((w,i)=><p key={i} className="hint warn">{w}</p>)}<details><summary>文风提取用量</summary><p>{j.calls}次请求 · 占用{j.budgetUsed}/{j.tokenBudget} Token · {j.usage?.estimated?"含未知用量预留":"已报告用量"}</p></details><div className="toolbar">{j.status==="running"&&<button disabled={pending} onClick={()=>void action({type:"voice.pause",id:j.id})}>暂停文风提取</button>}{["paused","failed","interrupted"].includes(j.status)&&<><button disabled={pending} onClick={()=>void action({type:"voice.resume",id:j.id})}>继续文风提取</button>{j.tokenBudget<1000000&&<button disabled={pending} onClick={()=>void action({type:"voice.resume",id:j.id,tokenBudget:Math.min(1000000,j.tokenBudget+100000)})}>增加文风额度并继续</button>}</>}{!["completed","cancelled"].includes(j.status)&&<button disabled={pending} onClick={()=>void action({type:"voice.cancel",id:j.id})}>取消文风提取</button>}</div></article>)}</section>{guard.dialog}
+  <section className="card" aria-label="文风提取任务"><h3>文风提取任务</h3>{data?.jobs.map(j=><article className="voice-job" key={j.id}><strong>{jobNames[j.status]}</strong><p role="status">{j.reply}</p><CostSummary ownerId={j.id} />{j.warnings.map((w,i)=><p key={i} className="hint warn">{w}</p>)}<details><summary>技术详情 · 文风提取用量</summary><p>{j.calls}次请求 · 占用{j.budgetUsed}/{j.tokenBudget} Token · {j.usage?.estimated?"含未知用量预留":"已报告用量"}</p></details><div className="toolbar">{j.status==="running"&&<button disabled={pending} onClick={()=>void action({type:"voice.pause",id:j.id})}>暂停文风提取</button>}{["paused","failed","interrupted"].includes(j.status)&&<><button disabled={pending} onClick={()=>void action({type:"voice.resume",id:j.id})}>继续文风提取</button></>}{!["completed","cancelled"].includes(j.status)&&<button disabled={pending} onClick={()=>void action({type:"voice.cancel",id:j.id})}>取消文风提取</button>}</div></article>)}</section>{guard.dialog}
  </section>;
 }

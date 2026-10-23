@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createHash } from "node:crypto";
-import { AppServices } from "../src/main/services";
+import { AppServices } from "./support/test-app";
 import { Store } from "../src/main/store";
 import { ProjectFiles } from "../src/main/files";
 import type { Command, CommandResult } from "../src/shared/types";
@@ -83,7 +83,7 @@ function setup(handler: (request: any) => unknown | Promise<unknown>) {
   );
   id(
     app.domain.execute({
-      type: "profile.save",
+      type: "profile.save", pricing: { currency: "CNY", input: 0, output: 0 },
       name: "创作",
       baseUrl: "http://127.0.0.1:1234/v1",
       model: "fixture",

@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createServer, type Server, type ServerResponse } from "node:http";
-import { AppServices } from "../src/main/services";
+import { AppServices } from "./support/test-app";
 import { Store } from "../src/main/store";
 import { ConversationRunner } from "../src/main/conversation";
 import { DomainService } from "../src/main/domain";
@@ -75,7 +75,7 @@ async function setup(
   );
   id(
     await app.dispatch({
-      type: "profile.save",
+      type: "profile.save", pricing: { currency: "CNY", input: 0, output: 0 },
       name: "对话模型",
       baseUrl: `http://127.0.0.1:${(server.address() as { port: number }).port}/v1`,
       model: "fixture",

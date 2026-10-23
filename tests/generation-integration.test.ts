@@ -2,7 +2,7 @@ import {afterEach,expect,it} from "vitest";
 import {mkdtempSync,rmSync} from "node:fs";
 import {tmpdir} from "node:os";
 import {join} from "node:path";
-import {AppServices} from "../src/main/services";
+import {AppServices} from "./support/test-app";
 import type {CommandResult} from "../src/shared/types";
 const cleanups: (()=>Promise<void>)[]=[];
 afterEach(async()=>{for(const f of cleanups.splice(0).reverse())await f();});
@@ -21,7 +21,7 @@ async function setup(emptyFirst=false){
   }});
   cleanups.push(async()=>{try{controller?.close();}catch{}await app.dispose();rmSync(dir,{recursive:true,force:true});});
   const projectId=id(await app.dispatch({type:"project.create",title:"预览验收",chapterWords:120}));
-  await app.dispatch({type:"profile.save",name:"隔离",baseUrl:"http://127.0.0.1:12345",model:"fixture",purpose:"writing"});
+  await app.dispatch({type:"profile.save", pricing: { currency: "CNY", input: 0, output: 0 },name:"隔离",baseUrl:"http://127.0.0.1:12345",model:"fixture",purpose:"writing"});
   const send=(text:string)=>controller!.enqueue(encoder.encode(`data: ${JSON.stringify({choices:[{delta:{content:text}}]})}\n\n`));
   const end=()=>{controller!.enqueue(encoder.encode('data: {"choices":[{"delta":{},"finish_reason":"stop"}]}\n\ndata: [DONE]\n\n'));controller!.close();};
   return {app,projectId,send,end,wait:()=>expect.poll(()=>calls).toBeGreaterThan(0)};

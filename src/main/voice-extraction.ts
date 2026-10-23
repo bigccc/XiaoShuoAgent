@@ -71,7 +71,7 @@ export class VoiceExtractionRunner {
         this.running(id, signal);
         let j = this.job(id), r = this.current(j);
         const profile = this.profile(j.profileId), input = { kind: r.kind, ...(r.entityNoteId ? { character: this.store.get("notes", r.entityNoteId)!.title } : {}), samples: r.samples.map(s => ({ id: s.id, quote: s.quote })) }, messages = [{ role: "system" as const, content: SYSTEM }, { role: "user" as const, content: JSON.stringify(input) }], reserved = Math.ceil(messages.reduce((n, m) => n + m.content.length, 0) * 1.2) + 4000;
-        if (j.budgetUsed + reserved > j.tokenBudget) {
+        if (!this.provider.moneyControlsTokens?.() && j.budgetUsed + reserved > j.tokenBudget) {
             this.update(id, { status: "paused", reply: "本次调用额度不足，原档案保留；可增加本次额度后继续" });
             return;
         }
@@ -89,7 +89,7 @@ export class VoiceExtractionRunner {
         }
         let requested = false, result;
         try {
-            result = await this.provider.complete({ baseUrl: profile.baseUrl, model: profile.model, key, messages, maxTokens: 4000, jsonResponse: true, maxAttempts: 1, signal, onAttempt: () => { this.running(id, signal); this.current(this.job(id)); const current = this.job(id); this.update(id, { calls: current.calls + 1, budgetUsed: current.budgetUsed + reserved }); requested = true; } });
+            result = await this.provider.complete({ billingProfileId: profile.id, baseUrl: profile.baseUrl, model: profile.model, key, messages, maxTokens: 4000, jsonResponse: true, maxAttempts: 1, signal, onAttempt: () => { this.running(id, signal); this.current(this.job(id)); const current = this.job(id); this.update(id, { calls: current.calls + 1, budgetUsed: current.budgetUsed + reserved }); requested = true; } });
         }
         catch (e) {
             if (requested)

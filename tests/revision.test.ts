@@ -25,7 +25,7 @@ function setup(
   };
   const projectId = execute({ type: "project.create", title: "故事" });
   execute({
-    type: "profile.save",
+    type: "profile.save", pricing: { currency: "CNY", input: 0, output: 0 },
     name: "模型",
     baseUrl: "http://localhost/v1",
     model: "fixture",
@@ -506,7 +506,7 @@ it("refuses to switch model configurations or use protected keys without a codec
   await done(runner, id);
   const p = store.list("profiles")[0];
   execute({
-    type: "profile.save",
+    type: "profile.save", pricing: { currency: "CNY", input: 0, output: 0 },
     id: p.id,
     revision: p.revision,
     name: p.name,

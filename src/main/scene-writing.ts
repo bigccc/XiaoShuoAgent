@@ -76,7 +76,7 @@ export class ScenePlanningRunner {
         const input = { instruction: j.text, chapter: { id: ch.id, ordinal: ch.ordinal, title: ch.title }, targetWords: j.targetWords, existingPlan: this.scenes.forChapter(ch.id)?.cards, context: context.text };
         const messages = [{ role: "system" as const, content: SYSTEM }, { role: "user" as const, content: JSON.stringify(input) }];
         const reserved = Math.ceil(messages.reduce((n, m) => n + m.content.length, 0) * 1.2) + 4000;
-        if (j.budgetUsed + reserved > j.tokenBudget) {
+        if (!this.provider.moneyControlsTokens?.() && j.budgetUsed + reserved > j.tokenBudget) {
             this.update(id, { status: "paused", reply: "本次调用额度不足，原计划保留；可增加本次额度后继续" });
             return;
         }
@@ -94,7 +94,7 @@ export class ScenePlanningRunner {
         }
         let requested = false, result;
         try {
-            result = await this.provider.complete({ baseUrl: profile.baseUrl, model: profile.model, key, messages, maxTokens: 4000, jsonResponse: true, maxAttempts: 1, signal, onAttempt: () => { this.running(id, signal); this.current(this.job(id)); const row = this.job(id); this.update(id, { calls: row.calls + 1, budgetUsed: row.budgetUsed + reserved }); requested = true; } });
+            result = await this.provider.complete({ billingProfileId: profile.id, baseUrl: profile.baseUrl, model: profile.model, key, messages, maxTokens: 4000, jsonResponse: true, maxAttempts: 1, signal, onAttempt: () => { this.running(id, signal); this.current(this.job(id)); const row = this.job(id); this.update(id, { calls: row.calls + 1, budgetUsed: row.budgetUsed + reserved }); requested = true; } });
         }
         catch (e) {
             if (requested)

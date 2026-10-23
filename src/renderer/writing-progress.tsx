@@ -1,12 +1,12 @@
+import { CostSummary } from "./billing";
 import { useEffect, useState } from "react";
 import type { AppState } from "../shared/types";
-import { MAX_WRITING_TOKEN_BUDGET, type WritingJob } from "../shared/writing";
+import { type WritingJob } from "../shared/writing";
 import type { Run } from "./api";
 import type { Flush } from "./editing";
 import {
   authorError,
   budgetStopped,
-  continuationBudget,
 } from "./author-experience";
 import { ContextReferences } from "./context-references";
 import { WritingDrafts } from "./writing-drafts";
@@ -59,8 +59,6 @@ export function WritingProgress({
   openStoryState: () => void;
   openProfiles: () => void;
 }) {
-  const automaticBudget = job.budgetMode === "auto";
-  const [budget, setBudget] = useState(job.tokenBudget);
   const [profileId, setProfileId] = useState(job.profileId ?? "");
   const [clarification, setClarification] = useState("");
   const [pending, setPending] = useState(false);
@@ -100,10 +98,6 @@ export function WritingProgress({
       active = false;
     };
   }, [job.id, job.revision, issuesOpen, job.issues.length, issueRefresh]);
-  useEffect(
-    () => setBudget((value) => Math.max(value, job.tokenBudget)),
-    [job.tokenBudget],
-  );
   const saved = job.chapters.filter(
     (c) => c.chapterId && (c.existing || c.status !== "pending"),
   );
@@ -126,10 +120,6 @@ export function WritingProgress({
   const selectedProfile = state.profiles.some((p) => p.id === profileId)
     ? profileId
     : "";
-  const validBudget =
-    Number.isSafeInteger(budget) &&
-    budget >= job.tokenBudget &&
-    budget <= MAX_WRITING_TOKEN_BUDGET;
   const latestChapter = saved.at(-1)?.chapterId;
   const blocking = job.issues.filter((i) => i.impact === "blocking").length;
   const staleCheck =
@@ -176,9 +166,7 @@ export function WritingProgress({
       ? "正在继续推进；已保存的章节可以随时查看。"
       : stopped
         ? budgetStopped(job.error)
-          ? job.tokenBudget >= MAX_WRITING_TOKEN_BUDGET
-            ? "本次任务额度已达上限，正文仍保留。请先查看正文，再分批安排后续写作。"
-            : "本次处理超出预计用量，已保存进度。点击继续完成，系统会为剩余工作安排用量。"
+          ? "本次金额预算不足，已保存进度。查看费用并确认后，可从当前步骤继续。"
           : job.status === "failed"
             ? checkPhase
               ? "本次检查未完成，已保存的正文仍保留。可继续任务重试检查。"
@@ -218,18 +206,13 @@ export function WritingProgress({
   const visibleIssues =
     issueDetail?.revision === job.revision ? issueDetail.issues : job.issues;
   const budgetProblem = resumable && budgetStopped(job.error);
-  const customBudgetRaised = validBudget && budget > job.tokenBudget;
-  const proposedBudget = customBudgetRaised ? budget : continuationBudget(job.tokenBudget, MAX_WRITING_TOKEN_BUDGET);
-  const canRaiseBudget = proposedBudget > job.tokenBudget;
   const pendingDrafts = (state.revisionJobs ?? []).some(r => job.revisionJobIds.includes(r.id) && (r.candidatePendingCount ?? r.candidates.filter(c => c.status === "pending").length) > 0);
   const draftsArePrimary = job.status !== "running" && !connectionProblem && !sceneBlocked && pendingDrafts && (blocking > 0 || job.phase === "done" && !budgetProblem && !needsDecision);
-  const budgetIncreaseIsPrimary = budgetProblem && canRaiseBudget && job.status !== "running" && !connectionProblem && !sceneBlocked && !draftsArePrimary;
   const actionMessage = draftsArePrimary ? "请查看下方修改预览，点击采用即可继续，原稿保留。" : nextStep;
-  const readIsPrimary = !!latestChapter && job.status !== "running" && !connectionProblem && !sceneBlocked && !draftsArePrimary && (!resumable || budgetProblem && !canRaiseBudget);
+  const readIsPrimary = !!latestChapter && job.status !== "running" && !connectionProblem && !sceneBlocked && !draftsArePrimary && !resumable;
   const showDrafts = () => document.getElementById(`writing-drafts-${job.id}`)?.scrollIntoView({block:"nearest"});
   async function act(
     type: "writing.pause" | "writing.resume" | "writing.cancel",
-    increase = false,
     decision?: string,
   ) {
     if (pending) return;
@@ -237,8 +220,6 @@ export function WritingProgress({
     setError("");
     try {
       if (type === "writing.resume") {
-        if (!validBudget)
-          throw Error("续跑总预算不能低于已设预算，且必须为有效整数。");
         if (!(await flush())) return;
       }
       await run({
@@ -246,7 +227,6 @@ export function WritingProgress({
         id: job.id,
         ...(type === "writing.resume"
           ? {
-              ...(!automaticBudget ? {tokenBudget: increase ? continuationBudget(job.tokenBudget, MAX_WRITING_TOKEN_BUDGET) : budget} : {}),
               ...(selectedProfile ? { profileId: selectedProfile } : {}),
               ...((decision ?? clarification).trim() ? { text: (decision ?? clarification).trim() } : {}),
             }
@@ -288,16 +268,14 @@ export function WritingProgress({
           ) : draftsArePrimary ? (
             <button className="primary" onClick={showDrafts}>查看修改预览</button>
           ) : budgetProblem ? (
-            canRaiseBudget ? <button className="primary" disabled={pending || otherBusy || !validBudget} onClick={() => void act("writing.resume", !customBudgetRaised)}>{pending ? "正在继续…" : "继续完成"}</button>
-            : latestChapter ? <button className="primary" onClick={() => openChapter(latestChapter)}>查看正文</button>
-            : <button className="primary" disabled>额度已达上限</button>
+            <button className="primary" disabled={pending || otherBusy} onClick={() => void act("writing.resume")}>{pending ? "正在继续…" : "查看费用并继续"}</button>
           ) : resumable ? (
-            <button className="primary" disabled={pending || otherBusy || !validBudget} onClick={() => void act("writing.resume")}>{pending ? "正在继续…" : sceneProblem ? "重新检查并继续" : job.mode === "quick" && job.phase === "checking" ? "继续认真定稿" : "继续完成"}</button>
+            <button className="primary" disabled={pending || otherBusy} onClick={() => void act("writing.resume")}>{pending ? "正在继续…" : sceneProblem ? "重新检查并继续" : job.mode === "quick" && job.phase === "checking" ? "继续认真定稿" : "继续完成"}</button>
           ) : latestChapter ? <button className="primary" onClick={() => openChapter(latestChapter)}>查看正文</button> : null}
           {latestChapter && !readIsPrimary && <button className="subtle" onClick={() => openChapter(latestChapter)}>查看正文</button>}
         </div>
-        {budgetIncreaseIsPrimary && !automaticBudget && <p className="muted writing-action-note">点击后，本次任务总上限将从 {job.tokenBudget.toLocaleString()} 提高至 {proposedBudget.toLocaleString()} Token；已有用量继续累计。</p>}
       </div>
+      <CostSummary ownerId={job.id} />
       <p className="writing-request">{job.text}</p>
       <p role="status">
         {phaseNames[job.phase]}
@@ -353,7 +331,7 @@ export function WritingProgress({
         <div className="writing-decision">
           <strong>需要你决定</strong>
           <p>{job.authorQuestion ?? job.reply}</p>
-          <button disabled={pending || otherBusy} onClick={() => void act("writing.resume", false, "保留已经确认的人物设定、主线和结局，请调整本次新稿的方案继续，不改变已有设定。")}>保留原设定，调整写法</button>
+          <button disabled={pending || otherBusy} onClick={() => void act("writing.resume", "保留已经确认的人物设定、主线和结局，请调整本次新稿的方案继续，不改变已有设定。")}>保留原设定，调整写法</button>
         </div>
       )}
       {needsDecision && !pendingDrafts && <label className="writing-decision-input">
@@ -410,7 +388,7 @@ export function WritingProgress({
                 <p>{issue.reason}</p>
                 {issue.impact === "blocking" && !changed && !pendingDrafts && resumable && <div className="writing-repair-choice">
                   <p>建议：保留前文“{issue.evidence[0]?.quote}”，修正{chapter ? `第${chapter.ordinal}章` : "本批新稿"}中相冲突的描述。</p>
-                  <button disabled={pending || otherBusy} onClick={() => void act("writing.resume", false, `保留既有设定与前文事实，修正本批新稿中的冲突：${issue.reason}。前文依据：${issue.evidence[0]?.quote ?? ""}。不改变已有正文。`)}>按此方向修正并继续</button>
+                  <button disabled={pending || otherBusy} onClick={() => void act("writing.resume", `保留既有设定与前文事实，修正本批新稿中的冲突：${issue.reason}。前文依据：${issue.evidence[0]?.quote ?? ""}。不改变已有正文。`)}>按此方向修正并继续</button>
                 </div>}
                 {changed && (
                   <p className="muted">
@@ -463,18 +441,6 @@ export function WritingProgress({
         {resumable && <div className="writing-resume">
           <details>
             <summary>高级设置</summary>
-            {!automaticBudget && <label>
-              连续写作 Token 总预算
-              <input
-                aria-label="连续写作 Token 总预算"
-                type="number"
-                min={job.tokenBudget}
-                max={MAX_WRITING_TOKEN_BUDGET}
-                step={1000}
-                value={budget}
-                onChange={(e) => setBudget(Number(e.target.value))}
-              />
-            </label>}
             <label>
               续跑模型
               <select
@@ -535,7 +501,7 @@ export function WritingProgress({
         />
       </details>
         <div className="toolbar">
-          {connectionProblem && resumable && <button disabled={pending || otherBusy || !validBudget} onClick={() => void act("writing.resume")}>已调整连接，重试</button>}
+          {connectionProblem && resumable && <button disabled={pending || otherBusy} onClick={() => void act("writing.resume")}>已调整连接，重试</button>}
           {job.revisionJobIds.length > 0 && !draftsArePrimary && <button onClick={showDrafts}>查看修改预览</button>}
           {!["completed", "cancelled"].includes(job.status) && <button className="subtle danger" disabled={pending} onClick={() => void act("writing.cancel")}>取消任务</button>}
         </div>

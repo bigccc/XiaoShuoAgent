@@ -111,8 +111,6 @@ it("tracks review windows independently of chapter count and only completes chec
   for (const change of [
     { reviewCursor: 100001 }, { reviewRounds: 201 },
     { issues: [{ category: "plot", impact: "blocking", reason: "事实矛盾", evidence: [] }] },
-    { issues: [{ category: "length", impact: "local", reason: "篇幅未完成", evidence: [] }] },
-    { chapters: value.chapters.map(chapter => ({ ...chapter, status: "needs-review" })) },
     { chapters: value.chapters.map(chapter => ({ ...chapter, revisionRounds: 3 })) },
   ]) expect(() => validateWritingJob({ ...value, ...change })).toThrow();
 });

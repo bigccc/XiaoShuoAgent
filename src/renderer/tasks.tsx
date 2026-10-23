@@ -1,3 +1,4 @@
+import { CostSummary } from "./billing";
 import { useState, useEffect } from "react";
 import { validateTask } from "../shared/validation";
 import { countProse, proseRange } from "../shared/prose";
@@ -99,10 +100,10 @@ export function AiPanel({
     [planning, setPlanning] = useState(""),
     [checking, setChecking] = useState(""),
     [step, setStep] = useState<NoteType | "idea">("idea"),
-    [budget, setBudget] = useState(20000),
+    [budget] = useState(20000),
     [words, setWords] = useState<number | undefined>(),
     [planningWords, setPlanningWords] = useState(10000),
-    [planningTokens, setPlanningTokens] = useState(8000),
+    [planningTokens] = useState(8000),
     [instruction, setInstruction] = useState(""),
     [drafts, setDrafts] = useState<string[]>([]),
     [materials, setMaterials] = useState<string[]>([]),
@@ -275,25 +276,13 @@ export function AiPanel({
               ))}
             </select>
           </Field>
-            <Field label="任务总 Token 预算">
-              <input
-                type="number"
-                min="100"
-                max="10000000"
-                value={budget}
-                onChange={(e) => setBudget(Number(e.target.value))}
-              />
-            </Field>
           {!writingView && (
             <>
-              <Field label="规划单次输出上限（Token）">
-                <input type="number" min="1" max="32000" value={planningTokens} onChange={(e) => setPlanningTokens(Number(e.target.value))} />
-              </Field>
               <p className="muted small">规划字数是累计上限（含标点、不含空白），不是要求写满，也不是小说总字数。单次输出受模型限制；截断后可在任务中继续补全。</p>
             </>
           )}
           <p className="muted small">
-            总预算包含输入、输出、检查、重试与续写；提高总预算不会提高单次输出上限。缺少服务商用量时显示估算；不是金额保证。
+            开始前将展示预计花费，并确认本次金额预算。
           </p>
           </details>
           <div className="ai-actions">
@@ -556,6 +545,7 @@ function TaskDetail({
         </div>
         <span className={statusBadge(task.status)}>{statusNames[task.status]}</span>
       </div>
+      <CostSummary ownerId={task.id} />
       <details className="task-stats"><summary>技术详情</summary>
         <span>{task.calls} 次调用</span>
         <span>

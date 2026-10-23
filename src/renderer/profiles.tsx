@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { AppState, ModelProfile, ModelPurpose } from "../shared/types";
+import { invalid, validateModelPricing } from "../shared/validation";
 import type { Run } from "./api";
 import { Empty, Field } from "./ui";
 import { useManualGuard, type Register, type Flush } from "./editing";
@@ -42,6 +43,7 @@ export function Profiles({
             <span className={"badge " + (p.hasKey ? "ok" : "warn")}>
               {p.hasKey ? "密钥已保护" : "未配置密钥"}
             </span>
+            {!p.pricing && <span className="badge warn">待填写价格</span>}
           </button>
         ))}
         <Field label="外观">
@@ -73,7 +75,7 @@ export function Profiles({
           <p>
             选择你使用的 AI 服务，粘贴服务商提供的密钥即可。
             <br />
-            已有连接可以直接使用；其他服务可在高级设置中填写。
+            填写模型单价后即可估算花费；其他服务可在高级设置中填写。
             <br />
             密钥由 macOS 钥匙串保护，作品备份不含密钥。
           </p>
@@ -106,6 +108,9 @@ function ProfileForm({
     model: profile?.model ?? "deepseek-flash",
     purpose: profile?.purpose ?? ("writing" as ModelPurpose),
     apiKey: "",
+    inputPrice: profile?.pricing?.input.toString() ?? "",
+    outputPrice: profile?.pricing?.output.toString() ?? "",
+    cachedInputPrice: profile?.pricing?.cachedInput?.toString() ?? "",
   });
   const preset = !profile || (profile.baseUrl === "https://api.deepseek.com" && profile.model === "deepseek-flash");
   const [service, setService] = useState(preset ? "deepseek" : "custom");
@@ -113,11 +118,21 @@ function ProfileForm({
   const [testId, setTestId] = useState("");
   const test = state.tasks.find((t) => t.id === testId);
   async function save() {
-    const { apiKey, ...fields } = v;
+    const { apiKey, inputPrice, outputPrice, cachedInputPrice, ...fields } = v;
+    const hasPrice = [inputPrice, outputPrice, cachedInputPrice].some((price) => price.trim() !== "");
+    if (!hasPrice && profile?.pricing) invalid("已配置的模型价格不能为空；免费模型请明确填写 0");
+    const pricing = hasPrice ? {
+      currency: "CNY" as const,
+      input: inputPrice.trim() ? Number(inputPrice) : Number.NaN,
+      output: outputPrice.trim() ? Number(outputPrice) : Number.NaN,
+      ...(cachedInputPrice.trim() ? { cachedInput: Number(cachedInputPrice) } : {}),
+    } : undefined;
+    if (pricing) validateModelPricing(pricing);
     const result = await run({
       type: "profile.save",
       ...(profile ? { id: profile.id, revision: profile.revision } : {}),
       ...fields,
+      ...(pricing ? { pricing } : {}),
       ...(apiKey ? { apiKey } : {}),
     });
     const clean = { ...v, apiKey: "" };
@@ -149,7 +164,7 @@ function ProfileForm({
             <option value="custom">其他服务 / 自定义连接</option>
           </select>
         </Field>
-        {service === "deepseek" && <p className="muted">已填写服务地址和创作模型，只需提供密钥。其他参数可在高级设置中调整。</p>}
+        {service === "deepseek" && <p className="muted">已填写服务地址和创作模型，请提供密钥和模型单价。其他参数可在高级设置中调整。</p>}
         <details className="connection-advanced" open={advanced} onToggle={e => setAdvanced(e.currentTarget.open)}>
           <summary>高级设置</summary>
         <Field label="配置名称">
@@ -189,6 +204,19 @@ function ProfileForm({
           </select>
         </Field>
         </details>
+        <div className="card">
+          <h2>模型价格</h2>
+          <p className="muted">请按服务商价格填写人民币单价，单位为元／百万 Token。费用仅为估算；免费模型请明确填写 0。未填写价格时可以保存，但不能调用。</p>
+          <Field label="输入单价（元／百万 Token）">
+            <input type="number" min="0" max="1000000" step="any" value={v.inputPrice} placeholder="填写输入价格" onChange={e => set({ ...v, inputPrice: e.target.value })} />
+          </Field>
+          <Field label="输出单价（元／百万 Token）">
+            <input type="number" min="0" max="1000000" step="any" value={v.outputPrice} placeholder="填写输出价格" onChange={e => set({ ...v, outputPrice: e.target.value })} />
+          </Field>
+          <Field label="缓存输入单价（可选，元／百万 Token）">
+            <input type="number" min="0" max="1000000" step="any" value={v.cachedInputPrice} placeholder="留空按普通输入单价估算" onChange={e => set({ ...v, cachedInputPrice: e.target.value })} />
+          </Field>
+        </div>
         <Field label="API 密钥">
           <input
             type="password"

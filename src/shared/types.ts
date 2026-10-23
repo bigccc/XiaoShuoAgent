@@ -315,7 +315,15 @@ export interface Material extends RecordMeta {
   }[];
 }
 export type ModelPurpose = "planning" | "writing" | "checking";
+export interface ModelPricing {
+  currency: "CNY";
+  /** Yuan per million tokens. */
+  input: number;
+  output: number;
+  cachedInput?: number;
+}
 export interface ModelProfile extends RecordMeta {
+  pricing?: ModelPricing;
   name: string;
   baseUrl: string;
   model: string;
@@ -331,6 +339,7 @@ export type TaskStatus =
   | "cancelled"
   | "interrupted";
 export interface TaskUsage {
+  cachedInputTokens?: number | null;
   inputTokens: number | null;
   outputTokens: number | null;
   totalTokens: number | null;
@@ -434,6 +443,7 @@ export type DomainCommand =
   | ({ type: "material.link"; projectId: ID; linked?: boolean } & Existing)
   | ({
       type: "profile.save";
+      pricing?: ModelPricing;
       name: string;
       baseUrl: string;
       model: string;

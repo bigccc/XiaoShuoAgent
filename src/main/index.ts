@@ -87,6 +87,8 @@ app
       trusted(event);
       return services.dispatch(command);
     });
+    ipcMain.handle("novel:billing-quote", (event, command) => { trusted(event); return services.billingQuote(command); });
+    ipcMain.handle("novel:billing-summary", (event, id:string) => { trusted(event); return services.billingSummary(id); });
     ipcMain.handle("novel:snapshot", (event) => {
       trusted(event);
       return services.snapshot();

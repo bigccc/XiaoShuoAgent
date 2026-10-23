@@ -1,5 +1,5 @@
 import {afterEach,expect,it} from "vitest";
-import {AppServices} from "../src/main/services";
+import {AppServices} from "./support/test-app";
 import {mkdtempSync,rmSync} from "node:fs";
 import {tmpdir} from "node:os";
 import {join} from "node:path";
@@ -14,7 +14,7 @@ async function setup(content="铜钥匙在老周手中。",custom?:(input:any,re
   const calls:any[]=[];const server=createServer(async(req,res)=>{let raw="";for await(const chunk of req)raw+=chunk;const body=JSON.parse(raw),input=JSON.parse(body.messages.at(-1).content);calls.push(input);if(custom?.(input,res))return;reply(res,{states:input.passage.text.includes(proposal.quote)?[proposal]:[]});});
   await new Promise<void>(r=>server.listen(0,"127.0.0.1",r));const dir=mkdtempSync(join(tmpdir(),"story-extract-"));let app=new AppServices({dataDir:dir,dialogs:{open:async()=>null,save:async()=>null},provider:{retryDelayMs:1}});
   cleanups.push(async()=>{await app.dispose();await new Promise<void>(r=>{server.closeAllConnections();server.close(()=>r());});rmSync(dir,{recursive:true,force:true});});
-  const projectId=id(await app.dispatch({type:"project.create",title:"旧城"}));id(await app.dispatch({type:"profile.save",name:"fixture",purpose:"checking",baseUrl:`http://127.0.0.1:${(server.address() as any).port}`,model:"fixture"}));
+  const projectId=id(await app.dispatch({type:"project.create",title:"旧城"}));id(await app.dispatch({type:"profile.save", pricing: { currency: "CNY", input: 0, output: 0 },name:"fixture",purpose:"checking",baseUrl:`http://127.0.0.1:${(server.address() as any).port}`,model:"fixture"}));
   const chapterId=id(await app.dispatch({type:"chapter.create",projectId,ordinal:8,title:"第8章"}));id(await app.dispatch({type:"chapter.save",id:chapterId,revision:1,content}));
   return{app,projectId,chapterId,dir,calls,restart:async()=>{await app.dispose();app=new AppServices({dataDir:dir,dialogs:{open:async()=>null,save:async()=>null},provider:{retryDelayMs:1}});return app;}};
 }

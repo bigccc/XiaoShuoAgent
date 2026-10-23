@@ -891,7 +891,7 @@ export class RevisionRunner {
           ),
         );
         const reservation = input + maxTokens;
-        if ((j.usage?.totalTokens ?? 0) + reservation > j.tokenBudget)
+        if (!this.provider.moneyControlsTokens?.() && (j.usage?.totalTokens ?? 0) + reservation > j.tokenBudget)
           throw new BudgetPause();
         const priorEstimated = j.usage?.estimated ?? false;
         let attempts = 0;
@@ -900,7 +900,7 @@ export class RevisionRunner {
           if (controller.signal.aborted || current.status !== "running")
             throw new ProviderError("CANCELLED", "任务已停止");
           if (
-            (current.usage?.totalTokens ?? 0) + reservation >
+            !this.provider.moneyControlsTokens?.() && (current.usage?.totalTokens ?? 0) + reservation >
             current.tokenBudget
           )
             throw new BudgetPause();
@@ -920,7 +920,7 @@ export class RevisionRunner {
         if (ciphertext && !this.credentials)
           fail("本机密钥保护不可用，不能读取模型密钥", "KEY_PROTECTION");
         const result = await this.provider.complete({
-          baseUrl: profile.baseUrl,
+          billingProfileId: profile.id, baseUrl: profile.baseUrl,
           model: profile.model,
           ...(ciphertext && this.credentials
             ? { key: this.credentials.decrypt(ciphertext) }

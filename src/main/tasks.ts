@@ -479,7 +479,7 @@ export class TaskRunner {
             message.content.slice(-tail),
         };
       });
-      const budget = c.type === "model.test" ? 2000 : c.tokenBudget;
+      const budget = this.provider.moneyControlsTokens?.() ? 1_000_000_000 : c.type === "model.test" ? 1000000 : c.tokenBudget;
       const current = this.store.get("tasks", id)!;
       const consumed = current.usage?.totalTokens ?? 0;
       const inputEstimate = estimate(messages);
@@ -534,7 +534,7 @@ export class TaskRunner {
         });
       };
       const response = await this.provider.complete({
-        baseUrl: profile.baseUrl,
+        billingProfileId: profile.id, baseUrl: profile.baseUrl,
         model: profile.model,
         key: forCheck ? checkKey : key,
         messages,
@@ -607,7 +607,7 @@ export class TaskRunner {
         context.text + (instruction ? `\n作者要求：${instruction}` : "");
       const checkProjectId=this.store.get("tasks",id)!.projectId;
       const protocol = JSON.stringify([consistencyInstruction,reviewInstruction,"strict-source-check-v1",profile.model === "deepseek-v4-pro" && new URL(profile.baseUrl).hostname === "api.deepseek.com" ? 8000 : 1500]);
-      const cacheKey=cache.key({projectId:checkProjectId,context,profile:{...profile,revision:this.store.get("profiles",profile.id)?.revision},protocol,request:{instruction,targetChapterId}});
+      const cacheKey=cache.key({projectId:checkProjectId,context,profile:{baseUrl:profile.baseUrl,model:profile.model,purpose:profile.purpose},protocol,request:{instruction,targetChapterId}});
       const saved= !stale() && !signal.aborted ? cache.get(checkProjectId,cacheKey) : undefined;
       if(saved){try{const value=JSON.parse(saved);if(!Array.isArray(value.disclosures)||value.disclosures.some((x:unknown)=>typeof x!=="string"))throw Error("cache metadata");const checked=parseCheck(JSON.stringify(value.reviewed),context.documents);if(checked.majorChange)throw Error("cache major change");result.checkCacheHits=(result.checkCacheHits??0)+1;result.disclosures??=[];result.disclosures.push(...value.disclosures,"复用已验证窗口：原文、规则和模型配置一致，未新增调用。");saveResult();return checked;}catch{cache.remove(checkProjectId,cacheKey);}}
       result.checkCacheMisses=(result.checkCacheMisses??0)+1;saveResult();
