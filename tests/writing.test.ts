@@ -16,14 +16,14 @@ function reply(res: ServerResponse, value: unknown, usage: unknown = { prompt_to
   res.setHeader("content-type", "application/json");
   res.end(JSON.stringify({ choices: [{ message: { content: JSON.stringify(value) }, finish_reason: "stop" }], usage }));
 }
-async function setup(custom?: (phase: string, input: any, res: ServerResponse) => boolean | void, options = {}) {
+async function setup(custom?: (phase: string, input: any, res: ServerResponse, maxTokens: number) => boolean | void, options = {}) {
   const calls: { phase: string; input: any }[] = [];
   const server = createServer(async (req, res) => {
     let raw = ""; for await (const chunk of req) raw += chunk;
     const body = JSON.parse(raw), phase = body.messages[0].content;
     let input: any; try { input = JSON.parse(body.messages.at(-1).content); } catch { input = body.messages.at(-1).content; }
     calls.push({ phase, input });
-    if (custom?.(phase, input, res)) return;
+    if (custom?.(phase, input, res, body.max_tokens)) return;
     if (phase.includes("连续写作·规划")) reply(res, { plan: "遵循原设定，逐章推进线索，不改变主角身份。", majorChange: false, reason: "" });
     else if (phase.includes("连续写作·生成") || phase.includes("连续写作·修订")) reply(res, { title: `第${input.ordinal}章`, content: "雨落在窗前。".repeat(20), majorChange: false, reason: "" });
     else reply(res, { issues: [], majorChange: false, reason: "" });
@@ -74,7 +74,7 @@ it("recall: filling a missing opening never treats later existing chapters as ea
   expect(opening.input.context).not.toContain("未来暗号已经公开");
   expect(opening.input.context).not.toContain("王后已经登基");
 });
-it("recall: budget refusal leaves no audit reference for a request that was never sent", async () => {
+it("recall: a tiny legacy budget does not prevent generation or its reference audit", async () => {
   const {app,projectId,calls,dir}=await setup((phase,_input,res)=>{
     if(phase.includes("连续写作·规划")){reply(res,{plan:"铜钥匙后续目标。".repeat(1000),majorChange:false,reason:""});return true;}
   });
@@ -83,10 +83,9 @@ it("recall: budget refusal leaves no audit reference for a request that was neve
   for(const n of [117,118,119,120]) seed.put("chapters",chapter(`r${n}`,n,"雨落。",{projectId}));
   seed.close();
   const job=await done(app,await start(app,projectId,"接着写一章",8000));
-  expect(job.status).toBe("paused");
-  expect(calls).toHaveLength(1);
-  expect(calls[0].phase).toContain("连续写作·规划");
-  expect(job.contextReferences ?? []).toEqual([]);
+  expect(job.status).toBe("completed");
+  expect(calls).toHaveLength(3);
+  expect(job.contextReferences?.some(r=>r.source.id==="old8")).toBe(true);
 });
 it("story-state: captures optional changes without extra calls and exposes checked references after completion",async()=>{
   const prose="铜钥匙在老周手中。"+"雨落。".repeat(36);
@@ -130,18 +129,15 @@ it("fills missing chapters without rewriting existing prose", async () => {
   expect(app.snapshot().chapters.slice(0, 2).map(c => [c.content, c.revision])).toEqual(before.map(c => [c.content, c.revision]));
   expect(calls.filter(c => c.phase.includes("连续写作·检查")).map(c => c.input.ordinal)).toEqual([3, 4, 5]);
 });
-it("pauses before a call that exceeds the common budget", async () => {
+it("finishes all chapters even with a tiny legacy token and zero money allowance", async () => {
   const { app, projectId, calls } = await setup();
   const job = await done(app, await start(app, projectId, "写完前五章", 1));
-  expect(job.status).toBe("paused");
-  expect(job.reply).toContain("预算");
-  expect(calls).toHaveLength(0);
+  expect(job.status).toBe("completed");
+  expect(calls).toHaveLength(11);
 });
-it("resumes after a budget increase without resetting usage or duplicating saved chapters", async () => {
+it("retains usage and unique chapters without requiring any budget increase", async () => {
   const { app, projectId, calls } = await setup();
   const taskId = await start(app, projectId, "写完前五章", 1);
-  await done(app, taskId);
-  id(await app.dispatch({ type: "writing.resume", id: taskId, tokenBudget: 100000 } as Command));
   const job = await done(app, taskId);
   expect(job.status).toBe("completed");
   expect(job.calls).toBe(calls.length);
@@ -391,7 +387,7 @@ it("explicit checks of existing factual conflicts pause without automatic change
   expect(calls).toHaveLength(1);expect(app.chapter(ch).revision).toBe(2);
 });
 
-it("repairs an invalid review once without erasing its original finding", async () => {
+it("retains a finding with stale evidence without another model call", async () => {
   let repairs = 0, invalid = true;
   const { app, projectId } = await setup((phase, input, res) => {
     if (phase.includes("连续写作·检查整理")) {
@@ -407,17 +403,19 @@ it("repairs an invalid review once without erasing its original finding", async 
   });
   const job = await done(app, await start(app, projectId, "写完前一章"));
   expect(job.status, job.reply).toBe("completed");
-  expect(repairs).toBe(1);
+  expect(repairs).toBe(0);
+  expect(job.reviewNotes?.join(" ")).toContain("重复句式");
   expect(job.chapters[0].revisionRounds).toBe(0);
 });
-it("invalid review repair cannot clear unresolved findings to manufacture success", async () => {
+it("unsupported findings stay visible without being cleared by a formatting repair", async () => {
   const { app, projectId } = await setup((phase, input, res) => {
     if (phase.includes("连续写作·检查整理")) { reply(res, { issues: [], majorChange: false, reason: "" }); return true; }
     if (phase.includes("连续写作·检查")) { reply(res, { issues: [{ category: "style", impact: "local", reason: "重复句式", evidence: [{ quote: "不存在的原文", source: lastChapter(input) }] }], majorChange: false, reason: "" }); return true; }
   });
   const job = await done(app, await start(app, projectId, "写完前一章"));
-  expect(job.status).toBe("failed");
-  expect(job.reply).toContain("清空");
+  expect(job.status).toBe("completed");
+  expect(job.reviewNotes?.join(" ")).toContain("重复句式");
+  expect(job.reply).toContain("未证实");
 });
 it("an invalid major-change flag cannot be repaired into a successful empty review", async () => {
   const { app, projectId } = await setup((phase, _input, res) => {
@@ -708,15 +706,13 @@ it("automatically managed facts honor an author's rejection",async()=>{
   expect(f.app.storyWorkspace({projectId:f.projectId}).current).toEqual([]);
 });
 
-it("increasing the money budget preserves spent usage without a hidden token allowance",async()=>{
+it("large reported usage is recorded without a hidden cumulative allowance",async()=>{
   const f=await setup((phase,_input,res)=>{
     if(phase.includes("连续写作·规划")){reply(res,{plan:"沿用已有方向。",majorChange:false,reason:""},{prompt_tokens:900000,completion_tokens:10,total_tokens:900010});return true;}
   });
   const task=id(await f.app.dispatch({type:"conversation.send",projectId:f.projectId,text:"接着写1章",billing:{budgetMicros:905000}} as unknown as Command));
-  const paused=await done(f.app,task);expect(paused.status).toBe("paused");expect(paused.budgetUsed).toBe(900040);
-  id(await f.app.dispatch({type:"writing.resume",id:task}));
   const result=await done(f.app,task);expect(result.status,result.reply).toBe("completed");
-  expect(result.budgetUsed).toBeGreaterThan(paused.budgetUsed);
+  expect(result.budgetUsed).toBe(900070);
   expect(f.calls.filter(c=>c.phase.includes("·生成"))).toHaveLength(1);
   expect(f.app.billingSummary(task).spentMicros).toBe(result.budgetUsed);
   expect(f.app.snapshot().chapters).toHaveLength(1);
@@ -827,4 +823,95 @@ it("reuses verified checks after model price, name and chapter metadata changes"
   const result=await done(f.app,id(await f.app.dispatch(command)));
   expect(result.status,result.reply).toBe("completed");expect(result.checkCacheHits).toBe(1);
   expect(f.calls.filter(c=>c.phase.includes("·检查"))).toHaveLength(1);
+});
+
+it("prepares a source-backed chapter brief shared by generation and checking without extra calls",async()=>{
+  const f=await setup();
+  id(await f.app.dispatch({type:"note.save",projectId:f.projectId,noteType:"character",title:"阿宁",body:"阿宁不能使用魔法。",sources:[]}));
+  const job=await done(f.app,await start(f.app,f.projectId,"写完前一章"));
+  expect(job.status).toBe("completed");
+  const generation=f.calls.find(c=>c.phase.includes("连续写作·生成"))!.input;
+  const checking=f.calls.find(c=>c.phase.includes("连续写作·检查"))!.input;
+  expect(generation.chapterBrief.references.some((r:any)=>r.excerpt.includes("阿宁不能使用魔法"))).toBe(true);
+  expect(checking.chapterBrief.references.map((r:any)=>r.excerpt)).toEqual(generation.chapterBrief.references.map((r:any)=>r.excerpt));
+  expect(f.calls).toHaveLength(3);
+});
+it.each([0,1])("executes a combined author decision with legacy revision count %s",async(legacyRounds)=>{
+  const bad="今年十八岁。去年三十岁。"+"雨落在窗前。".repeat(18);
+  let patches=0,fixed=false;
+  const f=await setup((phase,input,res)=>{
+    if(phase.includes("连续写作·生成")){reply(res,{title:"雨夜",content:bad});return true;}
+    if(phase.includes("连续写作·定点修正")){patches++;if(patches===1)reply(res,{edits:[],majorChange:false,reason:"无法确定"});else {fixed=true;reply(res,{edits:[{quote:"去年三十岁。",replacement:"去年十七岁。"}],majorChange:false,reason:""});}return true;}
+    if(!fixed&&phase.includes("连续写作·检查")){const source=lastChapter(input);reply(res,{issues:[{category:"timeline",impact:"blocking",reason:"年龄冲突",evidence:[{quote:"今年十八岁。",source},{quote:"去年三十岁。",source}]}],majorChange:false,reason:""});return true;}
+  });
+  const task=await start(f.app,f.projectId,"写完前一章");expect((await done(f.app,task)).status).toBe("awaiting-author");
+  if(legacyRounds){const seed=new Store(join(f.dir,"works.sqlite"));const old=seed.get("writingJobs",task)!;old.chapters[0].revisionRounds=legacyRounds;seed.put("writingJobs",old);seed.close();}
+  const before=f.calls.length;
+  id(await f.app.dispatch({type:"writing.resume",id:task,text:"保留今年十八岁，合并修正本章的年龄冲突。",repair:true}));
+  const job=await done(f.app,task);
+  expect(job.status,job.reply).toBe("completed");expect(patches).toBe(2);
+  expect(f.calls[before].phase).toContain("连续写作·定点修正");
+  expect(f.app.snapshot().chapters[0].content).toContain("去年十七岁。");
+});
+it("verifies repaired passages and their evidence without repeating unrelated chapter text",async()=>{
+  const bad="无关开头标记。"+"雨落。".repeat(250)+"今年十八岁。去年三十岁。"+"风停。".repeat(250)+"无关结尾标记。";
+  let fixed=false;
+  const f=await setup((phase,input,res)=>{
+    if(phase.includes("连续写作·生成")){reply(res,{title:"雨夜",content:bad});return true;}
+    if(phase.includes("连续写作·定点修正")){fixed=true;reply(res,{edits:[{quote:"去年三十岁。",replacement:"去年十七岁。"}],majorChange:false,reason:""});return true;}
+    if(!fixed&&phase.includes("连续写作·检查")){const source=lastChapter(input);reply(res,{issues:[{category:"timeline",impact:"blocking",reason:"年龄冲突",evidence:[{quote:"今年十八岁。",source},{quote:"去年三十岁。",source}]}],majorChange:false,reason:""});return true;}
+  });
+  const job=await done(f.app,await start(f.app,f.projectId,"写完前一章"));expect(job.status,job.reply).toBe("completed");
+  const checks=f.calls.filter(c=>c.phase.includes("连续写作·检查"));expect(checks).toHaveLength(2);
+  expect(checks[1].input.context).toContain("去年十七岁。");expect(checks[1].input.context).toContain("今年十八岁。");
+  expect(checks[1].input.context).not.toContain("无关开头标记");expect(checks[1].input.context).not.toContain("无关结尾标记");
+  expect(checks[1].input.verification).toBe(true);
+});
+
+it("keeps unsupported initial findings as visible notes without a repair-format loop",async()=>{
+  const f=await setup((phase,input,res)=>{
+    if(phase.includes("·检查整理")){reply(res,{issues:[],majorChange:false,reason:""});return true;}
+    if(phase.includes("·检查")){reply(res,{issues:[{category:"knowledge",impact:"blocking",reason:"怀疑角色提前知道秘密",evidence:[{quote:"正文中不存在的知情描述",source:lastChapter(input)}]}],majorChange:false,reason:""});return true;}
+  });
+  const job=await done(f.app,await start(f.app,f.projectId,"写完前一章"));
+  expect(job.status,job.reply).toBe("completed");
+  expect(job.reviewNotes?.join(" ")).toContain("怀疑角色提前知道秘密");
+  expect(job.reply).toContain("未证实");expect(job.issues).toEqual([]);
+  expect(f.calls).toHaveLength(3);
+});
+
+it("keeps every clause of a long conflicting evidence quote in focused verification",async()=>{
+  const evidence="今年十八岁。去年三十岁。"+"雨落。".repeat(180)+"同一刻灯亮着。同一刻灯没亮。";
+  const bad="开篇。"+evidence+"风停。".repeat(30);let fixed=false;
+  const f=await setup((phase,input,res)=>{
+    if(phase.includes("·生成")){reply(res,{title:"雨夜",content:bad});return true;}
+    if(phase.includes("·定点修正")){fixed=true;reply(res,{edits:[{quote:"去年三十岁。",replacement:"去年十七岁。"}],majorChange:false,reason:""});return true;}
+    if(phase.includes("·检查")){
+      const source=lastChapter(input);
+      const issues=!fixed?[{category:"timeline",impact:"blocking",reason:"年龄与灯光两处冲突",evidence:[{quote:"今年十八岁。",source},{quote:evidence,source}]}]:input.context.includes("同一刻灯没亮。")?[{category:"world",impact:"blocking",reason:"灯光冲突仍未解决",evidence:[{quote:"同一刻灯亮着。",source},{quote:"同一刻灯没亮。",source}]}]:[];
+      reply(res,{issues,majorChange:false,reason:""});return true;
+    }
+  });
+  const job=await done(f.app,await start(f.app,f.projectId,"写完前二章"));
+  expect(job.status).toBe("awaiting-author");expect(job.issues.some(i=>i.reason==="灯光冲突仍未解决")).toBe(true);
+  expect(f.app.snapshot().chapters).toHaveLength(1);
+});
+
+it("leaves output room for a short chapter plus JSON metadata on the first generation",async()=>{
+ const f=await setup((phase,input,res,maxTokens)=>{
+  if(phase.includes("·生成")&&maxTokens<2300){res.setHeader("content-type","application/json");res.end(JSON.stringify({choices:[{message:{content:'{"title":"短章","content":"已生成正文","scenes":['},finish_reason:"length"}],usage:{prompt_tokens:100,completion_tokens:maxTokens,total_tokens:100+maxTokens}}));return true;}
+ });
+ const job=await done(f.app,await start(f.app,f.projectId,"写完前一章，每章350字"));
+ expect(job.status,job.reply).toBe("completed");expect(f.calls.filter(c=>c.phase.includes("·生成"))).toHaveLength(1);
+});
+
+it("does not block or repair prose for explicitly speculative knowledge claims",async()=>{
+ const content="阿宁知道红色书的位置，却不知道书里藏着信。"+"雨落。".repeat(35);
+ const f=await setup((phase,input,res)=>{
+  if(phase.includes("·生成")){reply(res,{title:"旧书",content});return true;}
+  if(phase.includes("·检查")){const source=lastChapter(input);reply(res,{issues:[{category:"knowledge",impact:"blocking",reason:"寻找红书暗示她可能知道藏信位置，必须修改。",evidence:[{quote:"阿宁知道红色书的位置",source},{quote:"却不知道书里藏着信",source}]}],majorChange:false,reason:""});return true;}
+ });
+ const job=await done(f.app,await start(f.app,f.projectId,"写完前一章"));
+ expect(job.status,job.reply).toBe("completed");expect(f.app.snapshot().chapters[0].content).toBe(content);
+ expect(job.reviewNotes?.join(" ")).toContain("暗示她可能知道");expect(f.calls).toHaveLength(3);
 });

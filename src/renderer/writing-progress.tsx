@@ -123,14 +123,14 @@ export function WritingProgress({
   const latestChapter = saved.at(-1)?.chapterId;
   const blocking = job.issues.filter((i) => i.impact === "blocking").length;
   const staleCheck =
-    job.status === "completed" && checked.length < saved.length;
+    job.status === "completed" && job.chapters.some(c => c.checkedRevision !== undefined && state.chapters.find(ch => ch.id === c.chapterId)?.revision !== c.checkedRevision);
   const stopped = ["failed", "paused", "interrupted"].includes(job.status);
   const checkPhase = ["checking", "reviewing"].includes(job.phase);
   const needsDecision =
     job.status === "awaiting-author" &&
     !!job.reply &&
     job.phase !== "done" &&
-    job.mode !== "quick" && (!!job.authorQuestion || !hasBlockingIssues || /是否|创作方向|主角.*(?:身份|离开)|改变.*(?:人设|主线|结局)/.test(job.reply));
+    job.mode !== "quick";
   const currentError = error || (stopped ? (job.error ?? "") : "");
   const connectionProblem =
     /密钥|鉴权|API 地址|连接失败|连接未成功|先配置|重新配置|模型.*(?:不存在|配置)|KEY_PROTECTION|AUTH|CONFIG|NETWORK/.test(
@@ -166,7 +166,7 @@ export function WritingProgress({
       ? "正在继续推进；已保存的章节可以随时查看。"
       : stopped
         ? budgetStopped(job.error)
-          ? "本次金额预算不足，已保存进度。查看费用并确认后，可从当前步骤继续。"
+          ? "旧版本预算暂停，已有进度保留。点击继续即可恢复，无需追加预算。"
           : job.status === "failed"
             ? checkPhase
               ? "本次检查未完成，已保存的正文仍保留。可继续任务重试检查。"
@@ -227,6 +227,7 @@ export function WritingProgress({
         id: job.id,
         ...(type === "writing.resume"
           ? {
+              ...(decision && hasBlockingIssues ? {repair:true} : {}),
               ...(selectedProfile ? { profileId: selectedProfile } : {}),
               ...((decision ?? clarification).trim() ? { text: (decision ?? clarification).trim() } : {}),
             }
@@ -267,8 +268,8 @@ export function WritingProgress({
             : <button className="primary" disabled={!sceneRecovery || !sceneChapter} onClick={() => sceneChapter && openChapter(sceneChapter.id)}>{sceneRecovery && sceneChapter ? `查看第${sceneChapter.ordinal}章场景卡` : "正在核对场景卡…"}</button>
           ) : draftsArePrimary ? (
             <button className="primary" onClick={showDrafts}>查看修改预览</button>
-          ) : budgetProblem ? (
-            <button className="primary" disabled={pending || otherBusy} onClick={() => void act("writing.resume")}>{pending ? "正在继续…" : "查看费用并继续"}</button>
+          ) : needsDecision && !pendingDrafts ? null : budgetProblem ? (
+            <button className="primary" disabled={pending || otherBusy} onClick={() => void act("writing.resume")}>{pending ? "正在继续…" : "继续完成"}</button>
           ) : resumable ? (
             <button className="primary" disabled={pending || otherBusy} onClick={() => void act("writing.resume")}>{pending ? "正在继续…" : sceneProblem ? "重新检查并继续" : job.mode === "quick" && job.phase === "checking" ? "继续认真定稿" : "继续完成"}</button>
           ) : latestChapter ? <button className="primary" onClick={() => openChapter(latestChapter)}>查看正文</button> : null}
@@ -329,15 +330,17 @@ export function WritingProgress({
       )}
       {needsDecision && !pendingDrafts && (
         <div className="writing-decision">
-          <strong>需要你决定</strong>
+          <strong>集中确认处理方向</strong>
           <p>{job.authorQuestion ?? job.reply}</p>
-          <button disabled={pending || otherBusy} onClick={() => void act("writing.resume", "保留已经确认的人物设定、主线和结局，请调整本次新稿的方案继续，不改变已有设定。")}>保留原设定，调整写法</button>
+          <p>推荐保留已确认设定和前文事实，合并处理本章问题。可在下方补充意见，再点击“按推荐处理并继续”。</p>
+      <label className="writing-decision-input">
+        补充说明
+        <textarea aria-label="连续写作补充说明" maxLength={4000} placeholder="说明关键情节或处理意见；已有正文待审稿请先审阅。" value={clarification} onChange={e => setClarification(e.target.value)} />
+      </label>
+
+          <button className="primary" disabled={pending || otherBusy} onClick={() => void act("writing.resume", clarification.trim() || "保留已确认的人物设定、主线、结局及前文事实，合并修正本章全部已证实的事实冲突；只改本批新稿，不改作者已有正文。")}>{pending ? "正在处理…" : "按推荐处理并继续"}</button>
         </div>
       )}
-      {needsDecision && !pendingDrafts && <label className="writing-decision-input">
-        补充说明
-        <textarea aria-label="连续写作补充说明" maxLength={10000} placeholder="说明关键情节或处理意见；已有正文待审稿请先审阅。" value={clarification} onChange={e => setClarification(e.target.value)} />
-      </label>}
       {pendingDrafts && <WritingDrafts job={job} state={state} run={run} flush={flush} disabled={pending || otherBusy || job.status === "running"} />}
       {coverageNotices && (
         <p className="writing-material-notice">
@@ -386,10 +389,6 @@ export function WritingProgress({
                     : "可选建议"}
                 </strong>
                 <p>{issue.reason}</p>
-                {issue.impact === "blocking" && !changed && !pendingDrafts && resumable && <div className="writing-repair-choice">
-                  <p>建议：保留前文“{issue.evidence[0]?.quote}”，修正{chapter ? `第${chapter.ordinal}章` : "本批新稿"}中相冲突的描述。</p>
-                  <button disabled={pending || otherBusy} onClick={() => void act("writing.resume", `保留既有设定与前文事实，修正本批新稿中的冲突：${issue.reason}。前文依据：${issue.evidence[0]?.quote ?? ""}。不改变已有正文。`)}>按此方向修正并继续</button>
-                </div>}
                 {changed && (
                   <p className="muted">
                     相关原文已有修改，以下是上次检查依据；继续任务时会重新检查。
@@ -461,8 +460,7 @@ export function WritingProgress({
       <details className="writing-budget writing-diagnostics">
         <summary>技术详情 · {diagnostics.length} 条记录</summary>
         <span>
-          预算已占用 {job.budgetUsed.toLocaleString()} /{" "}
-          {job.tokenBudget.toLocaleString()} Token
+          累计用量 {job.budgetUsed.toLocaleString()} Token
         </span>
         <small>
           {job.usage?.totalTokens == null
@@ -472,7 +470,7 @@ export function WritingProgress({
         </small>
         {((job.usage?.totalTokens == null && job.budgetUsed > 0) ||
           job.budgetUsed > (job.usage?.totalTokens ?? 0)) && (
-          <small>占用额度包含调用预留或未报告用量，续跑不会清零。</small>
+          <small>包含未报告用量的估算，继续任务不会清零。</small>
         )}
         {(job.checkCacheHits !== undefined ||
           job.checkCacheMisses !== undefined) && (

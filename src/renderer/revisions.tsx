@@ -149,8 +149,7 @@ export function Revisions({
         max={job.chapterIds.length || 1}
       />
       <details className="technical-details"><summary>技术详情</summary><p className="muted">
-        用量 {job.usage?.totalTokens?.toLocaleString() ?? "0"} /{" "}
-        {job.tokenBudget.toLocaleString()} Token
+        用量 {job.usage?.totalTokens?.toLocaleString() ?? "未知"} Token
         {job.usage?.estimated ? "（估算）" : ""}
       </p></details>
       <div className="toolbar">
@@ -158,7 +157,7 @@ export function Revisions({
           <button onClick={() => act("revision.pause")}>暂停</button>
         ) : (
           ["paused", "interrupted", "failed"].includes(job.status) && (
-              <button onClick={() => act("revision.resume")}>查看费用并继续</button>
+              <button onClick={() => act("revision.resume")}>继续完成</button>
           )
         )}
         {!["completed", "cancelled"].includes(job.status) && (

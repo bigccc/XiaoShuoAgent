@@ -206,7 +206,7 @@ export class StageSyncService {
     let raw: string;
     try {
       const result = await this.provider.complete({
-        billingProfileId: profile.id, baseUrl: profile.baseUrl,
+        billingOwnerId: job.id, billingProjectId: job.projectId, billingProfileId: profile.id, baseUrl: profile.baseUrl,
         model: profile.model,
         key,
         signal,
@@ -583,7 +583,7 @@ export class StageSyncService {
     for (let attempt = 0; attempt < 2; attempt++) {
       if (signal.aborted) throw new DomainError("CANCELLED", "整理已停止");
       const result = await this.provider.complete({
-        billingProfileId: profile.id, baseUrl: profile.baseUrl,
+        billingOwnerId: job.id, billingProjectId: job.projectId, billingProfileId: profile.id, baseUrl: profile.baseUrl,
         model: profile.model,
         key,
         maxTokens: 16000,

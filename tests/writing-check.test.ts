@@ -209,3 +209,9 @@ describe("continuous writing review response boundary", () => {
     rejects(" ".repeat(262145) + JSON.stringify(payload()));
   });
 });
+
+it("does not confuse an explicit impossibility with a speculative knowledge claim",()=>{
+ const docs:ContextDocument[]=[{source:{kind:"note",id:"secret",revision:1},label:"设定",text:"阿宁没有听过密码，只有林舟知道密码。"},{source:{kind:"chapter",id:"current",revision:1},label:"正文",text:"阿宁没有得到任何提示，却准确说出了密码1234。"}];
+ const issue={category:"knowledge",impact:"blocking",reason:"阿宁不可能知道未被告知的密码，但本章明确写出她未经提示就准确说出密码。",evidence:docs.map(d=>({source:d.source,quote:d.text}))};
+ expect(parseWritingReview(JSON.stringify(payload([issue])),docs,true).issues).toHaveLength(1);
+});

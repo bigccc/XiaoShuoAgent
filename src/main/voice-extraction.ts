@@ -50,8 +50,6 @@ export class VoiceExtractionRunner {
                 throw new DomainError("CONFLICT", "文风任务正在停止或不能继续");
             this.available(j.projectId, j.id);
             this.current(j);
-            if (c.tokenBudget !== undefined && c.tokenBudget < j.tokenBudget)
-                throw new DomainError("VALIDATION", "总预算不能低于原预算");
             const profile = this.profile(c.profileId ?? (j.profileId && this.store.get("profiles", j.profileId) ? j.profileId : undefined));
             this.update(j.id, { status: "running", profileId: profile.id, tokenBudget: c.tokenBudget ?? j.tokenBudget, reply: "正在继续文风提取" });
             this.launch(j.id);
@@ -66,15 +64,11 @@ export class VoiceExtractionRunner {
         throw new ProviderError("CANCELLED", "文风提取已停止"); }
     private launch(id: string) { const controller = new AbortController(), promise = this.run(id, controller.signal).catch(e => { if (this.job(id).status === "running")
         this.update(id, { status: "failed", reply: e instanceof ProviderError || e instanceof DomainError ? e.message : "文风提取未完成，原档案保留，可重试" }); }).finally(() => this.active.delete(id)); this.active.set(id, { controller, promise }); }
-    private settle(id: string, reserved: number, usage?: TaskUsage) { const j = this.job(id), old = j.usage, sum = (a: number | null | undefined, b: number | null | undefined) => b == null || old && a == null ? null : (a ?? 0) + b; this.update(id, { budgetUsed: j.budgetUsed - reserved + (usage?.totalTokens ?? reserved), usage: { inputTokens: sum(old?.inputTokens, usage?.inputTokens), outputTokens: sum(old?.outputTokens, usage?.outputTokens), totalTokens: sum(old?.totalTokens, usage?.totalTokens), estimated: !!old?.estimated || !!usage?.estimated || usage?.totalTokens == null }, ...(usage?.totalTokens == null ? { warnings: [...new Set([...j.warnings, "部分用量未知，保留预算预留；不代表完整账单"])].slice(-100) } : {}) }); }
+    private settle(id: string, reserved: number, usage?: TaskUsage) { const j = this.job(id), old = j.usage, sum = (a: number | null | undefined, b: number | null | undefined) => b == null || old && a == null ? null : (a ?? 0) + b; this.update(id, { budgetUsed: j.budgetUsed - reserved + (usage?.totalTokens ?? reserved), usage: { inputTokens: sum(old?.inputTokens, usage?.inputTokens), outputTokens: sum(old?.outputTokens, usage?.outputTokens), totalTokens: sum(old?.totalTokens, usage?.totalTokens), estimated: !!old?.estimated || !!usage?.estimated || usage?.totalTokens == null }, ...(usage?.totalTokens == null ? { warnings: [...new Set([...j.warnings, "部分用量未知，保留用量估算；不代表完整账单"])].slice(-100) } : {}) }); }
     private async run(id: string, signal: AbortSignal) {
         this.running(id, signal);
         let j = this.job(id), r = this.current(j);
         const profile = this.profile(j.profileId), input = { kind: r.kind, ...(r.entityNoteId ? { character: this.store.get("notes", r.entityNoteId)!.title } : {}), samples: r.samples.map(s => ({ id: s.id, quote: s.quote })) }, messages = [{ role: "system" as const, content: SYSTEM }, { role: "user" as const, content: JSON.stringify(input) }], reserved = Math.ceil(messages.reduce((n, m) => n + m.content.length, 0) * 1.2) + 4000;
-        if (!this.provider.moneyControlsTokens?.() && j.budgetUsed + reserved > j.tokenBudget) {
-            this.update(id, { status: "paused", reply: "本次调用额度不足，原档案保留；可增加本次额度后继续" });
-            return;
-        }
         const secret = this.store.getProfileKey(profile.id);
         let key: string | undefined;
         if (secret) {

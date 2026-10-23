@@ -4,13 +4,11 @@ import type { Store } from './store';
 import { detectWritingGoal } from '../shared/writing';
 import type { ChatRequest } from './provider';
 import { DomainError } from '../shared/validation';
-import { billable, costMicros, money, type BillingQuote, type BillingSummary } from '../shared/billing';
+import { billable, costMicros, type BillingQuote, type BillingSummary } from '../shared/billing';
 import type { ModelProfile, TaskUsage } from '../shared/types';
 
 export class BillingService {
   private scope = new AsyncLocalStorage<string>();
-  private tokenGuard = new AsyncLocalStorage<boolean>();
-  moneyControlsTokens() { return this.tokenGuard.getStore() === true; }
   private db;
   constructor(private store:Store) {
     this.db=store.billingDatabase();
@@ -65,61 +63,45 @@ export class BillingService {
   summary(owner:string):BillingSummary {
     const b=this.owner(owner);
     if(!b)return {spentMicros:0,reservedMicros:0,budgetMicros:0,unknown:true};
-    const rows=this.db.prepare('SELECT reserved,cost,status FROM billingRequests WHERE budget=?').all(b.id);
-    return {spentMicros:rows.reduce((s,r)=>s+Number(r.cost??0),0),reservedMicros:rows.reduce((s,r)=>s+(r.cost==null?Number(r.reserved):0),0),budgetMicros:Number(b.budget),unknown:!!b.unknown||rows.some(r=>r.status==='unknown'),nextMicros:Number(b.next)};
+    const rows=this.db.prepare('SELECT reserved,cost,status,pricing FROM billingRequests WHERE budget=?').all(b.id);
+    return {spentMicros:rows.reduce((s,r)=>s+Number(r.cost??0),0),reservedMicros:rows.reduce((s,r)=>s+(r.cost==null?Number(r.reserved):0),0),budgetMicros:Number(b.budget),unknown:!!b.unknown||rows.some(r=>r.status==='unknown'||r.pricing==='null'),nextMicros:Number(b.next)};
+  }
+  private createLedger(owner?: string, project?: string, historical = false): string {
+    const id = randomUUID();
+    this.db.prepare('INSERT INTO billingBudgets(id,owner,project,budget,unknown,moneyTokens) VALUES(?,?,?,?,?,?)').run(id,owner??id,project??null,0,historical?1:0,0);
+    if (owner) this.db.prepare('INSERT OR REPLACE INTO billingOwners(owner,budget) VALUES(?,?)').run(owner,id);
+    return id;
   }
   async dispatch(c:any, run:(c:any)=>Promise<any>) {
     if(!billable(c?.type??'') || c.type==='authoring.resolveSync' && c.resolution!=='draft') { if(c && typeof c==='object') { const {billing,...local}=c; return run(local); } return run(c); }
     const {billing,...clean}=c;
-    let moneyControlsTokens = clean.tokenBudget === undefined;
-    const quote=this.quote(clean);
-    if(!quote.priced)return {ok:false,error:{code:'VALIDATION',message:`请先填写模型的输入、输出价格：${quote.missingProfiles.join('、')}`}};
-    let b=clean.id?this.owner(clean.id):undefined;
-    if(b) moneyControlsTokens=!!b.moneyTokens;
-    const amount=billing?.budgetMicros;
-    if(amount!==undefined&&(!Number.isSafeInteger(amount)||amount<0||amount>Number.MAX_SAFE_INTEGER/4))return {ok:false,error:{code:'VALIDATION',message:'本次金额预算不正确'}};
-    if(!b&&amount===undefined)return {ok:false,error:{code:'VALIDATION',message:'请先查看预计花费并设置本次金额预算'}};
-    if(b&&amount!==undefined) {
-      const sum=this.summary(clean.id);
-      if(amount<sum.spentMicros+sum.reservedMicros)return {ok:false,error:{code:'VALIDATION',message:'金额预算不能低于已有消耗和预留'}};
-      this.db.prepare('UPDATE billingBudgets SET budget=? WHERE id=?').run(amount,b.id);
-    }
-    if(!b) {
-      b={id:randomUUID()};
-      this.db.prepare('INSERT INTO billingBudgets(id,owner,project,budget,unknown,moneyTokens) VALUES(?,?,?,?,?,?)').run(b.id,clean.id??b.id,clean.projectId??null,amount,clean.id && ['writingJobs','revisionJobs','conversations','tasks','voiceJobs','sceneJobs','storyJobs','syncJobs'].some(t=>this.store.get(t as any,clean.id)) ? 1 : 0,moneyControlsTokens?1:0);
-    }
-    // Legacy token allowances are internal guardrails; money authorization controls spending.
-    if(clean.tokenBudget===undefined && /^(writing\.|revision\.|ai\.|voice\.|scene\.|structure\.|story\.job\.)/.test(clean.type))clean.tokenBudget= /conversation\.send|writing\.|revision\./.test(clean.type)?1_000_000_000:1_000_000;
-    const result=await this.scope.run(b.id,()=>this.tokenGuard.run(moneyControlsTokens,()=>run(clean)));
-    if(result.ok&&result.entityId)this.db.prepare('INSERT OR REPLACE INTO billingOwners(owner,budget) VALUES(?,?)').run(result.entityId,b.id);
+    // Persisted schemas still accept this legacy field; it no longer limits work.
+    if(clean.tokenBudget===undefined && /^(revision\.|ai\.|voice\.|scene\.|structure\.)/.test(clean.type)) clean.tokenBudget=100000;
+    const existing=clean.id?this.owner(clean.id):undefined;
+    const historical=clean.id && ['writingJobs','revisionJobs','conversations','tasks','voiceJobs','sceneJobs','storyJobs','syncJobs'].some(t=>this.store.get(t as any,clean.id));
+    const ledger=existing?.id??this.createLedger(clean.id,clean.projectId,!!historical);
+    const result=await this.scope.run(ledger,()=>run(clean));
+    if(result.ok&&result.entityId)this.db.prepare('INSERT OR REPLACE INTO billingOwners(owner,budget) VALUES(?,?)').run(result.entityId,ledger);
     return result;
   }
   reserve(r:ChatRequest):string {
-    const budget=this.scope.getStore();
-    if(!budget)throw new DomainError('CONFLICT','此后台 AI 操作尚未设置金额预算，请手动继续');
+    // Scheduled work may start outside a command's async scope. Give it a durable
+    // owner instead of refusing it or silently omitting the request from accounting.
+    const scoped=this.scope.getStore();
+    const ledger=scoped ?? (r.billingOwnerId?this.owner(r.billingOwnerId)?.id:undefined) ?? this.createLedger(r.billingOwnerId,r.billingProjectId);
+    if(r.billingOwnerId)this.db.prepare('INSERT OR REPLACE INTO billingOwners(owner,budget) VALUES(?,?)').run(r.billingOwnerId,ledger);
     const p=this.store.list('profiles').find(p=>(!r.billingProfileId || p.id===r.billingProfileId) && p.baseUrl.replace(/\/$/,'')===r.baseUrl.replace(/\/$/,'')&&p.model===r.model);
-    if(!p?.pricing)throw new DomainError('VALIDATION','请先填写当前模型的输入、输出价格');
-    const reserved=costMicros(p.pricing,r.messages.reduce((s,m)=>s+Buffer.byteLength(m.content,'utf8')+64,128),r.maxTokens);
-    const id = this.store.transaction(()=>{
-      const b=this.db.prepare('SELECT * FROM billingBudgets WHERE id=?').get(budget)!;
-      const total=Number(this.db.prepare('SELECT coalesce(sum(coalesce(cost,reserved)),0) AS total FROM billingRequests WHERE budget=?').get(budget)!.total);
-      if(total+reserved>Number(b.budget)) {
-        this.db.prepare('UPDATE billingBudgets SET next=? WHERE id=?').run(reserved,budget);
-        return ''; 
-      }
-      this.db.prepare('UPDATE billingBudgets SET next=0 WHERE id=?').run(budget);
-      const id=randomUUID();
-      this.db.prepare('INSERT INTO billingRequests(id,budget,profile,model,pricing,phase,reserved,status,created) VALUES(?,?,?,?,?,?,?,?,?)').run(id,budget,p.id,p.model,JSON.stringify(p.pricing),r.messages[0]?.content.slice(0,100)??'',reserved,'running',new Date().toISOString());
-      return id;
-    });
-    if(!id) { const b=this.db.prepare('SELECT owner FROM billingBudgets WHERE id=?').get(budget)!; const sum=this.summary(String(b.owner)); throw new DomainError('CONFLICT',`本次金额预算不足，已用及预留 ${money(sum.spentMicros+sum.reservedMicros)}，下一步预计 ${money(reserved)}，预算 ${money(sum.budgetMicros)}；进度已保存，请调整金额后继续`); }
+    const reserved=p?.pricing?costMicros(p.pricing,r.messages.reduce((s,m)=>s+Buffer.byteLength(m.content,'utf8')+64,128),r.maxTokens):0;
+    const id=randomUUID();
+    this.db.prepare('INSERT INTO billingRequests(id,budget,profile,model,pricing,phase,reserved,status,created) VALUES(?,?,?,?,?,?,?,?,?)').run(id,ledger,p?.id??r.billingProfileId??'',r.model,JSON.stringify(p?.pricing??null),r.messages[0]?.content.slice(0,100)??'',reserved,'running',new Date().toISOString());
+    this.db.prepare('UPDATE billingBudgets SET next=0 WHERE id=?').run(ledger);
     return id;
   }
   settle(id:string,usage?:TaskUsage) {
     const row=this.db.prepare("SELECT * FROM billingRequests WHERE id=? AND status='running'").get(id);
     if(!row)return;
-    const known=usage?.inputTokens!=null&&usage?.outputTokens!=null;
     const price=JSON.parse(String(row.pricing));
+    const known=price!=null&&usage?.inputTokens!=null&&usage?.outputTokens!=null;
     this.db.prepare('UPDATE billingRequests SET cost=?,status=?,usage=? WHERE id=?').run(known?costMicros(price,usage!.inputTokens!,usage!.outputTokens!, (usage as any).cachedInputTokens??0):null,known?'settled':'unknown',usage?JSON.stringify(usage):null,id);
   }
 }

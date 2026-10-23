@@ -183,10 +183,12 @@ it("can adopt pending candidates and resume paused jobs restored as a renamed co
   const directory = mkdtempSync(join(tmpdir(), "reader-revision-copy-"));
   dirs.push(directory);
   const path = join(directory, "book.novel");
+  let hold=false;let release:(()=>void)|undefined;
   const app = new AppServices({
     dataDir: directory,
     dialogs: { open: async () => path, save: async () => path },
     fetch: async (_url, init) => {
+      if(hold)await new Promise<void>(resolve=>{release=resolve;});
       const body = JSON.parse(String(init?.body)),
         chapter = JSON.parse(body.messages.at(-1).content).chapter;
       return new Response(
@@ -266,6 +268,7 @@ it("can adopt pending candidates and resume paused jobs restored as a renamed co
       .chapters.filter((c) => c.projectId === copy)
       .every((c) => c.content === "待审改稿"),
   ).toBe(true);
+  hold=true;
   const paused = id(
     await app.dispatch({
       type: "revision.start",
@@ -275,6 +278,7 @@ it("can adopt pending candidates and resume paused jobs restored as a renamed co
       tokenBudget: 1,
     }),
   );
+  await expect.poll(()=>!!release).toBe(true);id(await app.dispatch({type:"revision.pause",id:paused}));release!();hold=false;
   await expect
     .poll(
       () => app.snapshot().revisionJobs!.find((j) => j.id === paused)?.status,

@@ -237,9 +237,10 @@ it("does not overwrite a source changed while selection generation was running",
   expect(store.get("chapters", c.id)!.content).toBe("作者手稿");
 });
 it("pauses without losing checkpoints, resumes without duplicated checked chapters, and does not auto resume after restart", async () => {
-  let calls = 0;
-  const { runner, store, domain, provider, projectId } = setup((r) => {
+  let calls = 0,hold=true;let release: (()=>void)|undefined;
+  const { runner, store, domain, provider, projectId } = setup(async (r) => {
     calls++;
+    if(hold)await new Promise<void>(resolve=>{release=resolve;});
     return changed(r);
   });
   const id = runner.start({
@@ -249,16 +250,17 @@ it("pauses without losing checkpoints, resumes without duplicated checked chapte
     text: "逐章改",
     tokenBudget: 1,
   });
-  expect((await done(runner, id)).status).toBe("paused");
-  expect(calls).toBe(0);
+  await expect.poll(()=>!!release).toBe(true);runner.command({type:"revision.pause",id});release!();hold=false;
+  await done(runner,id);
+  expect(calls).toBe(1);
   runner.command({ type: "revision.resume", id, tokenBudget: 30000 });
   await done(runner, id);
-  expect(calls).toBe(3);
+  expect(calls).toBe(4);
   await runner.dispose();
   const reloaded = new RevisionRunner(store, domain, provider);
   runners.push(reloaded);
   expect(reloaded.get(id).candidates).toHaveLength(3);
-  expect(calls).toBe(3);
+  expect(calls).toBe(4);
 });
 it("does not apply linked materials to a rejected or pending partial batch", async () => {
   const { runner, projectId, chapters, store } = setup((r) =>
@@ -423,7 +425,7 @@ it("routes named multi-chapter rewrites and rejects malformed routing DTOs", () 
     ),
   ).toThrow(/格式/);
 });
-it("preserves earlier candidates when a retry exhausts the reserved budget and resumes only unchecked chapters", async () => {
+it("keeps candidates and retry accounting without an old cumulative budget", async () => {
   let requests = 0;
   const { runner, projectId } = setup((r) => {
     requests++;
@@ -438,15 +440,12 @@ it("preserves earlier candidates when a retry exhausts the reserved budget and r
     tokenBudget: 5000,
   });
   let j = await done(runner, id);
-  expect(j.status).toBe("paused");
-  expect(j.candidates).toHaveLength(1);
-  expect(j.calls).toBe(2);
-  expect(j.usage!.totalTokens).toBeLessThanOrEqual(5000);
-  runner.command({ type: "revision.resume", id, tokenBudget: 30000 });
-  j = await done(runner, id);
+  expect(j.status).toBe("awaiting-author");
+  expect(j.calls).toBe(4);
+  expect(j.usage!.estimated).toBe(true);
   expect(j.checkedChapterIds).toHaveLength(3);
   expect(j.candidates).toHaveLength(3);
-  expect(requests).toBe(4);
+  expect(requests).toBe(3);
 });
 it("accepts a real ambiguity answer on the same durable job", async () => {
   let calls = 0;
@@ -495,7 +494,7 @@ it("retains a late cancelled response's usage without saving prose or losing ear
   );
 });
 it("refuses to switch model configurations or use protected keys without a codec", async () => {
-  const { runner, projectId, store, execute } = setup(changed);
+  let release:(()=>void)|undefined;const { runner, projectId, store, execute } = setup(async r=>{await new Promise<void>(resolve=>{release=resolve;});return changed(r);});
   const id = runner.start({
     type: "revision.start",
     projectId,
@@ -503,7 +502,7 @@ it("refuses to switch model configurations or use protected keys without a codec
     text: "修改",
     tokenBudget: 1,
   });
-  await done(runner, id);
+  await expect.poll(()=>!!release).toBe(true);runner.command({type:"revision.pause",id});release!();await done(runner,id);
   const p = store.list("profiles")[0];
   execute({
     type: "profile.save", pricing: { currency: "CNY", input: 0, output: 0 },

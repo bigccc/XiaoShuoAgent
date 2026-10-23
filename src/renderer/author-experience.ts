@@ -24,7 +24,7 @@ export function budgetStopped(message?: string): boolean {
 }
 
 export function authorError(message: string): string {
-  if (budgetStopped(message)) return "本次金额预算已用尽，已有成果和进度仍保留。查看预计费用、确认预算后可继续。";
+  if (budgetStopped(message)) return "这是旧版本的预算暂停记录，已有成果和进度仍保留。直接继续即可，无需追加预算。";
   if (/连接失败|NETWORK|401|403|API 密钥|鉴权/.test(message)) return "AI 连接未成功，请检查设置中的 AI 连接，再重试。已有稿件仍保留。";
   return message;
 }

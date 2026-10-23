@@ -660,7 +660,7 @@ it("archives removed managed notes, keeps independent notes and can restore stag
   ).toContain("遗物整理师");
 });
 
-it("requires an explicit budget to normalize the latest of rapid local saves", async () => {
+it("automatically normalizes only the latest rapid local save without a budget prompt", async () => {
   let normalizations = 0;
   const { app, projectId } = setup(
     (req) => {
@@ -703,11 +703,7 @@ it("requires an explicit budget to normalize the latest of rapid local saves", a
       () =>
         app.snapshot().projects[0].authoring!.documents.settings!.sync!.status,
     )
-    .toBe("failed");
-  expect(normalizations).toBe(0);
-  expect(app.snapshot().projects[0].authoring!.documents.settings!.sync!.error).toContain("金额预算");
-  const syncId = id(await app.dispatch({type: "authoring.sync", projectId, stage: "settings"}));
-  await expect.poll(() => app.snapshot().syncJobs.find(j => j.id === syncId)!.status).toBe("succeeded");
+    .toBe("synced");
   expect(app.snapshot().projects[0].style).toBe("最新文风");
   expect(normalizations).toBe(1);
 });
@@ -958,7 +954,7 @@ it("refuses cross-project record references and preserves first-association manu
   ).toContain("作者的原人物设定");
 });
 
-it("waits five seconds without issuing a paid background normalization, then accepts explicit authorization", async () => {
+it("debounces background normalization for five seconds and records its owner without approval", async () => {
   let count = 0;
   const { app, projectId } = setup((req) => {
     if (req.messages[0].content.includes("STAGE_SYNC_NORMALIZE")) {
@@ -1006,13 +1002,13 @@ it("waits five seconds without issuing a paid background normalization, then acc
     await vi.advanceTimersByTimeAsync(4999);
     expect(count).toBe(0);
     await vi.advanceTimersByTimeAsync(1);
-    expect(count).toBe(0);
-    expect(app.snapshot().projects[0].authoring!.documents.settings!.sync!.status).toBe("failed");
+    expect(count).toBe(1);
   } finally {
     vi.useRealTimers();
   }
-  const syncId = id(await app.dispatch({type: "authoring.sync", projectId, stage: "settings"}));
-  await expect.poll(() => app.snapshot().syncJobs.find(j => j.id === syncId)!.status).toBe("succeeded");
+  await expect.poll(()=>app.snapshot().projects[0].authoring!.documents.settings!.sync!.status).toBe("synced");
+  const syncId=app.snapshot().projects[0].authoring!.documents.settings!.sync!.jobId!;
+  expect(app.billingSummary(syncId).unknown).toBe(false);
   expect(count).toBe(1);
   expect(app.snapshot().projects[0].style).toBe("最新版");
 });

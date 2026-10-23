@@ -13,6 +13,7 @@ export const writingReviewInstruction =
   "style、pacing、length为局部待审建议，impact必须为local，至少引用一条直接相关原文。不能把人设、时间线、主线等事实冲突改称style或pacing来降低影响。篇幅以提供的实际字数和目标为准，不能仅凭感觉判断不足。" +
   "只检查本次指定章节；需要调整的章节依据放在本项evidence最后，应用由最后一条chapter来源定位章节，关联设定和前章证据放在它前面。" +
   "正常时间推进、人物移动、物品取放、已解释的状态变化不算冲突；多个故障可以同时存在，修好一处后发现另一处故障不是根因冲突；不同零件默认是不同对象，不能仅因故事先后提到两种零件就认定同一物体改名。区分回忆、角色猜测、说谎与叙述事实，不能凭空假设动作来消除明确矛盾，也不能把缺少后续描写当作已经发生的矛盾。" +
+  "知情范围必须直接对应同一条秘密：认识容器、书或地点，不等于知道其中藏有信件、秘密或寄信人身份。寻找同色物品、观察别人动作、模糊回忆都不能单独证明角色知道秘密。理由若只能说暗示、可能、怀疑或疑似，就不是已证实冲突，不得要求改稿。" +
   "本批新稿不是作者已经确认的设定。能够只修正新稿来保持既有人设、主线、结局和前文事实时，majorChange=false，保留具体问题交给应用修正；纠正本批草稿的错误不等同于推翻已确认方向。" +
   "无确定问题返回issues=[]，不得为凑类别制造问题。只有必须推翻已确认人设、主线或结局才能继续时majorChange=true，并在顶层reason明确要改变的已确认内容及原因，等待作者决定；普通细节补充、文风建议和一般疑点不能设为重大变更，无理由不得majorChange=true。";
 
@@ -136,6 +137,14 @@ function parseReview(
     const unique = new Set(evidence.map(item => JSON.stringify([item.source.kind, item.source.id, item.source.revision, item.quote])));
     if (unique.size !== evidence.length)
       formatError("存在重复证据，不能以同一处原文代替矛盾双方");
+    // Verbatim citations prove the text exists, not that an inferred secret is
+    // known. If the checker itself expresses uncertainty, keep the finding for
+    // the author instead of using it to authorize automatic changes.
+    if (allowUnverified && impact === "blocking" &&
+      /(?:暗示|推测).{0,24}(?<!不)可能(?:已|已经|提前)?(?:知道|知晓)|^(?:怀疑|疑似|也许|似乎)/.test(issueReason)) {
+      unverified.push(`尚未证实：${issueReason}。检查结论含推测，未据此改稿。`);
+      return null;
+    }
     const chapterId = evidence.filter(item => item.source.kind === "chapter").at(-1)?.source.id;
     return { category, impact, reason: issueReason, evidence, ...(chapterId ? { chapterId } : {}) } as WritingIssue;
     } catch (error) {

@@ -33,9 +33,8 @@ it("segments long chapters and resumes checkpoints after a restart without payin
   id(await reopened.dispatch({type:"story.job.resume",id:jobId,tokenBudget:200000}));const job=await done(reopened,jobId);
   expect(job.status).toBe("completed");expect(reopened.snapshot().storyRecords).toHaveLength(1);expect(job.budgetUsed).toBeGreaterThan(30);expect(f.calls.every(c=>c.passage.text.length<=16000)).toBe(true);
 });
-it("pauses before an over-budget request and settles unknown usage conservatively",async()=>{
-  const f=await setup(proposal.quote,(_i,res)=>{reply(res,{states:[proposal]},null);return true;});const jobId=await start(f.app,f.projectId,f.chapterId,1);let job=await done(f.app,jobId);expect(job.status).toBe("paused");expect(f.calls).toHaveLength(0);
-  id(await f.app.dispatch({type:"story.job.resume",id:jobId,tokenBudget:100000}));job=await done(f.app,jobId);expect(job.status).toBe("completed");expect(job.budgetUsed).toBeGreaterThan(0);expect(job.usage?.estimated).toBe(true);
+it("ignores a tiny legacy allowance and reports unknown usage conservatively",async()=>{
+  const f=await setup(proposal.quote,(_i,res)=>{reply(res,{states:[proposal]},null);return true;});const jobId=await start(f.app,f.projectId,f.chapterId,1);const job=await done(f.app,jobId);expect(f.calls).toHaveLength(1);expect(job.status).toBe("completed");expect(job.budgetUsed).toBeGreaterThan(0);expect(job.usage?.estimated).toBe(true);
 });
 it("rejects a source edit made during a model call without writing late candidates",async()=>{
   let release:(()=>void)|undefined;const f=await setup(proposal.quote,(_input,res)=>{release=()=>reply(res,{states:[proposal]});return true;});const jobId=await start(f.app,f.projectId,f.chapterId);await expect.poll(()=>!!release).toBe(true);
@@ -52,10 +51,11 @@ it("cancels a pending extraction and preserves cancellation after late network d
 
 it("continues imported checkpoints using the local connection only after an explicit resume",async()=>{
   const {ProjectFiles}=await import("../src/main/files");const {Store}=await import("../src/main/store");
-  const f=await setup();
+  let hold=true;const f=await setup(proposal.quote,(input)=>hold&&input.chapter.ordinal===9);
   const secondId=id(await f.app.dispatch({type:"chapter.create",projectId:f.projectId,ordinal:9,title:"雨夜"}));
   id(await f.app.dispatch({type:"chapter.save",id:secondId,revision:1,content:"风声。".repeat(7000)}));
   const originalId=id(await f.app.dispatch({type:"story.job.start",projectId:f.projectId,chapterIds:[f.chapterId,secondId],tokenBudget:10000}));
+  await expect.poll(()=>f.calls.length).toBe(2);id(await f.app.dispatch({type:"story.job.pause",id:originalId}));hold=false;
   const original=await done(f.app,originalId);expect(original.status).toBe("paused");expect(original.cursor).toBe(1);expect(original.candidateIds).toHaveLength(1);
   const fileStore=new Store(join(f.dir,"works.sqlite")),files=new ProjectFiles(fileStore),path=join(f.dir,"import.novel");
   let projectId:string;try{await files.backup(f.projectId,path);projectId=await files.importBackup(path);}finally{fileStore.close();}

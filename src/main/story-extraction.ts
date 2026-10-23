@@ -64,8 +64,6 @@ export class StoryExtractionRunner {
                 throw new DomainError("CONFLICT", "任务正在停止或不能续跑，请稍后重试");
             this.available(j.projectId, j.id);
             this.sourceCurrent(j);
-            if (c.tokenBudget !== undefined && c.tokenBudget < j.tokenBudget)
-                throw new DomainError("VALIDATION", "续跑预算不能低于原总预算");
             const profiles = this.store.list("profiles");
             const profile = c.profileId ? this.store.get("profiles", c.profileId) :
                 (j.profileId ? this.store.get("profiles", j.profileId) : undefined) ?? profiles.find(p => p.purpose === "checking") ?? profiles[0];
@@ -99,7 +97,7 @@ export class StoryExtractionRunner {
     private settle(id: string, reservation: number, usage?: TaskUsage) {
         const j = this.job(id), old = j.usage;
         const sum = (a: number | null | undefined, b: number | null | undefined) => b == null || old && a == null ? null : (a ?? 0) + b;
-        this.update(id, { budgetUsed: j.budgetUsed - reservation + (usage?.totalTokens ?? reservation), usage: { inputTokens: sum(old?.inputTokens, usage?.inputTokens), outputTokens: sum(old?.outputTokens, usage?.outputTokens), totalTokens: sum(old?.totalTokens, usage?.totalTokens), estimated: !!old?.estimated || !!usage?.estimated || usage?.totalTokens == null }, ...(usage?.totalTokens == null ? { warnings: [...new Set([...j.warnings, "部分调用用量未知，预算保留预留值；不代表完整账单"])].slice(-100) } : {}) });
+        this.update(id, { budgetUsed: j.budgetUsed - reservation + (usage?.totalTokens ?? reservation), usage: { inputTokens: sum(old?.inputTokens, usage?.inputTokens), outputTokens: sum(old?.outputTokens, usage?.outputTokens), totalTokens: sum(old?.totalTokens, usage?.totalTokens), estimated: !!old?.estimated || !!usage?.estimated || usage?.totalTokens == null }, ...(usage?.totalTokens == null ? { warnings: [...new Set([...j.warnings, "部分调用用量未知，用量保留估算值；不代表完整账单"])].slice(-100) } : {}) });
     }
     private async run(id: string, signal: AbortSignal) {
         while (this.job(id).cursor < this.job(id).chapterIds.length) {
@@ -109,10 +107,6 @@ export class StoryExtractionRunner {
             const chapter = this.store.get("chapters", j.chapterIds[j.cursor])!, start = j.offset, end = Math.min(chapter.content.length, start + 16000), text = chapter.content.slice(start, end);
             const messages = [{ role: "system" as const, content: instruction }, { role: "user" as const, content: JSON.stringify({ chapter: { id: chapter.id, ordinal: chapter.ordinal, title: chapter.title }, passage: { start, end, text } }) }];
             const reservation = Math.ceil(messages.reduce((n, m) => n + m.content.length, 0) * 1.2) + 4000;
-            if (!this.provider.moneyControlsTokens?.() && j.budgetUsed + reservation > j.tokenBudget) {
-                this.update(id, { status: "paused", reply: "本次调用额度不足，候选和进度已保存；可增加本次额度后继续" });
-                return;
-            }
             const profile = j.profileId ? this.store.get("profiles", j.profileId) : undefined;
             if (!profile)
                 throw new DomainError("VALIDATION", "原AI连接已移除，请选择当前连接新建提取任务");

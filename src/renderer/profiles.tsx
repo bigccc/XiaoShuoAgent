@@ -206,7 +206,7 @@ function ProfileForm({
         </details>
         <div className="card">
           <h2>模型价格</h2>
-          <p className="muted">请按服务商价格填写人民币单价，单位为元／百万 Token。费用仅为估算；免费模型请明确填写 0。未填写价格时可以保存，但不能调用。</p>
+          <p className="muted">请按服务商价格填写人民币单价，单位为元／百万 Token。费用仅为估算；免费模型请明确填写 0。价格可选；未填写时仍可调用，费用显示为未知。</p>
           <Field label="输入单价（元／百万 Token）">
             <input type="number" min="0" max="1000000" step="any" value={v.inputPrice} placeholder="填写输入价格" onChange={e => set({ ...v, inputPrice: e.target.value })} />
           </Field>

@@ -479,25 +479,9 @@ export class TaskRunner {
             message.content.slice(-tail),
         };
       });
-      const budget = this.provider.moneyControlsTokens?.() ? 1_000_000_000 : c.type === "model.test" ? 1000000 : c.tokenBudget;
       const current = this.store.get("tasks", id)!;
-      const consumed = current.usage?.totalTokens ?? 0;
       const inputEstimate = estimate(messages);
-      const remaining = budget - consumed - inputEstimate;
-      const thinkingCheck =
-        forCheck &&
-        profile.model === "deepseek-v4-pro" &&
-        new URL(profile.baseUrl).hostname === "api.deepseek.com";
-      if (thinkingCheck && remaining < 4000)
-        throw new DomainError(
-          "BUDGET",
-          "剩余预算不足以完成检查推理，已暂停；可新建更高预算任务",
-        );
-      if (remaining < 32)
-        throw new DomainError(
-          "BUDGET",
-          "剩余 Token 预算不足，已暂停；可新建更高预算任务",
-        );
+      const thinkingCheck = forCheck && profile.model === "deepseek-v4-pro" && new URL(profile.baseUrl).hostname === "api.deepseek.com";
       const cap = Math.min(
         32000,
         forCheck
@@ -513,7 +497,6 @@ export class TaskRunner {
             : c.type === "ai.plan"
               ? (c.maxOutputTokens ?? 8000)
               : 2000,
-        remaining,
       );
       if(forCheck && cap < (thinkingCheck ? 8000 : 1500))fullCheckCaps=false;
       let full = "";
@@ -544,9 +527,6 @@ export class TaskRunner {
         signal,
         onAttempt: () => {
           const now = this.store.get("tasks", id)!;
-          const spent = now.usage?.totalTokens ?? 0;
-          if (spent + inputEstimate + cap > budget)
-            throw new DomainError("BUDGET", "剩余预算不足，停止自动重试");
           const old = now.usage;
           this.update(id, {
             calls: now.calls + 1,

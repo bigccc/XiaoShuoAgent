@@ -29,6 +29,8 @@ export interface ChatMessage {
 }
 export interface ChatRequest {
   billingProfileId?: string;
+  billingOwnerId?: string;
+  billingProjectId?: string;
   baseUrl: string;
   model: string;
   key?: string;
@@ -48,7 +50,7 @@ export interface ChatResult {
   diagnostics?: ResponseDiagnostics;
 }
 export interface ProviderOptions {
-  billing?: { moneyControlsTokens?():boolean; reserve(request: ChatRequest): string; settle(id:string, usage?:TaskUsage):void };
+  billing?: { reserve(request: ChatRequest): string; settle(id:string, usage?:TaskUsage):void };
   fetch?: typeof fetch;
   timeoutMs?: number;
   retryDelayMs?: number;
@@ -99,7 +101,6 @@ export class ChatProvider {
   constructor(private options: ProviderOptions = {}) {
     this.fetcher = options.fetch ?? fetch;
   }
-  moneyControlsTokens() { return this.options.billing?.moneyControlsTokens?.() ?? false; }
   async complete(request: ChatRequest): Promise<ChatResult> {
     const url = chatUrl(request.baseUrl);
     if (
@@ -339,7 +340,7 @@ export class ChatProvider {
         if (outputLimited)
           throw new ProviderError(
             "OUTPUT_LIMIT",
-            `模型达到单次输出上限（本次请求 ${r.maxTokens} Token，也可能受模型上下文限制），不代表任务总预算耗尽。已保留片段，可继续任务，或调整单次输出上限后新建任务。`,
+            `模型达到单次输出上限（本次请求 ${r.maxTokens} Token，也可能受模型上下文限制）。已保留片段，可继续任务，或调整单次输出上限后新建任务。`,
             text,
             false,
             reported,

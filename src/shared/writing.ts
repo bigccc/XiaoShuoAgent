@@ -18,6 +18,9 @@ export interface WritingChapterProgress {
   status: "pending" | "written" | "checked" | "needs-review";
   revisionRounds: number;
   targetedRevisionRounds?: number;
+  authorRepairPending?: boolean;
+  authorRevisionRounds?: number;
+  repairVerification?: { revision: number; passages: string[]; referenceDigest: string };
   checkedRevision?: number;
   checkedDraftDigest?: string;
   savedRevision?: number;
@@ -82,7 +85,7 @@ export interface WritingJob extends RecordMeta {
 export type WritingCommand =
   | { type: "writing.start"; projectId: ID; text: string; goal: WritingGoal; profileId?: ID; tokenBudget?: number; targetWords?: number; reviewOnly?: boolean; mode?: "quick" | "thorough" }
   | { type: "writing.pause" | "writing.cancel"; id: ID }
-  | { type: "writing.resume"; id: ID; tokenBudget?: number; profileId?: ID; text?: string };
+  | { type: "writing.resume"; id: ID; tokenBudget?: number; profileId?: ID; text?: string; repair?: boolean };
 
 const numberText = "[零〇一二两三四五六七八九十百\\d]+";
 const nonExecution = /讨论|聊聊|分析|如何|怎么|是否|要不要|如果|假如|试写|试试看|想想|解释|举例|(?:不要|先不|暂不|先别|别|不用|不必)(?:执行|启动|开始写|动笔)|[“”「」『』"]/;
@@ -185,7 +188,7 @@ export function validateWritingJob(value: unknown): asserts value is WritingJob 
   if (value.chapters.length !== length) fail();
   const chapterIds = new Set<string>();
   for (const [index, chapter] of value.chapters.entries()) {
-    object(chapter, ["ordinal", "chapterId", "existing", "status", "revisionRounds", "targetedRevisionRounds", "checkedRevision", "checkedDraftDigest", "savedRevision", "savedDraftDigest"]);
+    object(chapter, ["ordinal", "chapterId", "existing", "status", "revisionRounds", "targetedRevisionRounds", "authorRepairPending", "authorRevisionRounds", "repairVerification", "checkedRevision", "checkedDraftDigest", "savedRevision", "savedDraftDigest"]);
     if (chapter.ordinal !== goal.startOrdinal + index || typeof chapter.existing !== "boolean" || !["pending", "written", "checked", "needs-review"].includes(chapter.status)) fail();
     if (chapter.chapterId !== undefined) {
       string(chapter.chapterId, 200);
@@ -194,6 +197,16 @@ export function validateWritingJob(value: unknown): asserts value is WritingJob 
     } else if (chapter.existing || chapter.status !== "pending") fail();
     integer(chapter.revisionRounds, 0, 2);
     if (chapter.targetedRevisionRounds !== undefined) integer(chapter.targetedRevisionRounds, 0, 3);
+    if (chapter.authorRepairPending !== undefined && typeof chapter.authorRepairPending !== "boolean") fail();
+    if (chapter.authorRevisionRounds !== undefined) integer(chapter.authorRevisionRounds,0);
+    if (chapter.repairVerification !== undefined) {
+      const verification=chapter.repairVerification;
+      object(verification,["revision","passages","referenceDigest"]);
+      integer(verification.revision,1);array(verification.passages,50);
+      if(!verification.passages.length)fail();
+      for(const passage of verification.passages)string(passage,200000);
+      if(typeof verification.referenceDigest!=="string" || !/^[a-f0-9]{64}$/.test(verification.referenceDigest))fail();
+    }
     if (chapter.checkedDraftDigest !== undefined && !/^[a-f0-9]{64}$/.test(chapter.checkedDraftDigest)) fail();
     if (chapter.checkedRevision !== undefined) integer(chapter.checkedRevision, 1);
     if (chapter.savedDraftDigest !== undefined && (typeof chapter.savedDraftDigest !== "string" || !/^[a-f0-9]{64}$/.test(chapter.savedDraftDigest))) fail();

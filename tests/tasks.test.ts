@@ -182,7 +182,7 @@ describe("author-controlled orchestration", () => {
     corrupt.result.checkProgress.completed = corrupt.result.checkProgress.total + 1;
     expect(() => validateTask(corrupt)).toThrow();
   });
-  it("keeps partial coverage and findings when a segmented check exhausts its budget", async () => {
+  it("completes segmented coverage and retains findings beyond a legacy allowance", async () => {
     const { app, projectId } = setup({ maxContextChars: 2000 });
     const noteId = ok(app.domain.execute({ type: "note.save", projectId, noteType: "world", title: "分段设定", body: "林舟27岁。同一天他18岁。" + "甲".repeat(8000), sources: [] }));
     const url = await fixture((res, body) => reply(res, JSON.stringify({ issues: body.messages[1].content.includes("林舟27岁。同一天他18岁。") ? [{
@@ -190,12 +190,11 @@ describe("author-controlled orchestration", () => {
     }] : [], majorChange: false }), 2000));
     const task = await finish(app, ok(await app.dispatch({ type: "ai.check", projectId, profileId: model(app, url), tokenBudget: 6000 })));
     expect(task.status).toBe("awaiting-author");
-    expect(task.error).toContain("预算");
+    expect(task.error).toBe("");
     const progress = (task.result as any).checkProgress;
-    expect(progress.completed).toBe(1);
-    expect(progress.completed).toBeLessThan(progress.total);
+    expect(progress.completed).toBe(progress.total);
     expect(progress.checked.issues).toHaveLength(1);
-    expect((task.result as any).check).toBeUndefined();
+    expect((task.result as any).check.issues).toHaveLength(1);
     expect(() => validateTask(task)).not.toThrow();
   });
   it("checks every chapter ending in a twenty-chapter novel and persists coverage", async () => {
@@ -628,7 +627,7 @@ describe("author-controlled orchestration", () => {
     expect(task.status).toBe("failed");
     expect(app.snapshot().issues).toHaveLength(0);
   });
-  it("preserves the first candidate when the budget cannot pay for a length correction", async () => {
+  it("finishes the bounded length correction beyond a legacy budget", async () => {
     const { app, projectId } = setup();
     const [id] = chapters(app, projectId, 1);
     let calls = 0;
@@ -650,12 +649,12 @@ describe("author-controlled orchestration", () => {
       ),
     );
     expect(task.status).toBe("awaiting-author");
-    expect(task.error).toContain("预算");
+    expect(task.error).toBe("");
     expect((task.result as any).candidates[0].text).toBe("甲".repeat(240));
     expect(
       app.snapshot().versions.filter((v) => v.reason === "ai-candidate"),
-    ).toHaveLength(1);
-    expect(calls).toBe(1);
+    ).toHaveLength(3);
+    expect(calls).toBe(3);
   });
   it("resumes a cancelled length correction after restart without discarding its original candidate", async () => {
     const { app, projectId, dir } = setup();
@@ -880,7 +879,7 @@ describe("author-controlled orchestration", () => {
     expect(task.status).toBe("failed");
     expect(app.snapshot().issues).toHaveLength(0);
   });
-  it("does not call a review beyond the remaining task budget", async () => {
+  it("finishes an independent review even beyond the old cumulative budget", async () => {
     const { app, projectId } = setup();
     const [id] = chapters(app, projectId, 1);
     ok(
@@ -927,9 +926,9 @@ describe("author-controlled orchestration", () => {
       ),
     );
     expect(task.status).toBe("awaiting-author");
-    expect(task.error).toContain("预算");
-    expect(app.snapshot().issues).toHaveLength(0);
-    expect(calls).toBe(1);
+    expect(task.error).toBe("");
+    expect(app.snapshot().issues).toHaveLength(1);
+    expect(calls).toBe(2);
   });
   it("isolates unrelated unconfirmed drafts and saves planning only for author acceptance", async () => {
     let prompt = "";
@@ -1040,11 +1039,11 @@ describe("author-controlled orchestration", () => {
     ok(await app.dispatch({ type: "task.resume", id, mode: "continue" }));
     expect(((await finish(app, id)).result as any).suggestion).toBe(prefix + "新增规划");
   });
-  it("cannot continue a truncated plan beyond the remaining task budget", async () => {
+  it("continues a truncated plan without reducing the per-response limit to a remaining allowance", async () => {
     let calls = 0;
     const url = await fixture((res, body) => {
       calls++;
-      expect(body.max_tokens).toBeLessThan(1000);
+      expect(body.max_tokens).toBe(8000);
       res.setHeader("Content-Type", "application/json");
       res.end(JSON.stringify({ choices: [{ message: { content: "保留规划片段" }, finish_reason: "length" }], usage: { prompt_tokens: 300, completion_tokens: 600, total_tokens: 900 } }));
     });
@@ -1054,9 +1053,10 @@ describe("author-controlled orchestration", () => {
     expect((await finish(app, id)).status).toBe("interrupted");
     ok(await app.dispatch({ type: "task.resume", id, mode: "continue" }));
     const paused = await finish(app, id);
-    expect(paused.error).toContain("预算");
-    expect(paused.partial).toBe("保留规划片段");
-    expect(calls).toBe(1);
+    expect(paused.status).toBe("interrupted");
+    expect(paused.error).not.toContain("预算");
+    expect(paused.partial).toContain("保留规划片段");
+    expect(calls).toBe(2);
   });
   it.each([{ planningMaxWords: 300001 }, { planningMaxWords: 0 }, { maxOutputTokens: 32001 }, { maxOutputTokens: 1.5 }])("rejects invalid planning limits before a model call: %j", async (limits) => {
     let calls = 0;
@@ -1362,7 +1362,7 @@ describe("author-controlled orchestration", () => {
     expect(app.snapshot().issues[0].evidence).toHaveLength(2);
     expect(app.snapshot().issues[0].status).toBe("open");
   });
-  it("stops before exhausting remaining budget and keeps unknown usage estimated", async () => {
+  it("retains unknown usage when a malformed downstream check stops the task", async () => {
     let calls = 0;
     const url = await fixture((res) => {
       calls++;
@@ -1388,7 +1388,8 @@ describe("author-controlled orchestration", () => {
     expect(calls).toBeLessThan(6);
     expect(task.usage?.estimated).toBe(true);
     expect(task.usage?.totalTokens).toBeGreaterThan(0);
-    expect(task.status).toBe("awaiting-author");
+    expect(task.status).toBe("failed");
+    expect(task.error).not.toContain("预算");
   });
   it("extracts reviewable material with source attribution without auto-approval", async () => {
     const url = await fixture((res) =>

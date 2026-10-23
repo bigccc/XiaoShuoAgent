@@ -360,16 +360,17 @@ test("one Continue click visibly resumes a paused task with stale automatic scen
       const r=await window.novel.invoke({type:"profile.save", pricing: { currency: "CNY", input: 0, output: 0 },name:"场景续跑验收",model:"fixture",baseUrl,purpose:"writing"});if(!r.ok)throw Error(r.error.message);
     },`http://127.0.0.1:${(server.address() as {port:number}).port}`);
     await expect(card).toContainText("过期的自动场景卡不会作为依据");
+    const before=(await page.evaluate(()=>window.novel.snapshot())).chapters.find(c=>c.ordinal===2)!.content;
     await card.getByRole("button",{name:"重新检查并继续",exact:true}).click();
     await expect(card.getByText("✓ 任务已完成")).toBeVisible();
     const s=await page.evaluate(()=>window.novel.snapshot());
-    expect(s.chapters.find(c=>c.ordinal===2)?.content).toBe("雨".repeat(3000));
+    expect(s.chapters.find(c=>c.ordinal===2)?.content).toBe(before);
     expect(s.writingJobs?.find(j=>j.id==="notice-job")?.status).toBe("completed");
-    expect(calls).toBe(3);
+    expect(calls).toBe(1);
   }finally{server.closeAllConnections();await new Promise<void>(resolve=>server.close(()=>resolve()));}
 });
 
-test("budget pause presents one paid primary action and keeps optional controls folded",async({},testInfo)=>{
+test("legacy budget pause presents direct continuation without a top-up",async({},testInfo)=>{
   let calls=0;
   const server=createServer(async(req)=>{for await(const _ of req){}calls++;});
   await new Promise<void>(resolve=>server.listen(0,"127.0.0.1",resolve));
@@ -385,7 +386,7 @@ test("budget pause presents one paid primary action and keeps optional controls 
     await expect(card.getByText("第4章篇幅不足。",{exact:true})).not.toBeVisible();
     await expect(card.getByRole("button",{name:"取消任务",exact:true})).not.toBeVisible();
     await expect(card.getByRole("button",{name:"核对状态与伏笔",exact:true})).not.toBeVisible();
-    await expect(card.getByText(/400,000.*500,000/)).toBeVisible();
+    await expect(card.getByText(/400,000.*500,000/)).toHaveCount(0);
     expect((await page.evaluate(()=>window.novel.snapshot())).writingJobs?.find(j=>j.id==="notice-job")?.tokenBudget).toBe(400000);
     expect(calls).toBe(0);
     await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].setSize(1050,680));
@@ -400,7 +401,7 @@ test("budget pause presents one paid primary action and keeps optional controls 
     await primary.click();
     await expect.poll(()=>calls).toBe(1);
     const state=await page.evaluate(()=>window.novel.snapshot());const job=state.writingJobs!.find(j=>j.id==="notice-job")!;
-    expect(job.tokenBudget).toBe(500000);expect(job.budgetUsed).toBeGreaterThanOrEqual(30000);
+    expect(job.tokenBudget).toBe(400000);expect(job.budgetUsed).toBeGreaterThanOrEqual(30000);
     await card.getByRole("button",{name:"取消任务",exact:true}).click();
   }finally{server.closeAllConnections();await new Promise<void>(resolve=>server.close(()=>resolve()));}
 });
@@ -416,14 +417,13 @@ test("resolved blocking findings collapse when only local suggestions remain",as
   await card.locator("summary").filter({hasText:"条写作建议"}).click();
   await expect(card.getByText("篇幅建议可以稍后查看。",{exact:true})).toBeVisible();
 });
-test("the task maximum does not offer an ineffective increase or continue action",async()=>{
+test("a legacy maximum allowance no longer hides continuation",async()=>{
   const card=await seed("budget");
   const db=new DatabaseSync(dir+"/works.sqlite");const job=JSON.parse(String(db.prepare("SELECT json FROM writingJobs WHERE id='notice-job'").get()!.json));
   job.tokenBudget=MAX_WRITING_TOKEN_BUDGET;job.budgetUsed=MAX_WRITING_TOKEN_BUDGET-1000;job.revision++;
   db.prepare("UPDATE writingJobs SET json=? WHERE id='notice-job'").run(JSON.stringify(job));db.close();
-  await expect(card.getByRole("button",{name:"继续完成",exact:true})).toHaveCount(0);
-  await expect(card.getByRole("button",{name:"继续完成",exact:true})).toHaveCount(0);
-  await expect(card.getByRole("button",{name:"查看正文",exact:true})).toHaveClass(/primary/);
-  await expect(card).toContainText("额度已达上限");
+  await expect(card.getByRole("button",{name:"继续完成",exact:true})).toHaveCount(1);
+  await expect(card.getByRole("button",{name:"继续完成",exact:true})).toHaveClass(/primary/);
+  await expect(card).not.toContainText("额度已达上限");
   await expect(card).not.toContainText("增加额度后可继续");
 });

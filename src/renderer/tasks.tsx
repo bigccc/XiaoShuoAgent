@@ -282,7 +282,7 @@ export function AiPanel({
             </>
           )}
           <p className="muted small">
-            开始前将展示预计花费，并确认本次金额预算。
+            调用后可查看用量与费用估算。
           </p>
           </details>
           <div className="ai-actions">
@@ -550,7 +550,7 @@ function TaskDetail({
         <span>{task.calls} 次调用</span>
         <span>
           Token：{task.usage?.totalTokens ?? "未报告"}
-          {task.usage?.estimated ? "（估算／预算预留）" : "（服务商报告）"}
+          {task.usage?.estimated ? "（估算）" : "（服务商报告）"}
         </span>
       </details>
       {task.error && (
