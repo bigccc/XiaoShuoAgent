@@ -1,0 +1,286 @@
+{
+  "version": "0.3.2",
+  "date": "2026-10-24",
+  "sourceCommit": "ca81147847eb0531fe1592427f67e5c0347b2ead",
+  "schemaVersion": 9,
+  "serviceTests": {
+    "files": 49,
+    "passed": 758
+  },
+  "typecheck": true,
+  "contrast": {
+    "passed": 148,
+    "total": 148
+  },
+  "buildsSucceeded": true,
+  "artifacts": [
+    {
+      "architecture": "arm64",
+      "version": "0.3.2",
+      "minimumMacOS": "13.0",
+      "codesignStrict": true,
+      "asarSha256": "0f2f5ee2ad8689c934d554c08b3923c9c64d5e0fe50feb5eb4e417f65659bda0",
+      "relativeFrameworkLinks": [
+        {
+          "path": "Contents/Frameworks/Electron Framework.framework/Electron Framework",
+          "target": "Versions/Current/Electron Framework"
+        },
+        {
+          "path": "Contents/Frameworks/Electron Framework.framework/Resources",
+          "target": "Versions/Current/Resources"
+        },
+        {
+          "path": "Contents/Frameworks/Electron Framework.framework/Libraries",
+          "target": "Versions/Current/Libraries"
+        },
+        {
+          "path": "Contents/Frameworks/Electron Framework.framework/Helpers",
+          "target": "Versions/Current/Helpers"
+        },
+        {
+          "path": "Contents/Frameworks/Electron Framework.framework/Versions/Current",
+          "target": "A"
+        },
+        {
+          "path": "Contents/Frameworks/ReactiveObjC.framework/Resources",
+          "target": "Versions/Current/Resources"
+        },
+        {
+          "path": "Contents/Frameworks/ReactiveObjC.framework/ReactiveObjC",
+          "target": "Versions/Current/ReactiveObjC"
+        },
+        {
+          "path": "Contents/Frameworks/ReactiveObjC.framework/Versions/Current",
+          "target": "A"
+        },
+        {
+          "path": "Contents/Frameworks/Squirrel.framework/Resources",
+          "target": "Versions/Current/Resources"
+        },
+        {
+          "path": "Contents/Frameworks/Squirrel.framework/Squirrel",
+          "target": "Versions/Current/Squirrel"
+        },
+        {
+          "path": "Contents/Frameworks/Squirrel.framework/Versions/Current",
+          "target": "A"
+        },
+        {
+          "path": "Contents/Frameworks/Mantle.framework/Mantle",
+          "target": "Versions/Current/Mantle"
+        },
+        {
+          "path": "Contents/Frameworks/Mantle.framework/Resources",
+          "target": "Versions/Current/Resources"
+        },
+        {
+          "path": "Contents/Frameworks/Mantle.framework/Versions/Current",
+          "target": "A"
+        }
+      ],
+      "installedCopyFromDmg": true,
+      "unmountedBeforeLaunch": true,
+      "zipMatchesDmg": true,
+      "dmg": {
+        "name": "XiaoShuoAgent-0.3.2-arm64.dmg",
+        "bytes": 162780136,
+        "sha256": "2772d363bacc0297078a7b804f3f52fe11f950122f7a1a308420dbbfddabea64",
+        "integrity": true
+      },
+      "zip": {
+        "name": "XiaoShuoAgent-0.3.2-arm64.zip",
+        "bytes": 145108860,
+        "sha256": "fd4699a64eb572a0dc760e67c782ac34819ef50581daae6c806986059a3c227c",
+        "integrity": true
+      },
+      "runtimeRoots": [
+        "LICENSE",
+        "node_modules",
+        "out",
+        "package.json"
+      ],
+      "builtFiles": [
+        {
+          "file": "out/main/index.js",
+          "sha256": "608eb46deed24e0be0c92fd3f9352ea6fa4d6399c3425267e0b30f886658d834"
+        },
+        {
+          "file": "out/preload/index.cjs",
+          "sha256": "d7f5967485824b501ecea995ec4500b0d76da53e3ec60fff347211400361f839"
+        },
+        {
+          "file": "out/renderer/assets/index-DnI938el.css",
+          "sha256": "29a4406f0add6604079024e41c8ce4151157754bd301e6adbbafe66d230b68da"
+        },
+        {
+          "file": "out/renderer/assets/index-SD7pT5HM.js",
+          "sha256": "58c68045580e0303f801616903e08848b0c9c7d3677fbee1273958867e107c3a"
+        },
+        {
+          "file": "out/renderer/index.html",
+          "sha256": "3170ac07e2562a2ff49bbdce7fa96e9dc1d5c8ed44a662b747cadd8818a8ea51"
+        }
+      ],
+      "packagedTests": {
+        "exitCode": 0,
+        "stats": {
+          "startTime": "2026-10-23T16:49:58.579Z",
+          "duration": 45054.474,
+          "expected": 13,
+          "skipped": 0,
+          "unexpected": 0,
+          "flaky": 0
+        },
+        "developmentOutDisabled": true,
+        "independentTestData": true,
+        "mockKeychain": true,
+        "expectTimeoutMs": 30000,
+        "scope": "Direct priced/unpriced execution, legacy zero budgets, pause/restart, combined factual repairs, preservation of edits, keyboard saving, theme, renderer isolation, scene/style/state operations"
+      }
+    },
+    {
+      "architecture": "x64",
+      "version": "0.3.2",
+      "minimumMacOS": "13.0",
+      "codesignStrict": true,
+      "asarSha256": "0f2f5ee2ad8689c934d554c08b3923c9c64d5e0fe50feb5eb4e417f65659bda0",
+      "relativeFrameworkLinks": [
+        {
+          "path": "Contents/Frameworks/Electron Framework.framework/Electron Framework",
+          "target": "Versions/Current/Electron Framework"
+        },
+        {
+          "path": "Contents/Frameworks/Electron Framework.framework/Resources",
+          "target": "Versions/Current/Resources"
+        },
+        {
+          "path": "Contents/Frameworks/Electron Framework.framework/Libraries",
+          "target": "Versions/Current/Libraries"
+        },
+        {
+          "path": "Contents/Frameworks/Electron Framework.framework/Helpers",
+          "target": "Versions/Current/Helpers"
+        },
+        {
+          "path": "Contents/Frameworks/Electron Framework.framework/Versions/Current",
+          "target": "A"
+        },
+        {
+          "path": "Contents/Frameworks/ReactiveObjC.framework/Resources",
+          "target": "Versions/Current/Resources"
+        },
+        {
+          "path": "Contents/Frameworks/ReactiveObjC.framework/ReactiveObjC",
+          "target": "Versions/Current/ReactiveObjC"
+        },
+        {
+          "path": "Contents/Frameworks/ReactiveObjC.framework/Versions/Current",
+          "target": "A"
+        },
+        {
+          "path": "Contents/Frameworks/Squirrel.framework/Resources",
+          "target": "Versions/Current/Resources"
+        },
+        {
+          "path": "Contents/Frameworks/Squirrel.framework/Squirrel",
+          "target": "Versions/Current/Squirrel"
+        },
+        {
+          "path": "Contents/Frameworks/Squirrel.framework/Versions/Current",
+          "target": "A"
+        },
+        {
+          "path": "Contents/Frameworks/Mantle.framework/Mantle",
+          "target": "Versions/Current/Mantle"
+        },
+        {
+          "path": "Contents/Frameworks/Mantle.framework/Resources",
+          "target": "Versions/Current/Resources"
+        },
+        {
+          "path": "Contents/Frameworks/Mantle.framework/Versions/Current",
+          "target": "A"
+        }
+      ],
+      "installedCopyFromDmg": true,
+      "unmountedBeforeLaunch": true,
+      "zipMatchesDmg": true,
+      "dmg": {
+        "name": "XiaoShuoAgent-0.3.2-x64.dmg",
+        "bytes": 171038557,
+        "sha256": "cbb13a400e1dad4dfe38b144af9a104baa3fcfa6e6a128722af89acfe6d6a501",
+        "integrity": true
+      },
+      "zip": {
+        "name": "XiaoShuoAgent-0.3.2-x64.zip",
+        "bytes": 152140939,
+        "sha256": "7bb16d2ba33f83889c9bf788439313885295bd16048d496afc217e144f7312a5",
+        "integrity": true
+      },
+      "runtimeRoots": [
+        "LICENSE",
+        "node_modules",
+        "out",
+        "package.json"
+      ],
+      "builtFiles": [
+        {
+          "file": "out/main/index.js",
+          "sha256": "608eb46deed24e0be0c92fd3f9352ea6fa4d6399c3425267e0b30f886658d834"
+        },
+        {
+          "file": "out/preload/index.cjs",
+          "sha256": "d7f5967485824b501ecea995ec4500b0d76da53e3ec60fff347211400361f839"
+        },
+        {
+          "file": "out/renderer/assets/index-DnI938el.css",
+          "sha256": "29a4406f0add6604079024e41c8ce4151157754bd301e6adbbafe66d230b68da"
+        },
+        {
+          "file": "out/renderer/assets/index-SD7pT5HM.js",
+          "sha256": "58c68045580e0303f801616903e08848b0c9c7d3677fbee1273958867e107c3a"
+        },
+        {
+          "file": "out/renderer/index.html",
+          "sha256": "3170ac07e2562a2ff49bbdce7fa96e9dc1d5c8ed44a662b747cadd8818a8ea51"
+        }
+      ],
+      "packagedTests": {
+        "exitCode": 0,
+        "stats": {
+          "startTime": "2026-10-23T16:50:44.312Z",
+          "duration": 332764.816,
+          "expected": 13,
+          "skipped": 0,
+          "unexpected": 0,
+          "flaky": 0
+        },
+        "developmentOutDisabled": true,
+        "independentTestData": true,
+        "mockKeychain": true,
+        "expectTimeoutMs": 30000,
+        "scope": "Direct priced/unpriced execution, legacy zero budgets, pause/restart, combined factual repairs, preservation of edits, keyboard saving, theme, renderer isolation, scene/style/state operations"
+      }
+    }
+  ],
+  "boundaries": {
+    "signing": "ad-hoc",
+    "notarized": false,
+    "nativeIntelHardwareTested": false,
+    "x64Runtime": "Rosetta on Apple Silicon",
+    "paidModelRequestsDuringRelease": false
+  },
+  "installedApplication": {
+    "path": "/Applications/XiaoShuoAgent.app",
+    "version": "0.3.2",
+    "architecture": "arm64",
+    "codesignStrict": true,
+    "asarMatchesVerifiedDmg": true,
+    "startedAndUiVerified": true,
+    "runtimeAboutVersion": "0.3.2",
+    "originalTablesUnchanged": true,
+    "databaseTables": 26,
+    "integrity": "ok",
+    "backupCreated": true
+  }
+}
