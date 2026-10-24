@@ -2,6 +2,8 @@ import {afterEach,expect,it} from "vitest";
 import {Store} from "../src/main/store";
 import {DomainService} from "../src/main/domain";
 import {StoryStateService} from "../src/main/story-state";
+import {storyContext,storyStampCurrent} from "../src/main/story-context";
+import {validateRevisionJob,type RevisionJob} from "../src/shared/revision";
 import {ProjectFiles} from "../src/main/files";
 import {mkdtempSync,readFileSync,writeFileSync,rmSync} from "node:fs";
 import {tmpdir} from "node:os";
@@ -42,4 +44,18 @@ it("rejects an accepted snapshot with no fact evidence instead of promoting an u
   const f=fixture(),path=join(f.dir,"empty-accepted.novel");await f.files.backup(f.projectId,path);const pack=JSON.parse(readFileSync(path,"utf8"));
   pack.payload.storyRecords[0].accepted.evidence=[];write(path,pack);
   await expect(f.files.importBackup(path)).rejects.toThrow(/来源|状态|证据/);expect(f.store.list("projects")).toHaveLength(1);
+});
+
+it("rebases a revision job story stamp after chapter and record identities change",async()=>{
+  const f=fixture(),path=join(f.dir,"story-revision.novel"),content="铜钥匙在老周手中。",next="铜钥匙在阿宁手中。";
+  const chapter=f.store.get("chapters",f.chapterId)!,project=f.store.get("projects",f.projectId)!,now=new Date().toISOString();
+  const storyStamp=storyContext(f.store.snapshot(),f.projectId,9).stamp;
+  const job:RevisionJob={id:"story-revision",revision:1,createdAt:now,updatedAt:now,projectId:f.projectId,storyStamp,text:"只修正物品持有人",scope:"chapters",chapterIds:[f.chapterId],annotationIds:[],status:"awaiting-author",tokenBudget:1000,usage:null,calls:0,checkedChapterIds:[f.chapterId],candidates:[{chapterId:f.chapterId,sourceRevision:chapter.revision,title:chapter.title,baseTitle:chapter.title,baseContent:content,content:next,status:"pending"}],notes:[],sourceProjectRevision:project.revision,chapterSources:[{chapterId:f.chapterId,revision:chapter.revision,digest:createHash("sha256").update(JSON.stringify([content,chapter.title,chapter.style,chapter.pace])).digest("hex")}],referenceChapterSources:[],noteSources:[],warnings:[],reply:"待审",materialsStatus:"pending"};
+  validateRevisionJob(job);f.store.put("revisionJobs",job);
+  await f.files.backup(f.projectId,path);
+  const imported=await f.files.importBackup(path),candidate=f.store.selectByProject("revisionJobs",imported)[0];
+  expect(candidate.storyStamp).toBeDefined();
+  expect(candidate.storyStamp!.digest).not.toBe(storyStamp.digest);
+  expect(storyStampCurrent(f.store.snapshot(),imported,candidate.storyStamp!)).toBe(true);
+  expect(candidate.candidates[0].chapterId).not.toBe(f.chapterId);
 });

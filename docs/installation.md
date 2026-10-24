@@ -1,6 +1,6 @@
 # 下载与安装小说工坊
 
-当前版本为 **v0.3.2 预览版**（2026-10-24），提供 macOS 13.0 及以上版本，以及 Windows x64 预览构建。应用包含所需运行环境，不需要安装 Node.js、Python 或数据库。
+当前版本为 **v0.3.3 预览版**（2026-10-24），提供 macOS 13.0 及以上版本，以及 Windows x64 预览构建。应用包含所需运行环境，不需要安装 Node.js、Python 或数据库。
 
 ## 选择下载包
 
@@ -8,10 +8,10 @@
 
 | 电脑 | 安装包 |
 | --- | --- |
-| Apple Silicon（M 系列芯片） | [arm64 DMG](https://github.com/bigccc/XiaoShuoAgent/releases/download/v0.3.2/XiaoShuoAgent-0.3.2-arm64.dmg) |
-| Intel 处理器 | [x64 DMG](https://github.com/bigccc/XiaoShuoAgent/releases/download/v0.3.2/XiaoShuoAgent-0.3.2-x64.dmg) |
+| Apple Silicon（M 系列芯片） | [arm64 DMG](https://github.com/bigccc/XiaoShuoAgent/releases/download/v0.3.3/XiaoShuoAgent-0.3.3-arm64.dmg) |
+| Intel 处理器 | [x64 DMG](https://github.com/bigccc/XiaoShuoAgent/releases/download/v0.3.3/XiaoShuoAgent-0.3.3-x64.dmg) |
 
-[完整发布页](https://github.com/bigccc/XiaoShuoAgent/releases/tag/v0.3.2) 同时提供 ZIP 备用包和 `SHA256SUMS.txt`。DMG 和 ZIP 安装的是相同应用，只需选择一种。
+[完整发布页](https://github.com/bigccc/XiaoShuoAgent/releases/tag/v0.3.3) 同时提供 ZIP 备用包和 `SHA256SUMS.txt`。DMG 和 ZIP 安装的是相同应用，只需选择一种。
 
 ## 安装和首次打开
 
@@ -27,7 +27,7 @@
 
 ## Windows x64
 
-下载 [EXE 安装包](https://github.com/bigccc/XiaoShuoAgent/releases/download/v0.3.2/XiaoShuoAgent-0.3.2-win32-x64-Setup.exe)，或完整解压 [免安装 ZIP](https://github.com/bigccc/XiaoShuoAgent/releases/download/v0.3.2/XiaoShuoAgent-win32-x64-0.3.2.zip) 后运行 `XiaoShuoAgent.exe`。Windows 下载使用 [SHA256SUMS-windows.txt](https://github.com/bigccc/XiaoShuoAgent/releases/download/v0.3.2/SHA256SUMS-windows.txt) 校验。
+下载 [EXE 安装包](https://github.com/bigccc/XiaoShuoAgent/releases/download/v0.3.3/XiaoShuoAgent-0.3.3-win32-x64-Setup.exe)，或完整解压 [免安装 ZIP](https://github.com/bigccc/XiaoShuoAgent/releases/download/v0.3.3/XiaoShuoAgent-win32-x64-0.3.3.zip) 后运行 `XiaoShuoAgent.exe`。Windows 下载使用 [SHA256SUMS-windows.txt](https://github.com/bigccc/XiaoShuoAgent/releases/download/v0.3.3/SHA256SUMS-windows.txt) 校验。
 
 当前 Windows 包未签名；仅在 Windows 11 ARM 的 x64 兼容环境完成验收，原生 Intel/AMD Windows 电脑尚未验收。卸载会移除快捷方式和注册项，但有程序文件残留；详细限制与清理范围见 [Windows 说明](windows.md)。
 
@@ -43,7 +43,7 @@
 
 更新前在「导出 → 备份完整作品」保存 `.novel` 备份，退出应用，再用新版本覆盖 Applications 中的应用。不要直接复制正在运行的 `works.sqlite` 主文件。应用数据目录通常为 `~/Library/Application Support/小说工坊`；覆盖应用本身不会主动清空作品。模型密钥不进入作品包，换机后需要重新配置。
 
-v0.3.2取消所有 AI 操作的费用预确认、金额及累计 Token 预算拦截，缺价格仍可调用；费用与用量继续记录。新稿检查问题合并处理，必要分歧集中确认，短章节生成保留更充足的输出空间。旧预算暂停任务可以直接继续。作品数据库版本仍为v9，升级保留作品与连接；如需回滚，请使用升级前备份的独立副本。
+v0.3.3延续取消费用预确认、金额及累计 Token 预算拦截，保留用量记录。已有正文检查后按证据生成局部修改预览，采纳或放弃后重新检查；同一版本不再反复默认修订。新稿仍最多一次局部修正，事实冲突未解决时不放行。作品数据库版本仍为v9，升级保留作品与连接；如需回滚，请使用升级前备份的独立副本。
 
 ## 验证范围
 

@@ -215,7 +215,7 @@ it("blocking contradictions stop after two revisions and do not create downstrea
 it("repairs a uniquely located factual sentence once without whole-chapter revisions", async () => {
   const bad = "今年十八岁。去年三十岁。" + "雨落在窗前。".repeat(18);
   let fixed = false, patches = 0;
-  const { app, projectId } = await setup((phase, input, res) => {
+  const { app, projectId, calls } = await setup((phase, input, res) => {
     if (phase.includes("连续写作·生成") || phase.includes("连续写作·修订")) { reply(res,{title:"雨夜",content:bad});return true; }
     if (phase.includes("连续写作·定点修正")) { fixed=true;patches++;reply(res,{type:"json_object",edits:[{quote:"去年三十岁。",replacement:"去年十七岁。",reason:"保持相邻年份年龄一致"}],majorChange:false,reason:""});return true; }
     if (!fixed && phase.includes("连续写作·检查")) { const source=lastChapter(input);reply(res,{issues:[{category:"timeline",impact:"blocking",reason:"人物年龄冲突",evidence:[{quote:"今年十八岁。",source},{quote:"去年三十岁。",source}]}],majorChange:false,reason:""});return true; }
@@ -223,6 +223,7 @@ it("repairs a uniquely located factual sentence once without whole-chapter revis
   const job=await done(app,await start(app,projectId,"写完前一章"));
   expect(job.status,job.reply).toBe("completed");
   expect(patches).toBe(1);
+  expect(calls.find(c => c.phase.includes("连续写作·定点修正"))!.phase).not.toContain("不得新增人物、情节、回忆或设定");
   expect(app.snapshot().chapters[0].content).toBe(bad.replace("去年三十岁。","去年十七岁。"));
   expect(job.chapters[0].revisionRounds).toBe(0);
 });
@@ -344,15 +345,30 @@ it("a user edit before the first check is protected on resume as existing prose"
   expect(job.revisionJobIds).toHaveLength(0);
 });
 it("candidate acceptance rejects changed story notes", async () => {
-  const { app, projectId } = await setup();
+  const original = "今年十八岁。去年三十岁。";
+  const { app, projectId } = await setup((phase, input, res) => {
+    if (phase.includes("连续写作·检查")) {
+      const source = lastChapter(input);
+      reply(res, { issues: [{ category: "timeline", impact: "blocking", reason: "年龄冲突", evidence: [{ quote: "今年十八岁。", source }, { quote: "去年三十岁。", source }] }], majorChange: false, reason: "" });
+      return true;
+    }
+    if (phase.includes("连续写作·定点修正")) { reply(res, { edits: [{ quote: "去年三十岁。", replacement: "去年十七岁。" }], majorChange: false, reason: "保持今年十八岁" }); return true; }
+  });
   const ch = id(await app.dispatch({ type: "chapter.create", projectId, ordinal: 1, title: "原稿" }));
-  id(await app.dispatch({ type: "chapter.save", id: ch, revision: 1, content: "原稿开头。" }));
+  id(await app.dispatch({ type: "chapter.save", id: ch, revision: 1, content: original }));
   const note = id(await app.dispatch({ type: "note.save", projectId, noteType: "character", title: "主角", body: "主角是侦探", sources: [] }));
-  const job = await done(app, await start(app, projectId, "写完前一章"));
+  const jid = id(await app.dispatch({ type: "writing.start", projectId, text: "检查", reviewOnly: true, goal: { kind: "through", startOrdinal: 1, endOrdinal: 1 } }));
+  await done(app, jid);
+  id(await app.dispatch({ type: "writing.resume", id: jid, repair: true, text: "生成修改预览" }));
+  const job = await done(app, jid);
+  const draft = app.snapshot().revisionJobs!.find(r => r.id === job.revisionJobIds[0])!;
+  expect(draft.candidates[0].status).toBe("pending");
+  expect(draft.noteSources?.some(source => source.id === note)).toBe(true);
   id(await app.dispatch({ type: "note.save", id: note, revision: app.snapshot().notes.find(n => n.id === note)!.revision, projectId, noteType: "character", title: "主角", body: "主角是医生，从未当过侦探", sources: [] }));
-  const accepted = await app.dispatch({ type: "revision.accept", id: job.revisionJobIds[0], chapterIds: [ch] });
-  expect(accepted.ok).toBe(false);
-  expect(app.chapter(ch).content).toBe("原稿开头。");
+  const accepted = await app.dispatch({ type: "revision.accept", id: draft.id, chapterIds: [ch] });
+  expect(accepted).toMatchObject({ ok: false, error: { code: "CONFLICT" } });
+  expect(app.chapter(ch).content).toBe(original);
+  expect(app.snapshot().revisionJobs!.find(r => r.id === draft.id)!.candidates[0].status).toBe("pending");
 });
 it("resumes the interrupted chapter check window without repurchasing successful windows", async () => {
   let checking = 0, hold = true, blocked = false;
@@ -385,6 +401,355 @@ it("explicit checks of existing factual conflicts pause without automatic change
   const jid=id(await app.dispatch({type:"writing.start",projectId,text:"检查",reviewOnly:true,goal:{kind:"through",startOrdinal:1,endOrdinal:1}}));
   expect((await done(app,jid)).status).toBe("awaiting-author");
   expect(calls).toHaveLength(1);expect(app.chapter(ch).revision).toBe(2);
+});
+
+it("existing prose decision creates one preview without overwriting the original", async () => {
+  const original = "今年十八岁。去年三十岁。";
+  const revised = "今年十八岁。去年十七岁。";
+  const { app, projectId, calls } = await setup((phase, input, res) => {
+    if (phase.includes("连续写作·检查")) {
+      const source = lastChapter(input);
+      reply(res, { issues: [{ category: "timeline", impact: "blocking", reason: "年龄冲突", evidence: [{ quote: "今年十八岁。", source }, { quote: "去年三十岁。", source }] }], majorChange: false, reason: "" });
+      return true;
+    }
+    if (phase.includes("连续写作·定点修正")) {
+      reply(res, { edits: [{ quote: "去年三十岁。", replacement: "去年十七岁。" }], majorChange: false, reason: "保持今年十八岁" });
+      return true;
+    }
+  });
+  const ch = id(await app.dispatch({ type: "chapter.create", projectId, ordinal: 1, title: "原稿" }));
+  id(await app.dispatch({ type: "chapter.save", id: ch, revision: 1, content: original }));
+  const sourceChapter = app.chapter(ch);
+  const jid = id(await app.dispatch({ type: "writing.start", projectId, text: "检查并修正本章", reviewOnly: true, goal: { kind: "through", startOrdinal: 1, endOrdinal: 1 } }));
+  const paused = await done(app, jid);
+  expect(paused.status).toBe("awaiting-author");
+
+  id(await app.dispatch({ type: "writing.resume", id: jid, repair: true, text: "保留今年十八岁，生成修改预览" }));
+  const job = await done(app, jid);
+  expect(job.revisionJobIds).toHaveLength(1);
+  expect(calls.filter(c => c.phase.includes("连续写作·定点修正"))).toHaveLength(1);
+  expect(calls.find(c => c.phase.includes("连续写作·定点修正"))!.phase).toContain("只修正当前章节中已经核实的事实矛盾");
+  expect(calls.find(c => c.phase.includes("连续写作·定点修正"))!.phase).toContain("不得新增人物、情节、回忆或设定");
+  expect(calls.filter(c => c.phase.includes("连续写作·修订"))).toHaveLength(0);
+  expect(calls.filter(c => c.phase.includes("连续写作·检查"))).toHaveLength(1);
+  const draft = app.snapshot().revisionJobs!.find(r => r.id === job.revisionJobIds[0])!;
+  expect(draft.candidates).toHaveLength(1);
+  expect(draft.candidates[0]).toMatchObject({ chapterId: ch, sourceRevision: sourceChapter.revision, baseTitle: "原稿", baseContent: original, title: "原稿", content: revised, status: "pending" });
+  expect(app.chapter(ch)).toMatchObject({ revision: sourceChapter.revision, content: original });
+  expect(job.chapters[0]).toMatchObject({ existing: true, status: "needs-review", checkedRevision: paused.chapters[0].checkedRevision, checkedDraftDigest: paused.chapters[0].checkedDraftDigest, authorRevisionRounds: 1 });
+  expect(job.chapters[0].authorRepairPending).toBeFalsy();
+});
+
+it("existing preview allows evidence-only deletion on short prose", async () => {
+  const original = "林舟今年十八岁。去年，林舟已经三十岁。雨落在修表铺外。";
+  const expected = "林舟今年十八岁。雨落在修表铺外。";
+  const { app, projectId, calls } = await setup((phase, input, res) => {
+    if (phase.includes("连续写作·检查")) {
+      const source = lastChapter(input);
+      reply(res, { issues: [{ category: "timeline", impact: "blocking", reason: "年龄冲突", evidence: [{ quote: "林舟今年十八岁。", source }, { quote: "去年，林舟已经三十岁。", source }] }], majorChange: false, reason: "" });
+      return true;
+    }
+    if (phase.includes("连续写作·定点修正")) {
+      reply(res, { edits: [{ quote: "去年，林舟已经三十岁。", replacement: "" }], majorChange: false, reason: "删除冲突句" });
+      return true;
+    }
+  });
+  const ch = id(await app.dispatch({ type: "chapter.create", projectId, ordinal: 1, title: "雨夜" }));
+  id(await app.dispatch({ type: "chapter.save", id: ch, revision: 1, content: original }));
+  const jid = id(await app.dispatch({ type: "writing.start", projectId, text: "检查", reviewOnly: true, goal: { kind: "through", startOrdinal: 1, endOrdinal: 1 } }));
+  await done(app, jid);
+  id(await app.dispatch({ type: "writing.resume", id: jid, repair: true, text: "只删除冲突句，保留其他原文" }));
+  const job = await done(app, jid);
+  expect(job.revisionJobIds).toHaveLength(1);
+  const draft = app.snapshot().revisionJobs!.find(r => r.id === job.revisionJobIds[0])!;
+  expect(draft.candidates[0]).toMatchObject({ title: "雨夜", baseContent: original, content: expected, status: "pending" });
+  expect(app.chapter(ch).content).toBe(original);
+  expect(calls.filter(c => c.phase.includes("连续写作·定点修正"))).toHaveLength(1);
+  expect(calls.filter(c => c.phase.includes("连续写作·修订"))).toHaveLength(0);
+});
+
+it("existing preview rejects a patch that expands the chapter beyond its original scope", async () => {
+  const original = "今年十八岁。去年三十岁。" + "雨落。".repeat(325);
+  const replacement = "去年十七岁。" + "无关扩写。".repeat(30);
+  const { app, projectId, calls } = await setup((phase, input, res) => {
+    if (phase.includes("连续写作·检查")) {
+      const source = lastChapter(input);
+      reply(res, { issues: [{ category: "timeline", impact: "blocking", reason: "年龄冲突", evidence: [{ quote: "今年十八岁。", source }, { quote: "去年三十岁。", source }] }], majorChange: false, reason: "" });
+      return true;
+    }
+    if (phase.includes("连续写作·定点修正")) {
+      reply(res, { edits: [{ quote: "去年三十岁。", replacement }], majorChange: false, reason: "修正并扩写" });
+      return true;
+    }
+    if (phase.includes("连续写作·修订")) {
+      reply(res, { title: "原稿", content: original.replace("去年三十岁。", replacement), majorChange: false, reason: "" });
+      return true;
+    }
+  });
+  const ch = id(await app.dispatch({ type: "chapter.create", projectId, ordinal: 1, title: "原稿" }));
+  id(await app.dispatch({ type: "chapter.save", id: ch, revision: 1, content: original }));
+  const jid = id(await app.dispatch({ type: "writing.start", projectId, text: "检查", reviewOnly: true, goal: { kind: "through", startOrdinal: 1, endOrdinal: 1 } }));
+  await done(app, jid);
+  id(await app.dispatch({ type: "writing.resume", id: jid, repair: true, text: "只修冲突，不要扩写" }));
+  const job = await done(app, jid);
+  expect(job.status).toBe("awaiting-author");
+  expect(job.revisionJobIds).toEqual([]);
+  expect(app.chapter(ch).content).toBe(original);
+  expect(calls.filter(c => c.phase.includes("连续写作·定点修正"))).toHaveLength(1);
+  expect(job.lastFailedResponse?.rawResponse).toContain("无关扩写");
+});
+
+it("existing preview rejects a whole-chapter quote even when the replacement is shorter", async () => {
+  const original = "今年十八岁。去年三十岁。";
+  const { app, projectId } = await setup((phase, input, res) => {
+    if (phase.includes("连续写作·检查")) {
+      const source = lastChapter(input);
+      reply(res, { issues: [{ category: "timeline", impact: "blocking", reason: "年龄冲突", evidence: [{ quote: "今年十八岁。", source }, { quote: "去年三十岁。", source }] }], majorChange: false, reason: "" });
+      return true;
+    }
+    if (phase.includes("连续写作·定点修正")) {
+      reply(res, { edits: [{ quote: original, replacement: "改写全文" }], majorChange: false, reason: "等长改写" });
+      return true;
+    }
+  });
+  const ch = id(await app.dispatch({ type: "chapter.create", projectId, ordinal: 1, title: "原稿" }));
+  id(await app.dispatch({ type: "chapter.save", id: ch, revision: 1, content: original }));
+  const jid = id(await app.dispatch({ type: "writing.start", projectId, text: "检查", reviewOnly: true, goal: { kind: "through", startOrdinal: 1, endOrdinal: 1 } }));
+  await done(app, jid);
+  id(await app.dispatch({ type: "writing.resume", id: jid, repair: true, text: "只修冲突" }));
+  const job = await done(app, jid);
+  expect(job.revisionJobIds).toEqual([]);
+  expect(app.chapter(ch).content).toBe(original);
+  expect(job.lastFailedResponse?.rawResponse).toContain("改写全文");
+});
+
+it("existing preview rejects a nearly whole-chapter replacement", async () => {
+  const original = "今年十八岁。去年三十岁。";
+  const { app, projectId } = await setup((phase, input, res) => {
+    if (phase.includes("连续写作·检查")) {
+      const source = lastChapter(input);
+      reply(res, { issues: [{ category: "timeline", impact: "blocking", reason: "年龄冲突", evidence: [{ quote: "今年十八岁。", source }, { quote: "去年三十岁。", source }] }], majorChange: false, reason: "" });
+      return true;
+    }
+    if (phase.includes("连续写作·定点修正")) {
+      reply(res, { edits: [{ quote: original.slice(0, -1), replacement: "短" }], majorChange: false, reason: "近整章替换" });
+      return true;
+    }
+  });
+  const ch = id(await app.dispatch({ type: "chapter.create", projectId, ordinal: 1, title: "原稿" }));
+  id(await app.dispatch({ type: "chapter.save", id: ch, revision: 1, content: original }));
+  const jid = id(await app.dispatch({ type: "writing.start", projectId, text: "检查", reviewOnly: true, goal: { kind: "through", startOrdinal: 1, endOrdinal: 1 } }));
+  await done(app, jid);
+  id(await app.dispatch({ type: "writing.resume", id: jid, repair: true, text: "只修冲突" }));
+  const job = await done(app, jid);
+  expect(job.revisionJobIds).toEqual([]);
+  expect(app.chapter(ch).content).toBe(original);
+});
+
+it("existing preview allows a single-sentence chapter repair", async () => {
+  const original = "去年，林舟已经三十岁。";
+  const revised = "去年，林舟已经十七岁。";
+  const { app, projectId } = await setup((phase, input, res) => {
+    if (phase.includes("连续写作·检查")) {
+      const match = [...input.context.matchAll(/\[note:([^@\]]+)@(\d+)\]/g)].at(-1)!;
+      const noteSource = { kind: "note", id: match[1], revision: Number(match[2]) };
+      const chapterSource = lastChapter(input);
+      reply(res, { issues: [{ category: "timeline", impact: "blocking", reason: "年龄冲突", evidence: [{ quote: "林舟今年十八岁。", source: noteSource }, { quote: original, source: chapterSource }] }], majorChange: false, reason: "" });
+      return true;
+    }
+    if (phase.includes("连续写作·定点修正")) {
+      reply(res, { edits: [{ quote: original, replacement: revised }], majorChange: false, reason: "保持今年十八岁" });
+      return true;
+    }
+  });
+  id(await app.dispatch({ type: "note.save", projectId, noteType: "character", title: "林舟", body: "林舟今年十八岁。", sources: [] }));
+  const ch = id(await app.dispatch({ type: "chapter.create", projectId, ordinal: 1, title: "原稿" }));
+  id(await app.dispatch({ type: "chapter.save", id: ch, revision: 1, content: original }));
+  const jid = id(await app.dispatch({ type: "writing.start", projectId, text: "检查", reviewOnly: true, goal: { kind: "through", startOrdinal: 1, endOrdinal: 1 } }));
+  await done(app, jid);
+  id(await app.dispatch({ type: "writing.resume", id: jid, repair: true, text: "只修冲突" }));
+  const job = await done(app, jid);
+  expect(job.revisionJobIds).toHaveLength(1);
+  const draft = app.snapshot().revisionJobs!.find(r => r.id === job.revisionJobIds[0])!;
+  expect(draft.candidates[0]).toMatchObject({ baseContent: original, content: revised, status: "pending" });
+  expect(app.chapter(ch).content).toBe(original);
+});
+
+it("existing later chapter preview deduplicates chapter evidence from story facts", async () => {
+  const prose = "铜钥匙在周叔手中。" + "雨落。".repeat(36);
+  const states = [{ kind: "item", subject: "铜钥匙", attribute: "持有人", value: "周叔", statement: "fact", storyTime: "", quote: "铜钥匙在周叔手中。" }];
+  let targetId = "";
+  const { app, projectId, calls } = await setup((phase, input, res) => {
+    if (phase.includes("连续写作·生成")) { reply(res, { title: "第一章", content: prose, states }); return true; }
+    if (phase.includes("连续写作·检查") && input.ordinal === 2) {
+      const source = { kind: "chapter", id: targetId, revision: 2 };
+      reply(res, { issues: [{ category: "timeline", impact: "blocking", reason: "年龄冲突", evidence: [{ quote: "今年十八岁。", source }, { quote: "去年三十岁。", source }] }], majorChange: false, reason: "" });
+      return true;
+    }
+    if (phase.includes("连续写作·定点修正")) { reply(res, { edits: [{ quote: "去年三十岁。", replacement: "去年十七岁。" }], majorChange: false, reason: "保持今年十八岁" }); return true; }
+  });
+  await done(app, await start(app, projectId, "写完前一章"));
+  const first = app.snapshot().chapters[0];
+  expect(app.snapshot().storyRecords).toHaveLength(1);
+  const ch = id(await app.dispatch({ type: "chapter.create", projectId, ordinal: 2, title: "第二章" }));
+  targetId = ch;
+  id(await app.dispatch({ type: "chapter.save", id: ch, revision: 1, content: "今年十八岁。去年三十岁。" }));
+  const jid = id(await app.dispatch({ type: "writing.start", projectId, text: "检查第二章", reviewOnly: true, goal: { kind: "append", startOrdinal: 2, endOrdinal: 2 } }));
+  const initial = await done(app, jid);
+  expect(calls.filter(call => call.phase.includes("连续写作·检查") && call.input.ordinal === 2)).toHaveLength(1);
+  expect(initial.status).toBe("awaiting-author");
+  id(await app.dispatch({ type: "writing.resume", id: jid, repair: true, text: "生成第二章修改预览" }));
+  const job = await done(app, jid);
+  expect(job.revisionJobIds).toHaveLength(1);
+  const draft = app.snapshot().revisionJobs!.find(r => r.id === job.revisionJobIds[0])!;
+  expect(draft.referenceChapterSources?.filter(source => source.chapterId === first.id)).toHaveLength(1);
+  expect(draft.candidates[0]).toMatchObject({ chapterId: ch, baseContent: "今年十八岁。去年三十岁。", content: "今年十八岁。去年十七岁。", status: "pending" });
+});
+
+it("candidate acceptance rejects a story-state change made after preview generation", async () => {
+  const prose = "铜钥匙在周叔手中。" + "雨落。".repeat(36);
+  const states = [{ kind: "item", subject: "铜钥匙", attribute: "持有人", value: "周叔", statement: "fact", storyTime: "", quote: "铜钥匙在周叔手中。" }];
+  let targetId = "";
+  const { app, projectId } = await setup((phase, input, res) => {
+    if (phase.includes("连续写作·生成")) { reply(res, { title: "第一章", content: prose, states }); return true; }
+    if (phase.includes("连续写作·检查") && input.ordinal === 2) {
+      const source = { kind: "chapter", id: targetId, revision: 2 };
+      reply(res, { issues: [{ category: "timeline", impact: "blocking", reason: "年龄冲突", evidence: [{ quote: "今年十八岁。", source }, { quote: "去年三十岁。", source }] }], majorChange: false, reason: "" });
+      return true;
+    }
+    if (phase.includes("连续写作·定点修正")) { reply(res, { edits: [{ quote: "去年三十岁。", replacement: "去年十七岁。" }], majorChange: false, reason: "保持今年十八岁" }); return true; }
+  });
+  await done(app, await start(app, projectId, "写完前一章"));
+  const ch = id(await app.dispatch({ type: "chapter.create", projectId, ordinal: 2, title: "第二章" }));
+  targetId = ch;
+  id(await app.dispatch({ type: "chapter.save", id: ch, revision: 1, content: "今年十八岁。去年三十岁。" }));
+  const jid = id(await app.dispatch({ type: "writing.start", projectId, text: "检查第二章", reviewOnly: true, goal: { kind: "append", startOrdinal: 2, endOrdinal: 2 } }));
+  await done(app, jid);
+  id(await app.dispatch({ type: "writing.resume", id: jid, repair: true, text: "生成第二章修改预览" }));
+  const job = await done(app, jid);
+  const draft = app.snapshot().revisionJobs!.find(r => r.id === job.revisionJobIds[0])!;
+  expect(draft.candidates[0].status).toBe("pending");
+  const record = app.snapshot().storyRecords![0];
+  id(await app.dispatch({ type: "story.archive", id: record.id, revision: record.revision, archived: true }));
+  const accepted = await app.dispatch({ type: "revision.accept", id: draft.id, chapterIds: [ch] });
+  expect(accepted).toMatchObject({ ok: false, error: { code: "CONFLICT" } });
+  expect(app.chapter(ch).content).toBe("今年十八岁。去年三十岁。");
+  expect(app.snapshot().revisionJobs!.find(r => r.id === draft.id)!.candidates[0].status).toBe("pending");
+});
+
+it("ordinary resume never revises existing prose with a legacy pending flag", async () => {
+  let blocked = true;
+  const { app, projectId, calls, dir } = await setup((phase, input, res) => {
+    if (blocked && phase.includes("连续写作·检查")) {
+      const source = lastChapter(input);
+      reply(res, { issues: [{ category: "timeline", impact: "blocking", reason: "年龄冲突", evidence: [{ quote: "今年十八岁。", source }, { quote: "去年三十岁。", source }] }], majorChange: false, reason: "" });
+      return true;
+    }
+  });
+  const ch = id(await app.dispatch({ type: "chapter.create", projectId, ordinal: 1, title: "原稿" }));
+  id(await app.dispatch({ type: "chapter.save", id: ch, revision: 1, content: "今年十八岁。去年三十岁。" }));
+  const jid = id(await app.dispatch({ type: "writing.start", projectId, text: "检查", reviewOnly: true, goal: { kind: "through", startOrdinal: 1, endOrdinal: 1 } }));
+  expect((await done(app, jid)).status).toBe("awaiting-author");
+  const seed = new Store(join(dir, "works.sqlite"));
+  const old = seed.get("writingJobs", jid)!;
+  seed.put("writingJobs", { ...old, phase: "revising", chapters: old.chapters.map((c, i) => i === 0 ? { ...c, authorRepairPending: true } : c) });
+  seed.close();
+  blocked = false;
+  const before = calls.length;
+  id(await app.dispatch({ type: "writing.resume", id: jid, text: "按最新资料重新核验" }));
+  const job = await done(app, jid);
+  expect(job.status, job.reply).toBe("completed");
+  expect(calls.slice(before).filter(c => c.phase.includes("连续写作·修订"))).toHaveLength(0);
+  expect(calls.slice(before).filter(c => c.phase.includes("连续写作·检查"))).toHaveLength(1);
+  expect(app.chapter(ch).content).toBe("今年十八岁。去年三十岁。");
+  expect(job.revisionJobIds).toEqual([]);
+});
+
+it.each(["chapter", "note", "project"])("existing preview becomes stale when %s changes while generating", async kind => {
+  let release: (() => void) | undefined;
+  const original = "今年十八岁。去年三十岁。";
+  const { app, projectId } = await setup((phase, input, res) => {
+    if (phase.includes("连续写作·检查")) {
+      const source = lastChapter(input);
+      reply(res, { issues: [{ category: "timeline", impact: "blocking", reason: "年龄冲突", evidence: [{ quote: "今年十八岁。", source }, { quote: "去年三十岁。", source }] }], majorChange: false, reason: "" });
+      return true;
+    }
+    if (phase.includes("连续写作·定点修正")) {
+      release = () => reply(res, { edits: [{ quote: "去年三十岁。", replacement: "去年十七岁。" }], majorChange: false, reason: "保持今年十八岁" });
+      return true;
+    }
+  });
+  const noteId = kind === "note" ? id(await app.dispatch({ type: "note.save", projectId, noteType: "character", title: "林舟", body: "林舟今年十八岁。", sources: [] })) : undefined;
+  const ch = id(await app.dispatch({ type: "chapter.create", projectId, ordinal: 1, title: "原稿" }));
+  id(await app.dispatch({ type: "chapter.save", id: ch, revision: 1, content: original }));
+  const jid = id(await app.dispatch({ type: "writing.start", projectId, text: "检查", reviewOnly: true, goal: { kind: "through", startOrdinal: 1, endOrdinal: 1 } }));
+  await done(app, jid);
+  id(await app.dispatch({ type: "writing.resume", id: jid, repair: true, text: "生成预览" }));
+  await expect.poll(() => !!release).toBe(true);
+  if (kind === "chapter") {
+    const current = app.chapter(ch);
+    id(await app.dispatch({ type: "chapter.save", id: ch, revision: current.revision, content: "作者刚明确的新正文。" }));
+  } else if (kind === "note") {
+    const note = app.snapshot().notes.find(item => item.id === noteId)!;
+    id(await app.dispatch({ type: "note.save", id: noteId!, revision: note.revision, projectId, noteType: "character", title: "林舟", body: "林舟今年十九岁。", sources: [] }));
+  } else {
+    const project = app.snapshot().projects[0];
+    id(await app.dispatch({ type: "project.update", id: projectId, revision: project.revision, patch: { background: "作者刚补充的新背景事实。" } }));
+  }
+  release!();
+  const job = await done(app, jid);
+  expect(job.status).toBe("paused");
+  expect(job.revisionJobIds).toEqual([]);
+  expect(app.chapter(ch).content).toBe(kind === "chapter" ? "作者刚明确的新正文。" : original);
+});
+
+it("existing preview stops after two proposals", async () => {
+  const { app, projectId, calls, dir } = await setup((phase, input, res) => {
+    if (phase.includes("连续写作·检查")) {
+      const source = lastChapter(input);
+      reply(res, { issues: [{ category: "timeline", impact: "blocking", reason: "年龄冲突", evidence: [{ quote: "今年十八岁。", source }, { quote: "去年三十岁。", source }] }], majorChange: false, reason: "" });
+      return true;
+    }
+  });
+  const ch = id(await app.dispatch({ type: "chapter.create", projectId, ordinal: 1, title: "原稿" }));
+  id(await app.dispatch({ type: "chapter.save", id: ch, revision: 1, content: "今年十八岁。去年三十岁。" }));
+  const jid = id(await app.dispatch({ type: "writing.start", projectId, text: "检查", reviewOnly: true, goal: { kind: "through", startOrdinal: 1, endOrdinal: 1 } }));
+  await done(app, jid);
+  const seed = new Store(join(dir, "works.sqlite"));
+  const old = seed.get("writingJobs", jid)!;
+  seed.put("writingJobs", { ...old, chapters: old.chapters.map((c, i) => i === 0 ? { ...c, revisionRounds: 2 } : c) });
+  seed.close();
+  const before = calls.length;
+  const rejected = await app.dispatch({ type: "writing.resume", id: jid, repair: true, text: "再次生成" });
+  expect(rejected).toMatchObject({ ok: false, error: { code: "CONFLICT" } });
+  expect(calls).toHaveLength(before);
+  expect(app.snapshot().writingJobs!.find(j => j.id === jid)!.status).toBe("awaiting-author");
+});
+
+it("unchanged existing revision does not create an empty preview", async () => {
+  const original = "今年十八岁。去年三十岁。";
+  const { app, projectId } = await setup((phase, input, res) => {
+    if (phase.includes("连续写作·检查")) {
+      const source = lastChapter(input);
+      reply(res, { issues: [{ category: "timeline", impact: "blocking", reason: "年龄冲突", evidence: [{ quote: "今年十八岁。", source }, { quote: "去年三十岁。", source }] }], majorChange: false, reason: "" });
+      return true;
+    }
+    if (phase.includes("连续写作·定点修正")) {
+      reply(res, { edits: [], majorChange: false, reason: "没有确定的修法" });
+      return true;
+    }
+  });
+  const ch = id(await app.dispatch({ type: "chapter.create", projectId, ordinal: 1, title: "原稿" }));
+  id(await app.dispatch({ type: "chapter.save", id: ch, revision: 1, content: original }));
+  const jid = id(await app.dispatch({ type: "writing.start", projectId, text: "检查", reviewOnly: true, goal: { kind: "through", startOrdinal: 1, endOrdinal: 1 } }));
+  await done(app, jid);
+  id(await app.dispatch({ type: "writing.resume", id: jid, repair: true, text: "生成预览" }));
+  const job = await done(app, jid);
+  expect(job.status).toBe("awaiting-author");
+  expect(job.reply).toContain("没有新的修改方案");
+  expect(job.revisionJobIds).toEqual([]);
+  expect(job.chapters[0]).toMatchObject({ status: "needs-review", authorRepairPending: false });
+  expect(app.chapter(ch).content).toBe(original);
 });
 
 it("retains a finding with stale evidence without another model call", async () => {

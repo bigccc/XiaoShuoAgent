@@ -191,9 +191,16 @@ function App() {
     ? ([["profiles", "AI 连接"], ...(project ? [["files", "备份与恢复"]] : [["materials", "素材库"], ["tasks", "任务记录"]])] as Array<[View, string]>)
     : project && storyView ? storyViews : project && readerView ? readerViews : [];
   const writingJobs = (state.writingJobs ?? []).filter(j => j.projectId === projectId);
+  const activeWritingJobs = writingJobs.filter(j => !["completed", "cancelled"].includes(j.status));
+  const ownedRevisionJobIds = new Set(activeWritingJobs.flatMap(j => j.revisionJobIds));
+  const linkedRevisionJobIds = new Set(writingJobs.flatMap(j => j.revisionJobIds));
+  const pendingRevisionCount = (state.revisionJobs ?? []).filter(j => {
+    if (j.projectId !== projectId || ownedRevisionJobIds.has(j.id) || j.status === "cancelled") return false;
+    const pendingCandidates = (j.candidatePendingCount ?? j.candidates.filter(c => c.status === "pending").length) > 0;
+    return linkedRevisionJobIds.has(j.id) ? pendingCandidates : j.status !== "completed" || pendingCandidates;
+  }).length;
   const pendingCount = state.tasks.filter(t => t.projectId === projectId && ["running", "awaiting-author", "interrupted", "failed"].includes(t.status)).length +
-    (state.revisionJobs ?? []).filter(j => j.projectId === projectId && j.status !== "cancelled" && (j.status !== "completed" || (j.candidatePendingCount ?? j.candidates.filter(c => c.status === "pending").length) > 0)).length +
-    writingJobs.filter(j => !["completed", "cancelled"].includes(j.status)).length;
+    pendingRevisionCount + activeWritingJobs.length;
   const selectedChapter =
     state.chapters.find((c) => c.id === chapterId) ??
     state.chapters
@@ -362,7 +369,7 @@ function App() {
                   openProfiles={()=>void navigate("profiles")}
                   otherBusy={writingJobs.some(j => j.id !== job.id && j.status === "running") || state.conversations.some(t => t.projectId === projectId && t.status === "running")}
                   openChapter={id => { void flush().then(ok => { if (ok) { setChapterId(id); void navigate("chapters"); } }); }} />)}</div>}
-                <Revisions state={state} projectId={project?.id ?? ""} run={run} /><Tasks
+                <Revisions state={state} projectId={project?.id ?? ""} run={run} excludeJobIds={writingJobs.flatMap(j => j.revisionJobIds)} /><Tasks
                   register={register}
                   state={state}
                   projectId={project?.id}

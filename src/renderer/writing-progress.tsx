@@ -207,6 +207,14 @@ export function WritingProgress({
     issueDetail?.revision === job.revision ? issueDetail.issues : job.issues;
   const budgetProblem = resumable && budgetStopped(job.error);
   const pendingDrafts = (state.revisionJobs ?? []).some(r => job.revisionJobIds.includes(r.id) && (r.candidatePendingCount ?? r.candidates.filter(c => c.status === "pending").length) > 0);
+  const currentProgress = job.chapters[job.cursor];
+  const currentChapter = state.chapters.find(chapter => chapter.id === currentProgress?.chapterId);
+  const currentBlocking = job.issues.some(issue => issue.impact === "blocking" && issue.chapterId === currentProgress?.chapterId);
+  const existingReview = job.reviewOnly === true && currentProgress?.existing === true && currentBlocking && !!currentChapter;
+  const checkedCurrent = !!currentChapter && currentProgress?.checkedRevision === currentChapter.revision;
+  const existingReviewChanged = existingReview && !checkedCurrent;
+  const existingReviewAttempted = existingReview && checkedCurrent && currentProgress?.status === "needs-review" && (currentProgress.authorRevisionRounds ?? 0) > 0 && !pendingDrafts;
+  const existingReviewLimited = existingReview && (currentProgress?.revisionRounds ?? 0) >= 2;
   const draftsArePrimary = job.status !== "running" && !connectionProblem && !sceneBlocked && pendingDrafts && (blocking > 0 || job.phase === "done" && !budgetProblem && !needsDecision);
   const actionMessage = draftsArePrimary ? "请查看下方修改预览，点击采用即可继续，原稿保留。" : nextStep;
   const readIsPrimary = !!latestChapter && job.status !== "running" && !connectionProblem && !sceneBlocked && !draftsArePrimary && !resumable;
@@ -214,6 +222,7 @@ export function WritingProgress({
   async function act(
     type: "writing.pause" | "writing.resume" | "writing.cancel",
     decision?: string,
+    recheck = false,
   ) {
     if (pending) return;
     setPending(true);
@@ -227,9 +236,9 @@ export function WritingProgress({
         id: job.id,
         ...(type === "writing.resume"
           ? {
-              ...(decision && hasBlockingIssues ? {repair:true} : {}),
+              ...(!recheck && decision && hasBlockingIssues ? {repair:true} : {}),
               ...(selectedProfile ? { profileId: selectedProfile } : {}),
-              ...((decision ?? clarification).trim() ? { text: (decision ?? clarification).trim() } : {}),
+              ...(!recheck && (decision ?? clarification).trim() ? { text: (decision ?? clarification).trim() } : {}),
             }
           : {}),
       });
@@ -332,13 +341,29 @@ export function WritingProgress({
         <div className="writing-decision">
           <strong>集中确认处理方向</strong>
           <p>{job.authorQuestion ?? job.reply}</p>
-          <p>推荐保留已确认设定和前文事实，合并处理本章问题。可在下方补充意见，再点击“按推荐处理并继续”。</p>
-      <label className="writing-decision-input">
-        补充说明
-        <textarea aria-label="连续写作补充说明" maxLength={4000} placeholder="说明关键情节或处理意见；已有正文待审稿请先审阅。" value={clarification} onChange={e => setClarification(e.target.value)} />
-      </label>
-
-          <button className="primary" disabled={pending || otherBusy} onClick={() => void act("writing.resume", clarification.trim() || "保留已确认的人物设定、主线、结局及前文事实，合并修正本章全部已证实的事实冲突；只改本批新稿，不改作者已有正文。")}>{pending ? "正在处理…" : "按推荐处理并继续"}</button>
+          <p>{existingReviewLimited
+            ? "本章已生成两轮修改预览，冲突仍未解决。请手动编辑后重新检查，不再重复生成。"
+            : existingReviewAttempted
+              ? "这个正文版本已经生成过修改预览。请补充新的处理意见再试，或手动编辑正文。"
+              : existingReview
+                ? "根据当前检查问题生成本章修改预览，保留有效原文和创作方向；采纳前不会改动原稿。"
+                : "推荐保留已确认设定和前文事实，合并处理本章问题。可在下方补充意见，再点击“按推荐处理并继续”。"}</p>
+          <label className="writing-decision-input">
+            补充说明
+            <textarea aria-label="连续写作补充说明" maxLength={4000} placeholder="说明关键情节或处理意见；已有正文待审稿请先审阅。" value={clarification} onChange={e => setClarification(e.target.value)} />
+          </label>
+          {existingReviewChanged ? (
+            <button className="primary" disabled={pending || otherBusy} onClick={() => void act("writing.resume", undefined, true)}>{pending ? "正在检查…" : "重新检查已修改正文"}</button>
+          ) : existingReviewLimited ? (
+            <button className="primary" disabled={!currentChapter} onClick={() => currentChapter && openChapter(currentChapter.id)}>打开正文手动修改</button>
+          ) : existingReviewAttempted ? (
+            <button className="primary" disabled={pending || otherBusy || !clarification.trim()} onClick={() => void act("writing.resume", clarification.trim())}>{pending ? "正在处理…" : "按补充意见重新生成预览"}</button>
+          ) : (
+            <button className="primary" disabled={pending || otherBusy} onClick={() => void act("writing.resume", clarification.trim() || (existingReview
+              ? "根据当前检查问题生成本章修改预览，只修正已证实的事实冲突，保留有效原文，不直接写入原稿。"
+              : "保留已确认的人物设定、主线、结局及前文事实，合并修正本章全部已证实的事实冲突；只改本批新稿，不改作者已有正文。"))}>{pending ? "正在处理…" : existingReview ? "生成修改预览" : "按推荐处理并继续"}</button>
+          )}
+          {existingReview && !existingReviewChanged && !existingReviewLimited && <button disabled={!currentChapter} onClick={() => currentChapter && openChapter(currentChapter.id)}>手动修改正文</button>}
         </div>
       )}
       {pendingDrafts && <WritingDrafts job={job} state={state} run={run} flush={flush} disabled={pending || otherBusy || job.status === "running"} />}

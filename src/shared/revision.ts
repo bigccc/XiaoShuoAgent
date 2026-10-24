@@ -1,5 +1,6 @@
 import {validateVoiceStamp,type VoiceStamp} from "./voice";
 import {validateSceneSource,validateSceneReplacement,type SceneSource} from "./scenes";
+import {validateStoryStamp,type StoryStamp} from "./story-state";
 import { DomainError, validatePublicJson } from "./validation";
 import type {
   ID,
@@ -35,6 +36,7 @@ export interface RevisionNoteProposal {
 export interface RevisionJob extends RecordMeta {
   voiceStamp?:VoiceStamp;
   sceneSource?:SceneSource;
+  storyStamp?:StoryStamp;
   projectId: ID;
   profileId?: ID;
   text: string;
@@ -233,7 +235,7 @@ export function validateRevisionJob(
     "sourceProjectDigest",
     "sourceAuthoringDigest",
     "sourceProfileDigest",
-    "sceneSource", "voiceStamp",
+    "sceneSource", "voiceStamp", "storyStamp",
     "chapterSources",
     "referenceChapterSources",
     "noteSources",
@@ -297,6 +299,7 @@ export function validateRevisionJob(
       bad();
   } else if (value.scope === "selection") bad();
   if(value.voiceStamp!==undefined)validateVoiceStamp(value.voiceStamp);
+  if(value.storyStamp!==undefined)validateStoryStamp(value.storyStamp);
   if(value.sceneSource!==undefined){validateSceneSource(value.sceneSource);if(value.scope!=="selection")bad();}
   if (value.sourceProjectDigest !== undefined)
     digest(value.sourceProjectDigest);

@@ -47,13 +47,13 @@ export function WritingDrafts({ job, state, run, flush, disabled }: {
       if (!(await flush())) return;
       await run({type:"revision.reject",id:selected.id,chapterIds:[candidate.chapterId]});
       if (drafts.length === 1 && job.status !== "running" && job.status !== "completed")
-        await run({type:"writing.resume",id:job.id});
+        await run({type:"writing.resume",id:job.id,text:"作者已放弃上一版修改候选；请按当前正文和资料重新核验。"});
     } catch (e) { setError(e instanceof Error ? e.message : "重新检查未能开始，原稿仍保留。"); }
     finally { setBusy(false); }
   }
   return <section id={`writing-drafts-${job.id}`} className="writing-draft-preview" aria-label="修改预览">
     <h4>已有正文的修改 · {drafts.length} 章待查看</h4>
-    <p>先看具体改动，再一键采用。原稿保留在版本历史中，可随时恢复。</p>
+    <p>先看具体改动，再一键采用。原稿保留在版本历史中，可随时恢复。放弃候选不等于问题已解决，仍会按当前正文重新检查。</p>
     {error && <p role="alert">{error}<button onClick={() => setRefresh(n => n + 1)}>重新读取</button></p>}
     {!candidate ? <p>正在读取修改预览…</p> : <>
       <strong>{candidate.title}</strong>

@@ -322,6 +322,7 @@ export class ProjectFiles {
     for(const p of s.scenePlans)for(const f of [p,...p.history])if(storyStampCurrent(sourceState,f.projectId,f.storyStamp))currentSceneStamps.add(`${p.id}:${f.revision}`);
     const currentSceneRevisions=new Set(s.revisionJobs.filter(j=>j.sceneSource?.storyStamp&&s.scenePlans.some(p=>p.id===j.sceneSource!.id&&p.revision===j.sceneSource!.revision)&&storyStampCurrent(sourceState,j.projectId,j.sceneSource.storyStamp)).map(j=>j.id));
     const currentSceneJobs=new Set(s.sceneJobs.filter(j=>storyStampCurrent(sourceState,j.projectId,j.storyStamp)).map(j=>j.id));
+    const currentStoryRevisions=new Set(s.revisionJobs.filter(j=>j.storyStamp&&storyStampCurrent(sourceState,j.projectId,j.storyStamp)).map(j=>j.id));
     for (const table of tables)
       for (const r of s[table]) ids.set(r.id, randomUUID());
     for(const w of s.structureWorkspaces)for(const f of [w,...w.history]){for(const t of f.threads){remapReadingId(t.id);for(const l of t.links){remapReadingId(l.planId);remapReadingId(l.cardId);remapReadingId(l.chapterId);}}for(const t of f.dismissed){remapReadingId(t.id);if(t.cardId)remapReadingId(t.cardId);if(t.threadId)remapReadingId(t.threadId);}}
@@ -538,6 +539,7 @@ export class ProjectFiles {
       for(const original of s.revisionJobs){
         const imported=this.store.get("revisionJobs",remap(original.id))!;
         if(currentVoiceRevisions.has(original.id))imported.voiceStamp=voiceContext(importedState,imported.projectId,imported.voiceStamp!.query,imported.voiceStamp!.limit).stamp;
+        if(currentStoryRevisions.has(original.id)){const stamp=imported.storyStamp!;imported.storyStamp=storyContext(importedState,imported.projectId,stamp.beforeOrdinal,stamp.writingJobId).stamp;}
         for(const c of imported.candidates){const originalChapter=original.candidates.find(x=>remap(x.chapterId)===c.chapterId)!;if(currentVoiceCandidates.has(`${original.id}:${originalChapter.chapterId}`))c.voiceStamp=voiceContext(importedState,imported.projectId,c.voiceStamp!.query,c.voiceStamp!.limit).stamp;}
         this.store.put("revisionJobs",imported);
       }

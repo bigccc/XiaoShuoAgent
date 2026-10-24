@@ -1,4 +1,5 @@
 import {voiceContext,voiceStampCurrent} from "./voice-context";
+import {storyStampCurrent} from "./story-context";
 import {SceneService} from "./scenes";
 import {validateSceneSource,validateSceneReplacement} from "../shared/scenes";
 import { createHash, randomUUID } from "node:crypto";
@@ -412,6 +413,7 @@ export class RevisionRunner {
   private sourceCheck(j: RevisionJob, chapterId?: string) {
     const voiceState=this.store.snapshot();
     if(j.voiceStamp&&!voiceStampCurrent(voiceState,j.projectId,j.voiceStamp)||j.candidates.some(c=>c.status==="pending"&&c.voiceStamp&&!voiceStampCurrent(voiceState,j.projectId,c.voiceStamp)))fail("文风或角色表达参考已改变，请重新生成候选稿","CONFLICT");
+    if(j.storyStamp&&!storyStampCurrent(voiceState,j.projectId,j.storyStamp))fail("故事状态已改变，请重新生成候选稿","CONFLICT");
     if(j.sceneSource)new SceneService(this.store).assertSource(j.sceneSource,j.projectId,j.selection);
     const p = this.project(j.projectId);
     if (!j.sourceProjectDigest || projectHash(p) !== j.sourceProjectDigest)

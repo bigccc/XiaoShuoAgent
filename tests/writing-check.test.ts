@@ -215,3 +215,36 @@ it("does not confuse an explicit impossibility with a speculative knowledge clai
  const issue={category:"knowledge",impact:"blocking",reason:"阿宁不可能知道未被告知的密码，但本章明确写出她未经提示就准确说出密码。",evidence:docs.map(d=>({source:d.source,quote:d.text}))};
  expect(parseWritingReview(JSON.stringify(payload([issue])),docs,true).issues).toHaveLength(1);
 });
+
+it.each([
+  "若去年是十七岁，今年应为十八岁，两句表面成立。但这种年龄表述可能造成困惑，构成事实冲突。",
+  "今年十八岁与曾经十七岁可兼容（去年十七岁），若指当前年份则冲突。",
+])("keeps a self-compatible or speculative factual finding as an unverified note", reason => {
+  const docs: ContextDocument[] = [{ source: { kind: "chapter", id: "current", revision: 1 }, label: "正文", text: "林舟今年十八岁。去年，林舟已经十七岁。" }];
+  const issue = { category: "timeline", impact: "blocking", reason, evidence: [
+    { quote: "林舟今年十八岁。", source: docs[0].source },
+    { quote: "去年，林舟已经十七岁。", source: docs[0].source },
+  ] };
+  const result = parseWritingReview(JSON.stringify(payload([issue])), docs, true);
+  expect(result.issues).toEqual([]);
+  expect(result.unverified).toHaveLength(1);
+  expect(result.unverified![0]).toContain(reason);
+});
+
+it("keeps a direct factual contradiction blocking instead of treating impossibility as speculation", () => {
+  const docs: ContextDocument[] = [{ source: { kind: "chapter", id: "current", revision: 1 }, label: "正文", text: "林舟今年十八岁。去年，林舟已经三十岁。" }];
+  const issue = { category: "timeline", impact: "blocking", reason: "去年三十岁与今年十八岁不可能同时成立。", evidence: [
+    { quote: "林舟今年十八岁。", source: docs[0].source },
+    { quote: "去年，林舟已经三十岁。", source: docs[0].source },
+  ] };
+  expect(parseWritingReview(JSON.stringify(payload([issue])), docs, true).issues).toHaveLength(1);
+});
+
+it("keeps a proven conflict blocking when the reason adds a speculative explanation", () => {
+  const docs: ContextDocument[] = [{ source: { kind: "chapter", id: "current", revision: 1 }, label: "正文", text: "林舟今年十八岁。去年，林舟已经三十岁。" }];
+  const issue = { category: "timeline", impact: "blocking", reason: "去年三十岁与今年十八岁不能同时成立，可能反映记录错误。", evidence: [
+    { quote: "林舟今年十八岁。", source: docs[0].source },
+    { quote: "去年，林舟已经三十岁。", source: docs[0].source },
+  ] };
+  expect(parseWritingReview(JSON.stringify(payload([issue])), docs, true).issues).toHaveLength(1);
+});

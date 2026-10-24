@@ -1,8 +1,9 @@
 import { createHash } from "node:crypto";
 import type { AppState, Chapter, Note } from "../shared/types";
-import type { StoryRecord, StoryRecordView } from "../shared/story-state";
+import type { StoryRecord, StoryRecordView, StoryStamp } from "../shared/story-state";
 import type { WritingJob } from "../shared/writing";
 import type { ContextDocument } from "./context";
+export type { StoryStamp } from "../shared/story-state";
 
 export const chapterDigest = (chapter: Chapter) =>
   chapter.contentHash ?? createHash("sha256").update(chapter.content).digest("hex");
@@ -84,8 +85,6 @@ export function currentStory(views: StoryRecordView[], before = Infinity) {
 export function currentForeshadowing(views: StoryRecordView[], before = Infinity) {
   return latestFacts(views, before, true);
 }
-export interface StoryStamp { beforeOrdinal: number; writingJobId?: string; digest: string }
-
 function selected(state: AppState, beforeOrdinal: number, writingJobId?: string) {
   const views = storyViews(state.storyRecords ?? [], state.chapters, state.notes);
   const accepted = referencedStory(state.storyRecords ?? [], state.chapters, state.notes, state.writingJobs ?? [], beforeOrdinal);

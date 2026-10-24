@@ -307,3 +307,171 @@ test("one decision applies multiple factual repairs and verifies once",async()=>
     expect(repairs).toBe(2);expect(phases.filter(p=>p.includes("·检查"))).toHaveLength(2);
   }finally{server.closeAllConnections();await new Promise<void>(r=>server.close(()=>r()));}
 });
+
+test("existing chapter review produces a preview and rechecks acceptance", async () => {
+  const original = "今年十八岁。去年三十岁。";
+  const revised = "今年十八岁。去年十七岁。";
+  const checks: string[] = [];
+  let revisions = 0;
+  const server = createServer(async (req, res) => {
+    let raw = ""; for await (const chunk of req) raw += chunk;
+    const body = JSON.parse(raw), phase = body.messages[0].content, input = JSON.parse(body.messages.at(-1).content);
+    let output: any = { issues: [], majorChange: false, reason: "" };
+    if (phase.includes("连续写作·定点修正")) { revisions++; output = { edits: [{ quote: "去年三十岁。", replacement: "去年十七岁。" }], majorChange: false, reason: "保持今年十八岁" }; }
+    else if (phase.includes("连续写作·检查")) {
+      checks.push(input.context);
+      if (!input.context.includes(revised)) {
+        const match = [...input.context.matchAll(/\[chapter:([^@\]]+)@(\d+)\]/g)].at(-1)!;
+        const source = { kind: "chapter", id: match[1], revision: Number(match[2]) };
+        output = { issues: [{ category: "timeline", impact: "blocking", reason: "年龄冲突", evidence: [{ quote: "今年十八岁。", source }, { quote: "去年三十岁。", source }] }], majorChange: false, reason: "" };
+      }
+    }
+    res.setHeader("content-type", "application/json"); res.end(JSON.stringify({ choices: [{ message: { content: JSON.stringify(output) }, finish_reason: "stop" }], usage: { prompt_tokens: 10, completion_tokens: 20, total_tokens: 30 } }));
+  });
+  await new Promise<void>(r => server.listen(0, "127.0.0.1", r));
+  try {
+    await openProject(server, original);
+    await page.getByRole("button", { name: "检查并修正本章", exact: true }).click();
+    const card = page.getByRole("region", { name: "连续写作任务" });
+    await expect(card).toContainText("集中确认处理方向");
+    await card.getByRole("button", { name: "生成修改预览", exact: true }).click();
+    await expect(card.getByRole("region", { name: "修改预览" })).toHaveCount(1);
+    expect((await page.evaluate(() => window.novel.snapshot())).chapters[0].content).toBe(original);
+    expect(checks).toHaveLength(1); expect(revisions).toBe(1);
+
+    await page.getByRole("button", { name: "待处理 · 1", exact: true }).click();
+    await expect(page.getByRole("region", { name: "Agent 改稿任务" })).toHaveCount(0);
+    await expect(card.getByRole("region", { name: "修改预览" })).toHaveCount(1);
+    if (!(await card.locator(".writing-more").evaluate(el => (el as HTMLDetailsElement).open))) await card.locator(".writing-more > summary").click();
+    await card.getByRole("button", { name: "取消任务", exact: true }).click();
+    await expect(card).toContainText("已取消");
+    await expect(page.getByRole("button", { name: "待处理 · 1", exact: true })).toBeVisible();
+
+    await card.getByRole("button", { name: "采用修改并继续", exact: true }).click();
+    await expect(card).toContainText("任务已完成");
+    const state = await page.evaluate(() => window.novel.snapshot());
+    expect(state.chapters[0].content).toBe(revised);
+    expect(checks).toHaveLength(2); expect(checks[1]).toContain(revised); expect(revisions).toBe(1);
+    expect(state.writingJobs![0].chapters[0].checkedRevision).toBe(state.chapters[0].revision);
+  } finally { server.closeAllConnections(); await new Promise<void>(r => server.close(() => r())); }
+});
+
+test("existing chapter review rejection requires a new direction and stops at two previews", async () => {
+  const original = "今年十八岁。去年三十岁。";
+  const checks: string[] = [];
+  let revisions = 0;
+  const server = createServer(async (req, res) => {
+    let raw = ""; for await (const chunk of req) raw += chunk;
+    const body = JSON.parse(raw), phase = body.messages[0].content, input = JSON.parse(body.messages.at(-1).content);
+    let output: any = { issues: [], majorChange: false, reason: "" };
+    if (phase.includes("连续写作·定点修正")) { revisions++; output = { edits: [{ quote: "去年三十岁。", replacement: revisions === 1 ? "去年四十岁。" : "去年五十岁。" }], majorChange: false, reason: "保留冲突供复核" }; }
+    else if (phase.includes("连续写作·检查")) {
+      checks.push(input.context);
+      const match = [...input.context.matchAll(/\[chapter:([^@\]]+)@(\d+)\]/g)].at(-1)!;
+      const source = { kind: "chapter", id: match[1], revision: Number(match[2]) };
+      const currentAge = /去年(?:三十|四十|五十)岁。/.exec(input.context)?.[0] ?? "去年三十岁。";
+      output = { issues: [{ category: "timeline", impact: "blocking", reason: "年龄冲突", evidence: [{ quote: "今年十八岁。", source }, { quote: currentAge, source }] }], majorChange: false, reason: "" };
+    }
+    res.setHeader("content-type", "application/json"); res.end(JSON.stringify({ choices: [{ message: { content: JSON.stringify(output) }, finish_reason: "stop" }], usage: { prompt_tokens: 10, completion_tokens: 20, total_tokens: 30 } }));
+  });
+  await new Promise<void>(r => server.listen(0, "127.0.0.1", r));
+  try {
+    await openProject(server, original);
+    await page.getByRole("button", { name: "检查并修正本章", exact: true }).click();
+    const card = page.getByRole("region", { name: "连续写作任务" });
+    await card.getByRole("button", { name: "生成修改预览", exact: true }).click();
+    await expect(card.getByRole("region", { name: "修改预览" })).toHaveCount(1);
+    await card.getByRole("button", { name: "放弃修改，重新检查", exact: true }).click();
+    await expect(card.getByRole("region", { name: "修改预览" })).toHaveCount(0);
+    await expect.poll(async () => (await page.evaluate(() => window.novel.snapshot())).writingJobs![0].status).toBe("awaiting-author");
+    expect(checks).toHaveLength(2); expect(revisions).toBe(1);
+    let state = await page.evaluate(() => window.novel.snapshot());
+    expect(state.writingJobs![0].text).toContain("作者已放弃上一版修改候选");
+    expect(state.revisionJobs![0].candidates[0].status).toBe("rejected");
+    await expect(card.getByRole("button", { name: "生成修改预览", exact: true })).toHaveCount(0);
+    const retry = card.getByRole("button", { name: "按补充意见重新生成预览", exact: true });
+    await expect(retry).toBeDisabled();
+    await card.getByLabel("连续写作补充说明").fill("保留冲突双方原文，只补充必要细节");
+    await expect(retry).toBeEnabled(); await retry.click();
+    await expect(card.getByRole("region", { name: "修改预览" })).toHaveCount(1);
+    expect(revisions).toBe(2);
+
+    await card.getByRole("button", { name: "采用修改并继续", exact: true }).click();
+    await expect.poll(async () => (await page.evaluate(() => window.novel.snapshot())).writingJobs![0].status).toBe("awaiting-author");
+    state = await page.evaluate(() => window.novel.snapshot());
+    expect(checks).toHaveLength(3); expect(revisions).toBe(2);
+    expect(state.chapters[0].content).toBe(original.replace("去年三十岁。", "去年五十岁。"));
+    expect(state.writingJobs![0].chapters[0].revisionRounds).toBe(2);
+    await expect(card.getByRole("button", { name: "生成修改预览", exact: true })).toHaveCount(0);
+    await expect(card.getByRole("button", { name: "按补充意见重新生成预览", exact: true })).toHaveCount(0);
+    await expect(card.getByRole("button", { name: "打开正文手动修改", exact: true })).toBeVisible();
+  } finally { server.closeAllConnections(); await new Promise<void>(r => server.close(() => r())); }
+});
+
+test("existing chapter review rechecks manual edits without authorizing a revision", async () => {
+  const original = "今年十八岁。去年三十岁。";
+  const manual = "今年十八岁。去年十七岁。手动定稿。";
+  const checks: string[] = [];
+  let revisions = 0;
+  const server = createServer(async (req, res) => {
+    let raw = ""; for await (const chunk of req) raw += chunk;
+    const body = JSON.parse(raw), phase = body.messages[0].content, input = JSON.parse(body.messages.at(-1).content);
+    let output: any = { issues: [], majorChange: false, reason: "" };
+    if (phase.includes("连续写作·修订")) { revisions++; output = { title: "已有第一章", content: original, majorChange: false, reason: "" }; }
+    else if (phase.includes("连续写作·检查")) {
+      checks.push(input.context);
+      if (!input.context.includes("去年十七岁。")) {
+        const match = [...input.context.matchAll(/\[chapter:([^@\]]+)@(\d+)\]/g)].at(-1)!;
+        const source = { kind: "chapter", id: match[1], revision: Number(match[2]) };
+        output = { issues: [{ category: "timeline", impact: "blocking", reason: "年龄冲突", evidence: [{ quote: "今年十八岁。", source }, { quote: "去年三十岁。", source }] }], majorChange: false, reason: "" };
+      }
+    }
+    res.setHeader("content-type", "application/json"); res.end(JSON.stringify({ choices: [{ message: { content: JSON.stringify(output) }, finish_reason: "stop" }], usage: { prompt_tokens: 10, completion_tokens: 20, total_tokens: 30 } }));
+  });
+  await new Promise<void>(r => server.listen(0, "127.0.0.1", r));
+  try {
+    await openProject(server, original);
+    await page.getByRole("button", { name: "检查并修正本章", exact: true }).click();
+    const card = page.getByRole("region", { name: "连续写作任务" });
+    await card.getByRole("button", { name: "查看第1章", exact: true }).click();
+    await page.getByLabel("章节正文", { exact: true }).fill(manual);
+    await expect.poll(async () => (await page.evaluate(() => window.novel.snapshot())).chapters[0].content).toBe(manual);
+    await card.getByRole("button", { name: "重新检查已修改正文", exact: true }).click();
+    await expect(card).toContainText("任务已完成");
+    expect(checks).toHaveLength(2); expect(revisions).toBe(0);
+    expect((await page.evaluate(() => window.novel.snapshot())).writingJobs![0].text).not.toContain("作者补充决定");
+  } finally { server.closeAllConnections(); await new Promise<void>(r => server.close(() => r())); }
+});
+
+test("existing chapter review rejected candidate leaves no ghost pending count", async () => {
+  const original = "今年十八岁。去年三十岁。";
+  let checks = 0, revisions = 0;
+  const server = createServer(async (req, res) => {
+    let raw = ""; for await (const chunk of req) raw += chunk;
+    const body = JSON.parse(raw), phase = body.messages[0].content, input = JSON.parse(body.messages.at(-1).content);
+    let output: any = { issues: [], majorChange: false, reason: "" };
+    if (phase.includes("连续写作·定点修正")) { revisions++; output = { edits: [{ quote: "去年三十岁。", replacement: "去年四十岁。" }], majorChange: false, reason: "保留冲突供复核" }; }
+    else if (phase.includes("连续写作·检查") && ++checks === 1) {
+      const match = [...input.context.matchAll(/\[chapter:([^@\]]+)@(\d+)\]/g)].at(-1)!;
+      const source = { kind: "chapter", id: match[1], revision: Number(match[2]) };
+      output = { issues: [{ category: "timeline", impact: "blocking", reason: "年龄冲突", evidence: [{ quote: "今年十八岁。", source }, { quote: "去年三十岁。", source }] }], majorChange: false, reason: "" };
+    }
+    res.setHeader("content-type", "application/json"); res.end(JSON.stringify({ choices: [{ message: { content: JSON.stringify(output) }, finish_reason: "stop" }], usage: { prompt_tokens: 10, completion_tokens: 20, total_tokens: 30 } }));
+  });
+  await new Promise<void>(r => server.listen(0, "127.0.0.1", r));
+  try {
+    await openProject(server, original);
+    await page.getByRole("button", { name: "检查并修正本章", exact: true }).click();
+    const card = page.getByRole("region", { name: "连续写作任务" });
+    await card.getByRole("button", { name: "生成修改预览", exact: true }).click();
+    await expect(card.getByRole("region", { name: "修改预览" })).toHaveCount(1);
+    await card.getByRole("button", { name: "放弃修改，重新检查", exact: true }).click();
+    await expect(card).toContainText("任务已完成");
+    const state = await page.evaluate(() => window.novel.snapshot());
+    expect(state.revisionJobs![0].status).toBe("awaiting-author");
+    expect(state.revisionJobs![0].candidates[0].status).toBe("rejected");
+    expect(checks).toBe(2); expect(revisions).toBe(1);
+    await expect(page.getByRole("button", { name: "待处理", exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "待处理 · 1", exact: true })).toHaveCount(0);
+  } finally { server.closeAllConnections(); await new Promise<void>(r => server.close(() => r())); }
+});

@@ -30,6 +30,7 @@ export interface StoryOrigin {
     kind: "manual" | "writing" | "extraction";
     id?: ID;
 }
+export interface StoryStamp { beforeOrdinal: number; writingJobId?: string; digest: string }
 export interface StoryRecord extends RecordMeta, StoryEntry {
     projectId: ID;
     status: "candidate" | "confirmed" | "rejected";
@@ -138,8 +139,10 @@ const entrySchema = z.object(entryShape).strict();
 const proposalSchema = z.object({ ...entryShape, quote: z.string().min(1).max(4000) }).strict();
 const usageSchema = z.object({ inputTokens: z.number().int().min(0).nullable(), outputTokens: z.number().int().min(0).nullable(), totalTokens: z.number().int().min(0).nullable(), estimated: z.boolean() }).strict().nullable();
 const jobSchema = z.object({ ...metaShape, projectId: idSchema, profileId: idSchema.optional(), chapterIds: z.array(idSchema).min(1).max(20), sources: z.array(z.object({ chapterId: idSchema, revision: revisionSchema, contentHash: z.string().regex(/^[a-f0-9]{64}$/), length: z.number().int().min(1) }).strict()).min(1).max(20), status: z.enum(["running", "paused", "interrupted", "cancelled", "failed", "completed"]), cursor: z.number().int().min(0), offset: z.number().int().min(0), tokenBudget: z.number().int().min(1).max(1000000), budgetUsed: z.number().int().min(0), calls: z.number().int().min(0), usage: usageSchema, candidateIds: z.array(idSchema).max(100000), reply: z.string().max(4000), warnings: z.array(z.string().max(1000)).max(100) }).strict();
+const stampSchema = z.object({ beforeOrdinal: z.number().int().min(1), writingJobId: idSchema.optional(), digest: z.string().regex(/^[a-f0-9]{64}$/) }).strict();
 function parsed<T>(schema: z.ZodType<T>, value: unknown): T { const result = schema.safeParse(value); if (!result.success)
     throw new DomainError("VALIDATION", "故事状态内容或原文引用格式不正确"); return result.data; }
+export function validateStoryStamp(value: unknown): asserts value is StoryStamp { parsed(stampSchema, value); }
 export function validateStoryEntry(value: unknown): asserts value is StoryEntry {
     const e = parsed(entrySchema, value);
     if (e.kind === "foreshadowing" ? !e.foreshadowingStage || (e.foreshadowingStage === "planned" && e.statement !== "plan") || (["planted", "progressing", "resolved"].includes(e.foreshadowingStage) && e.statement !== "fact") : e.foreshadowingStage !== undefined || e.expectedPayoff !== undefined)
