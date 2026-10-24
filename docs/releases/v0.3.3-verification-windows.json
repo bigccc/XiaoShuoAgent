@@ -1,0 +1,38 @@
+{
+  "version": "0.3.3",
+  "commit": "04ff3ec",
+  "environment": "Parallels Windows 11 ARM64, Node 22.22.1 x64",
+  "typecheck": "passed",
+  "unitTests": {
+    "passed": 777,
+    "skipped": 1,
+    "skipReason": "macOS-only DMG test"
+  },
+  "zipSmoke": {
+    "test": "existing chapter review produces a preview and rechecks acceptance",
+    "status": "passed",
+    "usesTemporaryData": true,
+    "usesLocalMockModel": true,
+    "paidProviderCalled": false
+  },
+  "setupInstallUninstall": {
+    "status": "not-verified",
+    "reason": "Setup stalled with zero I/O and produced no application files or useful install logs; the previous Setup version also failed to return from --help in this VM",
+    "evidenceOfDefectiveSetup": null,
+    "evidenceOfSuccessfulInstallation": false
+  },
+  "windowsBuildEnvironmentFixes": [
+    "Replaced the incompatible NuGet executable only in the build directory with the current official NuGet",
+    "Moved release output to a writable shared directory after rcedit was blocked by folder protection",
+    "Did not enable Windows features, change system components, or change application dependencies"
+  ],
+  "nativeIntelOrAmdTested": false,
+  "windows10Tested": false,
+  "signed": false,
+  "artifacts": [
+    "XiaoShuoAgent-0.3.3-win32-x64-Setup.exe",
+    "XiaoShuoAgent-win32-x64-0.3.3.zip",
+    "XiaoShuoAgent-0.3.3-full.nupkg",
+    "RELEASES"
+  ]
+}

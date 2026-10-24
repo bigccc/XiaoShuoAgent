@@ -1,0 +1,65 @@
+{
+  "version": "0.3.3",
+  "date": "2026-10-24",
+  "commit": "04ff3ec",
+  "remotePublished": false,
+  "mainCheck": {
+    "testFiles": 50,
+    "tests": 778,
+    "contrastPairs": "148/148",
+    "typecheck": "passed",
+    "build": "passed",
+    "desktopWritingTests": "24/24"
+  },
+  "liveAcceptance": {
+    "runs": 4,
+    "calls": 15,
+    "tokens": 22016,
+    "configuredCurrencyMicros": 231570,
+    "providerBill": false,
+    "finalConflict": {
+      "beforeCharacters": 27,
+      "afterCharacters": 27,
+      "targetConflictResolved": true,
+      "newConflicts": false,
+      "unnecessaryEdits": false,
+      "voiceRegressed": null,
+      "finalIssues": [],
+      "finalReviewNotes": [],
+      "finalWarnings": []
+    },
+    "cleanControl": {
+      "status": "completed",
+      "revisionCalls": 0,
+      "textUnchanged": true
+    },
+    "generalizedLiteraryQuality": null
+  },
+  "macPackages": {
+    "signatureAndArchitecture": "passed",
+    "dmgAndZipIntegrity": "passed",
+    "asarFiles": 7566,
+    "forbiddenFiles": 0,
+    "arm64DesktopTests": "24/24",
+    "x64DesktopTests": "all scenarios passed; one scenario required an extended expect timeout under Rosetta",
+    "nativeIntelTested": false
+  },
+  "productionUpdate": {
+    "from": "0.3.2",
+    "to": "0.3.3",
+    "backup": "release/installed-backups/v0.3.2-to-v0.3.3-20261024-154007/",
+    "backupIntegrity": "ok",
+    "tables": 26,
+    "tableContentDigestsMatchBeforeAndAfter": true,
+    "runningWriting": 0,
+    "runningLegacy": 0,
+    "databaseIntegrityAfter": "ok",
+    "productionDataModifiedByUpdate": false
+  },
+  "limitations": [
+    "No Developer ID or Apple notarization",
+    "x64 verified only through Rosetta, not native Intel",
+    "Windows Setup install/uninstall could not be completed in the current VM environment",
+    "Small live samples do not prove generalized literary quality or success rates"
+  ]
+}

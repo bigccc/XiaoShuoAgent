@@ -1,8 +1,8 @@
 # Windows x64 构建与安装
 
-目标为 Windows x64。当前版本号沿用 0.3.2，作为 Windows 补充构建提供在 [v0.3.2 发布页](https://github.com/bigccc/XiaoShuoAgent/releases/tag/v0.3.2)。
+目标为 Windows x64。当前版本号沿用 0.3.3，作为 Windows 补充构建提供在 [v0.3.3 发布页](https://github.com/bigccc/XiaoShuoAgent/releases/tag/v0.3.3)。
 
-[EXE 安装包](https://github.com/bigccc/XiaoShuoAgent/releases/download/v0.3.2/XiaoShuoAgent-0.3.2-win32-x64-Setup.exe) · [免安装 ZIP](https://github.com/bigccc/XiaoShuoAgent/releases/download/v0.3.2/XiaoShuoAgent-win32-x64-0.3.2.zip) · [SHA-256](https://github.com/bigccc/XiaoShuoAgent/releases/download/v0.3.2/SHA256SUMS-windows.txt) · [Windows 验证记录](https://github.com/bigccc/XiaoShuoAgent/releases/download/v0.3.2/verification-windows.json)。原有 `SHA256SUMS.txt` 和 `verification.json` 仍对应 macOS，Windows 使用带 `-windows` 的独立附件。Windows 对应的源码提交见发布说明及验证记录，原有 v0.3.2 标签不移动。
+[EXE 安装包](https://github.com/bigccc/XiaoShuoAgent/releases/download/v0.3.3/XiaoShuoAgent-0.3.3-win32-x64-Setup.exe) · [免安装 ZIP](https://github.com/bigccc/XiaoShuoAgent/releases/download/v0.3.3/XiaoShuoAgent-win32-x64-0.3.3.zip) · [SHA-256](https://github.com/bigccc/XiaoShuoAgent/releases/download/v0.3.3/SHA256SUMS-windows.txt) · [Windows 验证记录](https://github.com/bigccc/XiaoShuoAgent/releases/download/v0.3.3/verification-windows.json)。原有 `SHA256SUMS.txt` 和 `verification.json` 仍对应 macOS，Windows 使用带 `-windows` 的独立附件。Windows 对应的源码提交见发布说明及验证记录，原有 v0.3.3 标签不移动。
 
 ## 构建
 
@@ -17,9 +17,9 @@ npm test
 npm run make:win
 ```
 
-产物位于 `release/v0.3.2/make/`：
+产物位于 `release/v0.3.3/make/`：
 
-- `squirrel.windows/x64/XiaoShuoAgent-0.3.2-win32-x64-Setup.exe`：安装器。
+- `squirrel.windows/x64/XiaoShuoAgent-0.3.3-win32-x64-Setup.exe`：安装器。
 - `zip/win32/x64/`：免安装 ZIP，解压整个目录后运行 `XiaoShuoAgent.exe`。
 - `squirrel.windows/x64/RELEASES` 与 `.nupkg`：安装器生成的配套元数据；当前应用未配置自动更新。
 
@@ -33,7 +33,7 @@ Windows 使用原生标题栏，保留最小化、最大化和关闭按钮。`Ct
 
 此构建未做 Windows 代码签名，系统可能显示未知发布者。使用 SHA-256 校验文件确认包完整。更新和卸载前可先在应用中导出 `.novel` 作品备份；不同系统间迁移使用作品包，密钥需要重新配置。
 
-## 验收
+## v0.3.2 验收（历史）
 
 2026-10-24：在 Parallels 的 Windows 11 Enterprise ARM64（10.0.26100）上，使用 Node 22.22.1 x64 构建并以 x64 兼容模式验证。尚未在原生 Intel/AMD Windows 电脑验收，也未测试 Windows 10。
 
@@ -49,3 +49,11 @@ Windows 使用原生标题栏，保留最小化、最大化和关闭按钮。`Ct
 首轮桌面测试与安装/卸载测试并发时发生测试干扰，已改为串行复验；最终 Windows 键盘/维护 10 项全部通过。代码签名、原生 x64 设备与真实服务商调用仍未验收。
 
 当前锁定的 Electron 44.5.1 和 Vitest 4.1.11 在构建时的 `npm audit` 中有原有的 1 项高危、2 项中危报告。本次预览构建保持版本与现有 macOS 构建一致，未顺带升级；依赖升级及回归仍待完成。
+
+## v0.3.3 验收
+
+- 在 Parallels Windows 11 ARM64 上使用 Node 22.22.1 x64，类型检查通过，777 项服务测试通过，1 项 macOS 专用测试跳过。
+- 仅在构建目录替换不兼容的旧 NuGet，并将输出移到可写共享目录，未启用 Windows 功能、修改系统组件或改变应用依赖。Setup、ZIP、NuGet 包和 RELEASES 均已生成。
+- 免安装 ZIP 的应用通过 `existing chapter review produces a preview and rechecks acceptance`，使用临时数据与本地模拟模型，未调用付费服务商。
+- 当前虚拟机无法完成 Setup 安装与卸载验证：安装长期零 I/O，旧版 Setup 的帮助调用也无响应。保留该验证缺口，不宣称 Setup 已安装成功，也不据此判定 Setup 无效。
+- 未覆盖原生 Intel/AMD Windows 或 Windows 10；Windows 包未签名。详细证据见 [v0.3.3 验证记录](releases/v0.3.3-verification.md)。
