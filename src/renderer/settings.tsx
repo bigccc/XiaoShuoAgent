@@ -109,7 +109,7 @@ export function ProjectSettings({
         </Field>
       </div>
       <div className="hint">
-        下一步：人物与世界 → 故事规划 → 近期章纲 → 正文。你随时可以返回修改。
+        回到「创作」继续：定故事 → 做准备 → 开始写。这里的资料随时可以修改。
       </div>
     </section>
   );
